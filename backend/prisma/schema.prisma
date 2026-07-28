@@ -1,0 +1,331 @@
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum SystemRole {
+  ADMIN
+  MANAGER
+  DEVELOPER
+  QA_TESTER
+}
+
+enum ProjectStatus {
+  PLANNING
+  ACTIVE
+  ON_HOLD
+  COMPLETED
+  CANCELLED
+}
+
+enum ProjectRole {
+  MANAGER
+  DEVELOPER
+  QA_TESTER
+  VIEWER
+}
+
+enum SprintStatus {
+  PLANNED
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  IN_REVIEW
+  COMPLETED
+  BLOCKED
+}
+
+enum PullRequestState {
+  OPEN
+  CLOSED
+  MERGED
+}
+
+enum RiskLevel {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum ActivityType {
+  TASK_CREATED
+  TASK_STATUS_CHANGED
+  TASK_ASSIGNEE_CHANGED
+  COMMIT_LINKED
+  MEMBER_ADDED
+  MEMBER_REMOVED
+  PROJECT_UPDATED
+  SPRINT_CREATED
+  SPRINT_UPDATED
+  SPRINT_COMPLETED
+}
+
+model User {
+  id           String          @id @default(uuid())
+  email        String          @unique
+  name         String
+  avatar       String
+  role         SystemRole      @default(DEVELOPER)
+  googleId     String?         @unique
+  githubId     String?         @unique
+  githubToken  String?         // Encrypted at the app level
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @updatedAt
+
+  // Relationships
+  projectsOwned     Project[]       @relation("ProjectOwner")
+  projectMemberships ProjectMember[]
+  reportedTasks     Task[]          @relation("Reporter")
+  assignedTasks     Task[]          @relation("Assignee")
+  comments          TaskComment[]
+  sentMessages      Message[]       @relation("Sender")
+  receivedMessages  Message[]       @relation("Receiver")
+  activityLogs      ActivityLog[]
+
+  @@map("users")
+  @@index([email])
+  @@index([githubId])
+  @@index([googleId])
+}
+
+model Project {
+  id          String        @id @default(uuid())
+  name        String
+  description String?
+  status      ProjectStatus @default(PLANNING)
+  ownerId     String
+  owner       User          @relation("ProjectOwner", fields: [ownerId], references: [id])
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  // Relationships
+  members      ProjectMember[]
+  sprints      Sprint[]
+  tasks        Task[]
+  repositories Repository[]
+  messages     Message[]
+  activityLogs ActivityLog[]
+
+  @@map("projects")
+  @@index([ownerId])
+  @@index([status])
+}
+
+model ProjectMember {
+  id        String      @id @default(uuid())
+  projectId String
+  project   Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role      ProjectRole @default(VIEWER)
+  createdAt DateTime    @default(now())
+  updatedAt DateTime    @updatedAt
+
+  @@unique([projectId, userId])
+  @@map("project_members")
+  @@index([projectId])
+  @@index([userId])
+}
+
+model Sprint {
+  id        String       @id @default(uuid())
+  name      String
+  goal      String?
+  status    SprintStatus @default(PLANNED)
+  startDate DateTime
+  endDate   DateTime
+  projectId String
+  project   Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  // Relationships
+  tasks Task[]
+
+  @@map("sprints")
+  @@index([projectId])
+  @@index([status])
+  @@index([startDate, endDate])
+}
+
+model Task {
+  id          String       @id @default(uuid())
+  taskNumber  Int          @default(autoincrement())
+  title       String
+  description String?
+  priority    TaskPriority @default(MEDIUM)
+  status      TaskStatus   @default(TODO)
+  orderIndex  Float
+  dueDate     DateTime?
+  projectId   String
+  project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  sprintId    String?
+  sprint      Sprint?      @relation(fields: [sprintId], references: [id], onDelete: SetNull)
+  reporterId  String
+  reporter    User         @relation("Reporter", fields: [reporterId], references: [id], onDelete: Restrict)
+  assigneeId  String?
+  assignee    User?        @relation("Assignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  // Relationships
+  comments TaskComment[]
+  commits  Commit[]
+
+  @@map("tasks")
+  @@index([projectId, status])
+  @@index([sprintId, status])
+  @@index([assigneeId])
+  @@index([taskNumber])
+}
+
+model TaskComment {
+  id        String   @id @default(uuid())
+  content   String
+  taskId    String
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("task_comments")
+  @@index([taskId])
+  @@index([userId])
+}
+
+model Repository {
+  id            String   @id @default(uuid())
+  githubRepoId  Int      @unique
+  name          String   // e.g. "owner/repo"
+  owner         String
+  webhookSecret String
+  projectId     String
+  project       Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relationships
+  commits           Commit[]
+  pullRequests      PullRequest[]
+  predictionResults PredictionResult[]
+
+  @@map("repositories")
+  @@index([projectId])
+  @@index([githubRepoId])
+}
+
+model Commit {
+  id           String      @id @default(uuid())
+  sha          String
+  message      String
+  authorName   String
+  filesChanged Json        // JSON array of modified files
+  committedAt  DateTime
+  repoId       String
+  repository   Repository  @relation(fields: [repoId], references: [id], onDelete: Cascade)
+  taskId       String?
+  task         Task?       @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  createdAt    DateTime    @default(now())
+
+  @@unique([repoId, sha])
+  @@map("commits")
+  @@index([repoId])
+  @@index([taskId])
+  @@index([committedAt])
+}
+
+model PullRequest {
+  id             String           @id @default(uuid())
+  githubPrNumber Int
+  title          String
+  state          PullRequestState @default(OPEN)
+  mergedAt       DateTime?
+  repoId         String
+  repository     Repository       @relation(fields: [repoId], references: [id], onDelete: Cascade)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  @@unique([repoId, githubPrNumber])
+  @@map("pull_requests")
+  @@index([repoId])
+  @@index([state])
+}
+
+model Message {
+  id          String   @id @default(uuid())
+  content     String
+  isGroup     Boolean  @default(true)
+  projectId   String
+  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  senderId    String
+  sender      User     @relation("Sender", fields: [senderId], references: [id], onDelete: Cascade)
+  receiverId  String?
+  receiver    User?    @relation("Receiver", fields: [receiverId], references: [id], onDelete: Cascade)
+  fileUrl     String?
+  createdAt   DateTime @default(now())
+
+  @@map("messages")
+  @@index([projectId, isGroup])
+  @@index([senderId])
+  @@index([projectId])
+}
+
+model PredictionResult {
+  id               String     @id @default(uuid())
+  filePath         String
+  commitFrequency  Float
+  codeChurn        Float
+  numContributors  Int
+  prCount          Int
+  bugFixRatio      Float
+  xgboostRisk      RiskLevel  @default(LOW)
+  xgboostConfidence Float
+  rfRisk           RiskLevel  @default(LOW)
+  rfConfidence     Float
+  agreement        Boolean
+  repoId           String
+  repository       Repository @relation(fields: [repoId], references: [id], onDelete: Cascade)
+  createdAt        DateTime   @default(now())
+
+  @@unique([repoId, filePath])
+  @@map("prediction_results")
+  @@index([repoId, xgboostRisk])
+  @@index([repoId])
+}
+
+model ActivityLog {
+  id         String       @id @default(uuid())
+  actionType ActivityType
+  entityType String       // e.g. "TASK", "PROJECT", "MEMBER"
+  entityId   String
+  metadata   Json?
+  projectId  String
+  project    Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt  DateTime     @default(now())
+
+  @@map("activity_logs")
+  @@index([projectId])
+  @@index([userId])
+  @@index([createdAt])
+}
