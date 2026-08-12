@@ -19,6 +19,17 @@ class FileFeatures(BaseModel):
 class PredictBatchRequest(BaseModel):
     files: List[FileFeatures]
 
+class CodeFile(BaseModel):
+    file_path: str
+    code: str = Field(..., description="Raw source code content of the file")
+    language: str = Field(
+        "auto",
+        description="Language of the code: python, java, javascript, go, ruby, php, or 'auto' (detected from file_path extension)"
+    )
+
+class CodePredictBatchRequest(BaseModel):
+    files: List[CodeFile]
+
 class ModelComparison(BaseModel):
     xgboost_risk: RiskLevel
     xgboost_confidence: float
@@ -39,3 +50,6 @@ class PredictBatchResponse(BaseModel):
 class HealthResponse(BaseModel):
     status: str
     models_loaded: Dict[str, bool]
+    code_models: Dict[str, bool] = Field(
+        default_factory=lambda: {"codebert": False, "hybrid": False}
+    )

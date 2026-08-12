@@ -26,3 +26,10 @@ build/
 .vscode/
 .idea/
 Thumbs.db
+
+# Trained ML models (too large for git, shared via zip - see ml-service/training/README.md)
+ml-service/models/
+
+# Regenerable ML artifacts (recreate with the download/prepare scripts)
+ml-service/training/dataset/training_data.csv
+ml-service/training/dataset/ast_features.npy
