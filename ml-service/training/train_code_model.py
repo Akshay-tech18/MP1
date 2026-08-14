@@ -21,6 +21,7 @@ import argparse
 import json
 import os
 import sys
+import time
 
 import joblib
 import numpy as np
@@ -59,6 +60,11 @@ def parse_args():
     p.add_argument("--max-len", type=int, default=400, help="Truncation length (CodeXGLUE uses 400)")
     p.add_argument("--lr", type=float, default=2e-5)
     p.add_argument("--rebuild-ast", action="store_true", help="Recompute AST features instead of loading cache")
+    p.add_argument(
+        "--skip-finetune",
+        action="store_true",
+        help="Skip fine-tuning and load the saved model from models/codebert_bug",
+    )
     return p.parse_args()
 
 
@@ -124,7 +130,6 @@ def fine_tune(train_df, valid_df, args):
         args=training_args,
         train_dataset=train_ds,
         eval_dataset=valid_ds,
-        tokenizer=tokenizer,
         data_collator=DataCollatorWithPadding(tokenizer),
         compute_metrics=compute_metrics,
     )
@@ -139,20 +144,36 @@ def fine_tune(train_df, valid_df, args):
 
 @torch.no_grad()
 def extract_embeddings(model, tokenizer, df, batch_size, max_len):
-    """Pooler vectors from the fine-tuned model for every sample."""
+    """Sentence embeddings from the fine-tuned model for every sample.
+
+    Uses mean-pooled last hidden states (the classification head disables the
+    pooler, so pooler_output is None). Tokenizes per batch so peak host RAM
+    stays low (tokenizing the whole dataframe at once can OOM on small boxes).
+    """
     model.eval()
     device = model.device
-    enc = tokenizer(df["code"].tolist(), truncation=True, padding=True, max_length=max_len)
+    codes = df["code"].tolist()
     embs = []
     n = len(df)
+    n_batches = (n + batch_size - 1) // batch_size
+    t0 = time.time()
     for start in range(0, n, batch_size):
         end = min(start + batch_size, n)
+        enc = tokenizer(codes[start:end], truncation=True, padding=True, max_length=max_len)
         inputs = {
-            k: torch.tensor(enc[k][start:end], device=device)
+            k: torch.tensor(enc[k], device=device)
             for k in ("input_ids", "attention_mask")
         }
         out = model.base_model(**inputs)
-        embs.append(out.pooler_output.cpu().numpy())
+        mask = inputs["attention_mask"].unsqueeze(-1).float()
+        pooled = (out.last_hidden_state * mask).sum(dim=1) / mask.sum(dim=1)
+        embs.append(pooled.float().cpu().numpy())
+        del enc, inputs, out, pooled
+        bi = start // batch_size + 1
+        if bi % 100 == 0 or bi == n_batches:
+            el = time.time() - t0
+            eta = el / bi * (n_batches - bi)
+            print(f"  embeddings {min(end, n):>7,}/{n:,}  {el/60:.1f} min elapsed, ETA {eta/60:.1f} min")
     return np.vstack(embs)
 
 
@@ -222,8 +243,17 @@ def main():
     train_df, valid_df, test_df = load_data()
     print("Device:", "cuda" if torch.cuda.is_available() else "cpu (slow, GPU strongly recommended)")
 
-    # --- 1. Fine-tune
-    model, tokenizer = fine_tune(train_df, valid_df, args)
+    # --- 1. Fine-tune (or load the previously saved model)
+    if args.skip_finetune:
+        if not os.path.isdir(FINETUNED_DIR):
+            sys.exit(f"Model dir {FINETUNED_DIR} not found; run without --skip-finetune first.")
+        print(f"\n=== Loading fine-tuned model from {FINETUNED_DIR} ===")
+        tokenizer = AutoTokenizer.from_pretrained(FINETUNED_DIR)
+        model = AutoModelForSequenceClassification.from_pretrained(
+            FINETUNED_DIR, torch_dtype=torch.float16
+        )
+    else:
+        model, tokenizer = fine_tune(train_df, valid_df, args)
 
     # --- 2. Embeddings + AST features
     print("\n=== Extracting embeddings from fine-tuned model ===")

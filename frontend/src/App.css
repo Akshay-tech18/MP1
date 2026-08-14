@@ -1,184 +1,344 @@
-.counter {
-  font-size: 16px;
-  padding: 5px 10px;
-  border-radius: 5px;
-  color: var(--accent);
-  background: var(--accent-bg);
-  border: 2px solid transparent;
-  transition: border-color 0.3s;
-  margin-bottom: 24px;
+/* ═══════════════════════════════════════════════════════════════
+   DEVPILOT — Premium Animation & Effect Utilities v2.0
+   Hand-crafted CSS beyond Tailwind capabilities
+   ═══════════════════════════════════════════════════════════════ */
 
-  &:hover {
-    border-color: var(--accent-border);
-  }
-  &:focus-visible {
-    outline: 2px solid var(--accent);
-    outline-offset: 2px;
-  }
+/* ─────────────────────────────
+   PAGE TRANSITIONS
+   ───────────────────────────── */
+
+.page-enter {
+  opacity: 0;
+  transform: translateY(12px);
 }
 
-.hero {
+.page-enter-active {
+  opacity: 1;
+  transform: translateY(0);
+  transition: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* ─────────────────────────────
+   MAGNETIC BUTTON EFFECT
+   ───────────────────────────── */
+
+.magnetic-btn {
+  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.magnetic-btn:hover {
+  transform: translateY(-2px) scale(1.02);
+}
+
+.magnetic-btn:active {
+  transform: translateY(0) scale(0.97);
+  transition-duration: 0.1s;
+}
+
+/* ─────────────────────────────
+   CARD HOVER — Glossy Lift
+   ───────────────────────────── */
+
+.card-hover {
+  transition:
+    transform 0.3s cubic-bezier(0.16, 1, 0.3, 1),
+    box-shadow 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.card-hover:hover {
+  transform: translateY(-3px);
+}
+
+.dark .card-hover:hover {
+  box-shadow:
+    0 16px 40px rgba(0, 0, 0, 0.3),
+    0 0 20px rgba(124, 58, 237, 0.06);
+}
+
+.light .card-hover:hover {
+  box-shadow:
+    0 12px 32px rgba(0, 0, 0, 0.08),
+    0 0 15px rgba(124, 58, 237, 0.03);
+}
+
+/* ─────────────────────────────
+   SPOTLIGHT CURSOR GLOW
+   ───────────────────────────── */
+
+.spotlight {
   position: relative;
-
-  .base,
-  .framework,
-  .vite {
-    inset-inline: 0;
-    margin: 0 auto;
-  }
-
-  .base {
-    width: 170px;
-    position: relative;
-    z-index: 0;
-  }
-
-  .framework,
-  .vite {
-    position: absolute;
-  }
-
-  .framework {
-    z-index: 1;
-    top: 34px;
-    height: 28px;
-    transform: perspective(2000px) rotateZ(300deg) rotateX(44deg) rotateY(39deg)
-      scale(1.4);
-  }
-
-  .vite {
-    z-index: 0;
-    top: 107px;
-    height: 26px;
-    width: auto;
-    transform: perspective(2000px) rotateZ(300deg) rotateX(40deg) rotateY(39deg)
-      scale(0.8);
-  }
+  overflow: hidden;
 }
 
-#center {
-  display: flex;
-  flex-direction: column;
-  gap: 25px;
-  place-content: center;
-  place-items: center;
-  flex-grow: 1;
-
-  @media (max-width: 1024px) {
-    padding: 32px 20px 24px;
-    gap: 18px;
-  }
+.spotlight::before {
+  content: '';
+  position: absolute;
+  width: 250px;
+  height: 250px;
+  background: radial-gradient(
+    circle,
+    rgba(124, 58, 237, 0.08),
+    transparent 70%
+  );
+  border-radius: 50%;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.4s;
+  transform: translate(-50%, -50%);
+  left: var(--mouse-x, 50%);
+  top: var(--mouse-y, 50%);
 }
 
-#next-steps {
-  display: flex;
-  border-top: 1px solid var(--border);
-  text-align: left;
-
-  & > div {
-    flex: 1 1 0;
-    padding: 32px;
-    @media (max-width: 1024px) {
-      padding: 24px 20px;
-    }
-  }
-
-  .icon {
-    margin-bottom: 16px;
-    width: 22px;
-    height: 22px;
-  }
-
-  @media (max-width: 1024px) {
-    flex-direction: column;
-    text-align: center;
-  }
+.spotlight:hover::before {
+  opacity: 1;
 }
 
-#docs {
-  border-right: 1px solid var(--border);
+/* ─────────────────────────────
+   STAGGER ANIMATION DELAYS
+   ───────────────────────────── */
 
-  @media (max-width: 1024px) {
-    border-right: none;
-    border-bottom: 1px solid var(--border);
-  }
+.stagger-1 { animation-delay: 0.05s; }
+.stagger-2 { animation-delay: 0.1s; }
+.stagger-3 { animation-delay: 0.15s; }
+.stagger-4 { animation-delay: 0.2s; }
+.stagger-5 { animation-delay: 0.25s; }
+.stagger-6 { animation-delay: 0.3s; }
+
+/* ─────────────────────────────
+   ICON RAIL — Active Indicator
+   Premium gradient bar
+   ───────────────────────────── */
+
+.nav-active-indicator {
+  position: absolute;
+  left: 0;
+  width: 3px;
+  height: 24px;
+  border-radius: 0 4px 4px 0;
+  background: linear-gradient(180deg, #7c3aed, #a78bfa, #ec4899);
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 0 12px rgba(124, 58, 237, 0.4);
 }
 
-#next-steps ul {
-  list-style: none;
-  padding: 0;
-  display: flex;
-  gap: 8px;
-  margin: 32px 0 0;
+/* ─────────────────────────────
+   GRADIENT BORDER ANIMATION
+   ───────────────────────────── */
 
-  .logo {
-    height: 18px;
-  }
-
-  a {
-    color: var(--text-h);
-    font-size: 16px;
-    border-radius: 6px;
-    background: var(--social-bg);
-    display: flex;
-    padding: 6px 12px;
-    align-items: center;
-    gap: 8px;
-    text-decoration: none;
-    transition: box-shadow 0.3s;
-
-    &:hover {
-      box-shadow: var(--shadow);
-    }
-    .button-icon {
-      height: 18px;
-      width: 18px;
-    }
-  }
-
-  @media (max-width: 1024px) {
-    margin-top: 20px;
-    flex-wrap: wrap;
-    justify-content: center;
-
-    li {
-      flex: 1 1 calc(50% - 8px);
-    }
-
-    a {
-      width: 100%;
-      justify-content: center;
-      box-sizing: border-box;
-    }
-  }
+@keyframes border-rotate {
+  0% { --border-angle: 0deg; }
+  100% { --border-angle: 360deg; }
 }
 
-#spacer {
-  height: 88px;
-  border-top: 1px solid var(--border);
-  @media (max-width: 1024px) {
-    height: 48px;
-  }
-}
+/* ─────────────────────────────
+   LOADING SPINNER — Premium Conic
+   ───────────────────────────── */
 
-.ticks {
+.spinner-gradient {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
   position: relative;
-  width: 100%;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0%,
+    #7c3aed 25%,
+    #a78bfa 50%,
+    #ec4899 75%,
+    transparent 100%
+  );
+  animation: spin 0.9s linear infinite;
+}
 
-  &::before,
-  &::after {
-    content: '';
-    position: absolute;
-    top: -4.5px;
-    border: 5px solid transparent;
-  }
+.spinner-gradient::after {
+  content: '';
+  position: absolute;
+  inset: 3px;
+  border-radius: 50%;
+  background: inherit;
+}
 
-  &::before {
-    left: 0;
-    border-left-color: var(--border);
-  }
-  &::after {
-    right: 0;
-    border-right-color: var(--border);
-  }
+.dark .spinner-gradient::after {
+  background: #0a0e1a;
+}
+
+.light .spinner-gradient::after {
+  background: #f8fafc;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ─────────────────────────────
+   TYPING INDICATOR DOTS
+   ───────────────────────────── */
+
+.typing-dots span {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  animation: typing-dot 1.4s infinite ease-in-out;
+}
+
+.dark .typing-dots span {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.light .typing-dots span {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.typing-dots span:nth-child(1) { animation-delay: 0s; }
+.typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+.typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes typing-dot {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+  30% { transform: translateY(-4px); opacity: 1; }
+}
+
+/* ─────────────────────────────
+   ANIMATED COUNTER
+   ───────────────────────────── */
+
+.count-up {
+  display: inline-block;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ─────────────────────────────
+   GLASS MODAL OVERLAY — Crystal
+   ───────────────────────────── */
+
+.modal-overlay {
+  backdrop-filter: blur(12px) saturate(1.2);
+  -webkit-backdrop-filter: blur(12px) saturate(1.2);
+}
+
+.dark .modal-overlay {
+  background: rgba(0, 0, 0, 0.65);
+}
+
+.light .modal-overlay {
+  background: rgba(0, 0, 0, 0.25);
+}
+
+/* ─────────────────────────────
+   PREMIUM FOCUS RING
+   ───────────────────────────── */
+
+.focus-ring:focus-visible {
+  outline: none;
+  box-shadow:
+    0 0 0 2px rgba(124, 58, 237, 0.5),
+    0 0 0 5px rgba(124, 58, 237, 0.12),
+    0 0 16px rgba(124, 58, 237, 0.1);
+}
+
+/* ─────────────────────────────
+   DRAG STATE — Kanban Cards
+   ───────────────────────────── */
+
+.dragging-card {
+  transform: rotate(2deg) scale(1.02) !important;
+  z-index: 100;
+}
+
+.dark .dragging-card {
+  box-shadow:
+    0 20px 60px rgba(124, 58, 237, 0.2),
+    0 0 30px rgba(124, 58, 237, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06) !important;
+}
+
+.light .dragging-card {
+  box-shadow:
+    0 20px 40px rgba(0, 0, 0, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8) !important;
+}
+
+/* ─────────────────────────────
+   IRIDESCENT HOVER — Color Shift
+   ───────────────────────────── */
+
+.iridescent-hover {
+  transition: filter 0.4s ease;
+}
+
+.iridescent-hover:hover {
+  filter: hue-rotate(15deg) brightness(1.05);
+}
+
+/* ─────────────────────────────
+   LIQUID PRESS — Spring Down
+   ───────────────────────────── */
+
+.liquid-press {
+  transition: transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.liquid-press:active {
+  transform: scale(0.96);
+  transition-duration: 0.08s;
+  transition-timing-function: ease-in;
+}
+
+/* ─────────────────────────────
+   GLOSSY STAT CARD
+   Reflective surface shine
+   ───────────────────────────── */
+
+.glossy-stat {
+  position: relative;
+  overflow: hidden;
+}
+
+.glossy-stat::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 45%;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.04) 0%,
+    transparent 100%
+  );
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.light .glossy-stat::before {
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.4) 0%,
+    transparent 100%
+  );
+}
+
+/* ─────────────────────────────
+   PREMIUM LOGO GLOW
+   ───────────────────────────── */
+
+.logo-glow {
+  position: relative;
+}
+
+.logo-glow::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #7c3aed, #ec4899);
+  opacity: 0;
+  filter: blur(12px);
+  transition: opacity 0.4s ease;
+  z-index: -1;
+}
+
+.logo-glow:hover::after {
+  opacity: 0.4;
 }
