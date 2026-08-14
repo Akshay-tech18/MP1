@@ -1,3 +1,4 @@
+import json
 import os
 import joblib
 import numpy as np
@@ -10,6 +11,7 @@ MODEL_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "models")
 XGB_MODEL_PATH = os.path.join(MODEL_DIR, "xgboost_model.pkl")
 RF_MODEL_PATH = os.path.join(MODEL_DIR, "random_forest_model.pkl")
 HYBRID_MODEL_PATH = os.path.join(MODEL_DIR, "hybrid_model.pkl")
+METRICS_PATH = os.path.join(MODEL_DIR, "metrics.json")
 
 class BugPredictor:
     def __init__(self):
@@ -17,7 +19,30 @@ class BugPredictor:
         self.rf_model = None
         self.hybrid_model = None
         self.embedder = CodeEmbedder()
+        self.primary_engine = "hybrid"
         self.load_models()
+        self._load_primary_engine()
+
+    def _load_primary_engine(self):
+        """
+        Pick the better model from training metrics.json (produced by
+        train_code_model.py). Falls back to hybrid when unknown.
+        """
+        if not os.path.exists(METRICS_PATH):
+            print("metrics.json not found. Defaulting primary engine to hybrid.")
+            return
+        try:
+            with open(METRICS_PATH, "r") as f:
+                m = json.load(f)
+            cb_f1 = m.get("codebert", {}).get("weighted_f1", 0.0)
+            hy_f1 = m.get("hybrid", {}).get("weighted_f1", 0.0)
+            self.primary_engine = "hybrid" if hy_f1 >= cb_f1 else "codebert"
+            print(
+                f"Primary engine set to '{self.primary_engine}' "
+                f"(CodeBERT F1={cb_f1:.4f}, hybrid F1={hy_f1:.4f})"
+            )
+        except Exception as e:
+            print(f"Could not read metrics.json ({e}). Defaulting primary engine to hybrid.")
 
     def load_models(self):
         if os.path.exists(XGB_MODEL_PATH):
@@ -57,9 +82,11 @@ class BugPredictor:
                 print("Loaded hybrid (CodeBERT + AST) model successfully.")
             except Exception as e:
                 print(f"Error loading hybrid model: {e}")
+        self._load_primary_engine()
         return {
             "codebert": self.embedder.available,
-            "hybrid": self.hybrid_model is not None
+            "hybrid": self.hybrid_model is not None,
+            "primary_engine": self.primary_engine
         }
 
     def predict_features(self, features: FileFeatures) -> PredictResponse:
@@ -177,11 +204,25 @@ class BugPredictor:
         if embedding is not None:
             hybrid_risk, hybrid_conf = self._hybrid_predict(embedding, ast_feats)
 
-        # Primary risk: hybrid beats semantic beats AST-rule fallback
+        # Primary risk comes from the engine that performed best at training
+        # time (see metrics.json). Both models' predictions are still reported
+        # in model_comparison for visibility.
+        candidates = []
         if hybrid_risk is not None:
-            primary_risk, primary_conf = hybrid_risk, hybrid_conf
-        elif semantic_risk is not None:
-            primary_risk, primary_conf = semantic_risk, semantic_conf
+            candidates.append(("hybrid", hybrid_risk, hybrid_conf))
+        if semantic_risk is not None:
+            candidates.append(("codebert", semantic_risk, semantic_conf))
+
+        if self.primary_engine == "hybrid":
+            candidates.sort(key=lambda c: 0 if c[0] == "hybrid" else 1)
+        else:
+            candidates.sort(key=lambda c: 0 if c[0] == "codebert" else 1)
+
+        if candidates:
+            primary_risk, primary_conf = candidates[0][1], candidates[0][2]
+            by_name = {name: (risk, conf) for name, risk, conf in candidates}
+            semantic_risk, semantic_conf = by_name.get("codebert", (primary_risk, primary_conf))
+            hybrid_risk, hybrid_conf = by_name.get("hybrid", (primary_risk, primary_conf))
         else:
             primary_risk, primary_conf = self._ast_rule_predict(ast_feats)
 

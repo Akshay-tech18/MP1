@@ -42,6 +42,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(ROOT)
 
 from app.code_features import FEATURE_COLUMNS, extract_features  # noqa: E402
+from app.code_embedder import roberta_safe_pooler  # noqa: E402
 
 DATA_PATH = os.path.join(ROOT, "training", "dataset", "training_data.csv")
 MODEL_DIR = os.path.join(ROOT, "models")
@@ -139,7 +140,11 @@ def fine_tune(train_df, valid_df, args):
 
 @torch.no_grad()
 def extract_embeddings(model, tokenizer, df, batch_size, max_len):
-    """Pooler vectors from the fine-tuned model for every sample."""
+    """Embedding vectors from the fine-tuned model for every sample.
+
+    Uses roberta_safe_pooler (shared with the serving code) so the hybrid
+    model's input features are identical at training and inference time.
+    """
     model.eval()
     device = model.device
     enc = tokenizer(df["code"].tolist(), truncation=True, padding=True, max_length=max_len)
@@ -151,8 +156,8 @@ def extract_embeddings(model, tokenizer, df, batch_size, max_len):
             k: torch.tensor(enc[k][start:end], device=device)
             for k in ("input_ids", "attention_mask")
         }
-        out = model.base_model(**inputs)
-        embs.append(out.pooler_output.cpu().numpy())
+        pooled = roberta_safe_pooler(model, inputs)
+        embs.append(pooled.cpu().numpy())
     return np.vstack(embs)
 
 

@@ -9,7 +9,7 @@ model exists on disk. Model files are expected at:
 """
 
 import os
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple
 
 import numpy as np
 
@@ -17,6 +17,28 @@ MODEL_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file_
 FINETUNED_MODEL_PATH = os.path.join(MODEL_DIR, "codebert_bug")
 
 MAX_SEQ_LEN = 512
+
+
+def roberta_safe_pooler(model, inputs):
+    """
+    Returns a [batch, hidden] embedding vector.
+
+    CodeBERT is a RoBERTa-architecture model which has NO pooler layer, so
+    `pooler_output` is always None. For RoBERTa we use masked mean pooling of
+    the last hidden state (mean over non-pad tokens). BERT-style models keep
+    using their built-in pooler.
+
+    IMPORTANT: this must stay identical to the pooling used in
+    training/train_code_model.py so the hybrid model's input features match.
+    """
+    base_out = model.base_model(**inputs)
+    if base_out.pooler_output is not None:
+        return base_out.pooler_output
+
+    seq = base_out.last_hidden_state  # [batch, seq, hidden]
+    mask = inputs["attention_mask"].unsqueeze(-1).to(seq.dtype)
+    return (seq * mask).sum(dim=1) / mask.sum(dim=1).clamp(min=1e-9)
+
 
 
 class CodeEmbedder:
@@ -89,8 +111,7 @@ class CodeEmbedder:
         inputs = {k: v.to(self._device) for k, v in inputs.items()}
 
         with torch.inference_mode():
-            base_out = self._model.base_model(**inputs)
-            pooled = base_out.pooler_output  # [1, 768]
+            pooled = roberta_safe_pooler(self._model, inputs)  # [1, hidden]
             logits = self._model(**inputs).logits
             probs = torch.softmax(logits, dim=-1).cpu().numpy()[0]
 
