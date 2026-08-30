@@ -30,7 +30,7 @@ const verifyGitHubWebhook = async (req, res, next) => {
       return sendError(res, 400, "Invalid payload content");
     }
 
-    const githubRepoId = payload.repository.id;
+    const githubRepoId = String(payload.repository.id);
 
     // Look up repository and get its unique webhook secret
     const repo = await prisma.repository.findUnique({

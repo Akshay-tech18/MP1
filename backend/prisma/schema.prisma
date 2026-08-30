@@ -82,7 +82,7 @@ model User {
   id           String          @id @default(uuid())
   email        String          @unique
   name         String
-  avatar       String
+  avatar       String?
   role         SystemRole      @default(DEVELOPER)
   googleId     String?         @unique
   githubId     String?         @unique
@@ -111,6 +111,8 @@ model Project {
   name        String
   description String?
   status      ProjectStatus @default(PLANNING)
+  deadline    DateTime?
+  progress    Int           @default(0)
   ownerId     String
   owner       User          @relation("ProjectOwner", fields: [ownerId], references: [id])
   createdAt   DateTime      @default(now())
@@ -214,7 +216,7 @@ model TaskComment {
 
 model Repository {
   id            String   @id @default(uuid())
-  githubRepoId  Int      @unique
+  githubRepoId  String   @unique
   name          String   // e.g. "owner/repo"
   owner         String
   webhookSecret String
@@ -279,7 +281,7 @@ model Message {
   senderId    String
   sender      User     @relation("Sender", fields: [senderId], references: [id], onDelete: Cascade)
   receiverId  String?
-  receiver    User?    @relation("Receiver", fields: [receiverId], references: [id], onDelete: Cascade)
+  receiver    User?    @relation("Receiver", fields: [receiverId], references: [id], onDelete: SetNull)
   fileUrl     String?
   createdAt   DateTime @default(now())
 

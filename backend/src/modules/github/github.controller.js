@@ -32,7 +32,7 @@ const linkRepository = async (req, res) => {
         
         const dbRepo = await prisma.repository.create({
           data: {
-            githubRepoId: mockRepoId,
+            githubRepoId: String(mockRepoId),
             name: repoName,
             owner,
             webhookSecret: "mock_webhook_secret_key_123",
@@ -91,7 +91,7 @@ const linkRepository = async (req, res) => {
     // 5. Store Repo details in DB
     const dbRepo = await prisma.repository.create({
       data: {
-        githubRepoId: repoDetails.id,
+        githubRepoId: String(repoDetails.id),
         name: repoName,
         owner,
         webhookSecret,

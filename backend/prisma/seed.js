@@ -200,7 +200,7 @@ async function main() {
   // 8. Seed Repository
   const repository = await prisma.repository.create({
     data: {
-      githubRepoId: 987654321,
+      githubRepoId: "987654321",
       name: "devpilot-team/devpilot",
       owner: "devpilot-team",
       webhookSecret: "super_secret_webhook_key_123",
