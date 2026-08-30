@@ -33,3 +33,6 @@ ml-service/models/
 # Regenerable ML artifacts (recreate with the download/prepare scripts)
 ml-service/training/dataset/training_data.csv
 ml-service/training/dataset/ast_features.npy
+
+# Design reference screenshots (dev-only, not app assets)
+frontend/src/assets/clickup-ref/
