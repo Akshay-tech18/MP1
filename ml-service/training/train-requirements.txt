@@ -1,0 +1,23 @@
+# GPU training dependencies - install on the machine doing the training.
+# If torch's default install doesn't match your CUDA, use the official command:
+#   pip install torch --index-url https://download.pytorch.org/whl/cu121
+# (match cuXXX to your CUDA / driver version)
+
+torch>=2.2
+transformers>=4.46
+datasets>=2.19
+tokenizers>=0.19
+accelerate>=0.30
+numpy>=1.24
+pandas>=2.0
+scikit-learn>=1.2
+xgboost>=1.7
+joblib>=1.3
+requests>=2.31
+tree-sitter>=0.23
+tree-sitter-python
+tree-sitter-java
+tree-sitter-javascript
+tree-sitter-go
+tree-sitter-ruby
+tree-sitter-php

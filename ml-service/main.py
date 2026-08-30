@@ -8,7 +8,8 @@ load_dotenv()
 
 from app.schemas import (
     FileFeatures, PredictBatchRequest, PredictResponse, 
-    PredictBatchResponse, HealthResponse, RiskLevel
+    PredictBatchResponse, HealthResponse, RiskLevel,
+    CodeFile, CodePredictBatchRequest
 )
 from app.predictor import BugPredictor
 
@@ -46,6 +47,10 @@ def health_check():
         models_loaded={
             "xgboost": xgb_loaded,
             "random_forest": rf_loaded
+        },
+        code_models={
+            "codebert": predictor.embedder.available,
+            "hybrid": predictor.hybrid_model is not None
         }
     )
 
@@ -92,17 +97,64 @@ def predict_batch(request: PredictBatchRequest):
             detail=f"Batch prediction error: {str(e)}"
         )
 
+@app.post("/predict/code", response_model=PredictResponse, dependencies=[Depends(verify_api_key)])
+def predict_code_single(code_file: CodeFile):
+    """
+    Predict defect risk by reading the actual source code content
+    (CodeBERT semantic model + AST features + hybrid classifier).
+    """
+    try:
+        return predictor.predict_code(code_file)
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Code prediction error: {str(e)}"
+        )
+
+@app.post("/predict/code/batch", response_model=PredictBatchResponse, dependencies=[Depends(verify_api_key)])
+def predict_code_batch(request: CodePredictBatchRequest):
+    """
+    Predict defect risk for a batch of source files by reading their content
+    (up to 50 files).
+    """
+    if len(request.files) > 50:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Batch size exceeds maximum limit of 50 files."
+        )
+
+    try:
+        predictions = []
+        summary = {"LOW": 0, "MEDIUM": 0, "HIGH": 0, "CRITICAL": 0}
+
+        for file in request.files:
+            pred = predictor.predict_code(file)
+            predictions.append(pred)
+            summary[pred.risk_level.value] += 1
+
+        return PredictBatchResponse(
+            predictions=predictions,
+            summary=summary
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Code batch prediction error: {str(e)}"
+        )
+
 @app.post("/model/reload", dependencies=[Depends(verify_api_key)])
 def reload_models():
     """
     Trigger the predictor to reload models from disk (useful after training completes).
     """
     predictor.load_models()
+    code_models = predictor.reload_code_models()
     return {
         "success": True,
         "message": "Models reloaded successfully.",
         "models_loaded": {
             "xgboost": predictor.xgb_model is not None,
             "random_forest": predictor.rf_model is not None
-        }
+        },
+        "code_models": code_models
     }

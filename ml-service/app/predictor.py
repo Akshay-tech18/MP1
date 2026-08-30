@@ -1,18 +1,48 @@
+import json
 import os
 import joblib
 import numpy as np
 import pandas as pd
-from app.schemas import RiskLevel, PredictResponse, ModelComparison, FileFeatures
+from app.schemas import RiskLevel, PredictResponse, ModelComparison, FileFeatures, CodeFile
+from app.code_features import extract_features, detect_language, FEATURE_COLUMNS
+from app.code_embedder import CodeEmbedder
 
 MODEL_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), "models")
 XGB_MODEL_PATH = os.path.join(MODEL_DIR, "xgboost_model.pkl")
 RF_MODEL_PATH = os.path.join(MODEL_DIR, "random_forest_model.pkl")
+HYBRID_MODEL_PATH = os.path.join(MODEL_DIR, "hybrid_model.pkl")
+METRICS_PATH = os.path.join(MODEL_DIR, "metrics.json")
 
 class BugPredictor:
     def __init__(self):
         self.xgb_model = None
         self.rf_model = None
+        self.hybrid_model = None
+        self.embedder = CodeEmbedder()
+        self.primary_engine = "hybrid"
         self.load_models()
+        self._load_primary_engine()
+
+    def _load_primary_engine(self):
+        """
+        Pick the better model from training metrics.json (produced by
+        train_code_model.py). Falls back to hybrid when unknown.
+        """
+        if not os.path.exists(METRICS_PATH):
+            print("metrics.json not found. Defaulting primary engine to hybrid.")
+            return
+        try:
+            with open(METRICS_PATH, "r") as f:
+                m = json.load(f)
+            cb_f1 = m.get("codebert", {}).get("weighted_f1", 0.0)
+            hy_f1 = m.get("hybrid", {}).get("weighted_f1", 0.0)
+            self.primary_engine = "hybrid" if hy_f1 >= cb_f1 else "codebert"
+            print(
+                f"Primary engine set to '{self.primary_engine}' "
+                f"(CodeBERT F1={cb_f1:.4f}, hybrid F1={hy_f1:.4f})"
+            )
+        except Exception as e:
+            print(f"Could not read metrics.json ({e}). Defaulting primary engine to hybrid.")
 
     def load_models(self):
         if os.path.exists(XGB_MODEL_PATH):
@@ -32,6 +62,32 @@ class BugPredictor:
                 print(f"Error loading Random Forest model: {e}")
         else:
             print("Random Forest model file not found. Running with rule-based fallback.")
+
+        if os.path.exists(HYBRID_MODEL_PATH):
+            try:
+                self.hybrid_model = joblib.load(HYBRID_MODEL_PATH)
+                print("Loaded hybrid (CodeBERT + AST) model successfully.")
+            except Exception as e:
+                print(f"Error loading hybrid model: {e}")
+        else:
+            print("Hybrid model not found. Code predictions will use CodeBERT or rule-based fallback.")
+
+    def reload_code_models(self):
+        """Reload CodeBERT + hybrid after new model files are copied in (post-training)."""
+        self.embedder.reset()
+        self.embedder.ensure_loaded()
+        if os.path.exists(HYBRID_MODEL_PATH):
+            try:
+                self.hybrid_model = joblib.load(HYBRID_MODEL_PATH)
+                print("Loaded hybrid (CodeBERT + AST) model successfully.")
+            except Exception as e:
+                print(f"Error loading hybrid model: {e}")
+        self._load_primary_engine()
+        return {
+            "codebert": self.embedder.available,
+            "hybrid": self.hybrid_model is not None,
+            "primary_engine": self.primary_engine
+        }
 
     def predict_features(self, features: FileFeatures) -> PredictResponse:
         # Prepare feature vector
@@ -123,5 +179,128 @@ class BugPredictor:
             risk = RiskLevel.CRITICAL
             conf = 0.7 + (score - 0.8) * 1.5
             
+        conf = min(max(conf, 0.5), 0.99)
+        return risk, conf
+
+    # ------------------------------------------------------------------ code prediction
+
+    def predict_code(self, code_file: CodeFile) -> PredictResponse:
+        """
+        Predict defect risk by reading the actual source code:
+          1. CodeBERT semantic embedding + bug probability
+          2. Hybrid model (embedding + AST features) when available
+          3. AST-based rule fallback when no model is loaded
+        """
+        language = detect_language(code_file.file_path, code_file.language)
+        ast_feats = extract_features(code_file.code, language)
+
+        embedding, bug_prob = self.embedder.embed_and_predict(code_file.code)
+
+        semantic_risk = semantic_conf = None
+        if bug_prob is not None:
+            semantic_risk, semantic_conf = self._probability_to_risk(bug_prob)
+
+        hybrid_risk = hybrid_conf = None
+        if embedding is not None:
+            hybrid_risk, hybrid_conf = self._hybrid_predict(embedding, ast_feats)
+
+        # Primary risk comes from the engine that performed best at training
+        # time (see metrics.json). Both models' predictions are still reported
+        # in model_comparison for visibility.
+        candidates = []
+        if hybrid_risk is not None:
+            candidates.append(("hybrid", hybrid_risk, hybrid_conf))
+        if semantic_risk is not None:
+            candidates.append(("codebert", semantic_risk, semantic_conf))
+
+        if self.primary_engine == "hybrid":
+            candidates.sort(key=lambda c: 0 if c[0] == "hybrid" else 1)
+        else:
+            candidates.sort(key=lambda c: 0 if c[0] == "codebert" else 1)
+
+        if candidates:
+            primary_risk, primary_conf = candidates[0][1], candidates[0][2]
+            by_name = {name: (risk, conf) for name, risk, conf in candidates}
+            semantic_risk, semantic_conf = by_name.get("codebert", (primary_risk, primary_conf))
+            hybrid_risk, hybrid_conf = by_name.get("hybrid", (primary_risk, primary_conf))
+        else:
+            primary_risk, primary_conf = self._ast_rule_predict(ast_feats)
+
+        xgb_side_risk = semantic_risk if semantic_risk is not None else primary_risk
+        xgb_side_conf = semantic_conf if semantic_conf is not None else primary_conf
+        rf_side_risk = hybrid_risk if hybrid_risk is not None else primary_risk
+        rf_side_conf = hybrid_conf if hybrid_conf is not None else primary_conf
+
+        comparison = ModelComparison(
+            xgboost_risk=xgb_side_risk,
+            xgboost_confidence=float(xgb_side_conf),
+            rf_risk=rf_side_risk,
+            rf_confidence=float(rf_side_conf),
+            agreement=(xgb_side_risk == rf_side_risk)
+        )
+
+        return PredictResponse(
+            file_path=code_file.file_path,
+            risk_level=primary_risk,
+            risk_score=float(primary_conf),
+            model_comparison=comparison
+        )
+
+    def _probability_to_risk(self, prob):
+        """Map a bug probability (0..1) to a risk level + confidence."""
+        if prob < 0.30:
+            risk = RiskLevel.LOW
+        elif prob < 0.55:
+            risk = RiskLevel.MEDIUM
+        elif prob < 0.75:
+            risk = RiskLevel.HIGH
+        else:
+            risk = RiskLevel.CRITICAL
+        conf = round(min(0.5 + abs(prob - 0.5) * 2.0, 0.99), 3)
+        return risk, conf
+
+    def _hybrid_predict(self, embedding, ast_feats):
+        """Hybrid model: [CodeBERT embedding (768) + AST features (20)] -> bug probability."""
+        if self.hybrid_model is None:
+            return None, None
+        try:
+            cfg = self.hybrid_model
+            model = cfg["model"] if isinstance(cfg, dict) else cfg
+            ast_vector = np.array([ast_feats[col] for col in FEATURE_COLUMNS])
+            x = np.concatenate([embedding, ast_vector]).reshape(1, -1)
+            probs = model.predict_proba(x)[0]
+            bug_prob = float(probs[1]) if probs.shape[0] > 1 else float(probs[0])
+            return self._probability_to_risk(bug_prob)
+        except Exception as e:
+            print(f"Hybrid prediction error: {e}")
+            return None, None
+
+    def _ast_rule_predict(self, feats):
+        """
+        Fallback used only when no trained model is available.
+        Scores structural code-smell signals from the AST features.
+        """
+        f_cc = min(feats["cyclomatic_complexity"] / 20.0, 1.0)
+        f_dec = min((feats["decision_count"] / max(feats["num_functions"], 1)) / 5.0, 1.0)
+        f_empty = min(feats["empty_catch_count"] / 2.0, 1.0)
+        f_todo = min(feats["todo_comment_count"] / 3.0, 1.0)
+        f_long = min(feats["long_function_count"] / 3.0, 1.0)
+        f_size = min(feats["num_lines"] / 500.0, 1.0)
+
+        score = (f_cc * 0.30) + (f_dec * 0.20) + (f_empty * 0.15) + (f_todo * 0.10) + (f_long * 0.15) + (f_size * 0.10)
+
+        if score < 0.25:
+            risk = RiskLevel.LOW
+            conf = 1.0 - (score * 2)
+        elif score < 0.55:
+            risk = RiskLevel.MEDIUM
+            conf = 0.5 + (score - 0.25)
+        elif score < 0.8:
+            risk = RiskLevel.HIGH
+            conf = 0.5 + (score - 0.55)
+        else:
+            risk = RiskLevel.CRITICAL
+            conf = 0.7 + (score - 0.8) * 1.5
+
         conf = min(max(conf, 0.5), 0.99)
         return risk, conf
