@@ -14,6 +14,9 @@ import Board from "./pages/Board";
 import Chat from "./pages/Chat";
 import Analytics from "./pages/Analytics";
 
+import NotificationToast from "./components/NotificationToast";
+import useNotificationStore from "./store/useNotificationStore";
+
 import "./App.css";
 
 /**
@@ -33,24 +36,41 @@ initTheme();
  */
 function ProtectedLayout() {
   const { user, loading } = useAuthStore();
-  const { connectSocket, disconnectSocket } = useSocketStore();
+  const { connectSocket, disconnectSocket, socket } = useSocketStore();
+  const { fetchNotifications, addNotification } = useNotificationStore();
   const [isSidePanelOpen, setIsSidePanelOpen] = useState(true);
 
+  // Initialise WebSocket connection on auth success
   useEffect(() => {
     if (user) {
-      // Connect WebSocket namespace on auth success
       const accessToken = document.cookie
         .split("; ")
         .find((row) => row.startsWith("accessToken="))
         ?.split("=")[1];
       
       connectSocket(accessToken);
+      fetchNotifications();
     }
     
     return () => {
       disconnectSocket();
     };
   }, [user]);
+
+  // Real-time listener for incoming in-app notifications
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleNewNotification = (data) => {
+      addNotification(data);
+    };
+
+    socket.on("notification:new", handleNewNotification);
+
+    return () => {
+      socket.off("notification:new", handleNewNotification);
+    };
+  }, [socket, addNotification]);
 
   if (loading) {
     return (
@@ -68,7 +88,10 @@ function ProtectedLayout() {
   }
 
   return (
-    <div className="flex h-screen overflow-hidden dark:bg-dp-dark-bg bg-dp-light-bg font-sans">
+    <div className="flex h-screen overflow-hidden dark:bg-dp-dark-bg bg-dp-light-bg font-sans relative">
+      {/* Real-time Floating Notification Toast */}
+      <NotificationToast />
+
       {/* 1. Icon Rail (Always visible) */}
       <IconRail
         isSidePanelOpen={isSidePanelOpen}

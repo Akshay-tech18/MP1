@@ -97,16 +97,24 @@ const useAuthStore = create((set, get) => ({
   },
 
   /**
-   * Create a new project workspace
+   * Create a new project workspace with optional GitHub repo and invitees
    */
-  createProject: async (name, description) => {
+  createProject: async (nameOrData, maybeDesc) => {
     try {
-      const res = await client.post("/projects", { name, description });
+      const payload = typeof nameOrData === "object" && nameOrData !== null
+        ? nameOrData
+        : { name: nameOrData, description: maybeDesc };
+
+      const res = await client.post("/projects", payload);
       if (res.data.success) {
         const newProj = res.data.data.project;
         set((state) => ({ projects: [newProj, ...state.projects] }));
         get().setCurrentProject(newProj);
-        return { success: true, project: newProj };
+        return { 
+          success: true, 
+          project: newProj, 
+          warnings: res.data.data?.warnings || [] 
+        };
       }
       return { success: false, message: res.data.message };
     } catch (err) {

@@ -1,7 +1,7 @@
 import React, { useState } from "react";
-import ReactDOM from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import useAuthStore from "../store/useAuthStore";
+import CreateWorkspaceModal from "./CreateWorkspaceModal";
 import {
   Plus,
   Folder,
@@ -10,37 +10,16 @@ import {
   Search,
   Hash,
   Users,
-  X,
 } from "lucide-react";
 
 export default function SidePanel({ isOpen }) {
-  const { projects, currentProject, setCurrentProject, createProject } = useAuthStore();
+  const { projects, currentProject, setCurrentProject } = useAuthStore();
   const [expandedSpaces, setExpandedSpaces] = useState({});
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [newProjName, setNewProjName] = useState("");
-  const [newProjDesc, setNewProjDesc] = useState("");
-  const [errorMsg, setErrorMsg] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
 
   const toggleExpand = (id) => {
     setExpandedSpaces((prev) => ({ ...prev, [id]: !prev[id] }));
-  };
-
-  const handleCreateProject = async (e) => {
-    e.preventDefault();
-    setErrorMsg("");
-    if (!newProjName.trim()) {
-      setErrorMsg("Space name is required");
-      return;
-    }
-    const res = await createProject(newProjName, newProjDesc);
-    if (res.success) {
-      setNewProjName("");
-      setNewProjDesc("");
-      setShowCreateModal(false);
-    } else {
-      setErrorMsg(res.message);
-    }
   };
 
   const filteredProjects = projects.filter((p) =>
@@ -181,88 +160,11 @@ export default function SidePanel({ isOpen }) {
             </button>
           </div>
 
-          {/* ══════ Create Space Modal ══════ */}
-          <AnimatePresence>
-            {showCreateModal && ReactDOM.createPortal(
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="fixed inset-0 modal-overlay flex items-center justify-center z-[9999]"
-                onClick={() => setShowCreateModal(false)}
-              >
-                <motion.div
-                  initial={{ scale: 0.95, opacity: 0, y: 10 }}
-                  animate={{ scale: 1, opacity: 1, y: 0 }}
-                  exit={{ scale: 0.95, opacity: 0, y: 10 }}
-                  transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-                  className="glass-card glossy-card w-[460px] p-8 relative z-10"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  {/* Modal Header */}
-                  <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-lg font-display font-bold dark:text-dp-text-primary text-dp-text-light-primary">
-                      Create a New Space
-                    </h3>
-                    <button
-                      onClick={() => { setShowCreateModal(false); setNewProjName(""); setNewProjDesc(""); setErrorMsg(""); }}
-                      className="w-8 h-8 rounded-xl flex items-center justify-center dark:hover:bg-dp-dark-surface-hover hover:bg-dp-light-bg-secondary dark:text-dp-text-muted text-dp-text-light-muted transition-colors"
-                    >
-                      <X className="w-4.5 h-4.5" />
-                    </button>
-                  </div>
-
-                  <form onSubmit={handleCreateProject} className="space-y-5">
-                    <div>
-                      <label className="block text-[12px] font-bold uppercase tracking-wider dark:text-dp-text-muted text-dp-text-light-muted mb-2">
-                        Space Name
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="e.g. Mobile App Development"
-                        value={newProjName}
-                        onChange={(e) => setNewProjName(e.target.value)}
-                        className="glass-input w-full"
-                        required
-                        autoFocus
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-[12px] font-bold uppercase tracking-wider dark:text-dp-text-muted text-dp-text-light-muted mb-2">
-                        Description
-                      </label>
-                      <textarea
-                        rows="3"
-                        placeholder="Add details about this workspace..."
-                        value={newProjDesc}
-                        onChange={(e) => setNewProjDesc(e.target.value)}
-                        className="glass-input w-full resize-none"
-                      />
-                    </div>
-
-                    {errorMsg && (
-                      <p className="text-sm text-dp-danger font-semibold">{errorMsg}</p>
-                    )}
-
-                    <div className="flex justify-end gap-3 pt-2">
-                      <button
-                        type="button"
-                        onClick={() => { setShowCreateModal(false); setNewProjName(""); setNewProjDesc(""); setErrorMsg(""); }}
-                        className="btn-ghost"
-                      >
-                        Cancel
-                      </button>
-                      <button type="submit" className="btn-primary">
-                        Create Space
-                      </button>
-                    </div>
-                  </form>
-                </motion.div>
-              </motion.div>,
-              document.body
-            )}
-          </AnimatePresence>
+          {/* ══════ Create Space Wizard Modal ══════ */}
+          <CreateWorkspaceModal
+            isOpen={showCreateModal}
+            onClose={() => setShowCreateModal(false)}
+          />
         </motion.div>
       )}
     </AnimatePresence>
