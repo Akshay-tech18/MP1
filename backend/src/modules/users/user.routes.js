@@ -6,7 +6,9 @@ const {
   updateMe,
   searchUsers,
   getMeStats,
-  changeSystemRole
+  changeSystemRole,
+  getNotifications,
+  markNotificationRead
 } = require("./user.controller");
 
 const router = express.Router();
@@ -17,6 +19,10 @@ router.use(protect);
 router.patch("/me", validateBody(updateMeSchema), updateMe);
 router.get("/search", searchUsers);
 router.get("/me/stats", getMeStats);
+
+// Notifications
+router.get("/me/notifications", getNotifications);
+router.patch("/me/notifications/:id/read", markNotificationRead);
 
 // Admin-only role management
 router.patch("/:id/role", checkRole("ADMIN"), validateBody(changeRoleSchema), changeSystemRole);

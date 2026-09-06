@@ -1,3 +1,6 @@
+const crypto = require("crypto");
+const { Octokit } = require("@octokit/rest");
+const { decrypt } = require("../../utils/crypto.utils");
 const prisma = require("../../config/db");
 const { sendSuccess, sendError } = require("../../utils/response.utils");
 const { TaskPriorityWeight, SocketEvent, ActivityType } = require("../../config/constants");
@@ -14,16 +17,23 @@ const emitToProject = (req, projectId, event, data) => {
 };
 
 /**
- * Create a new project and add creator as MANAGER
+ * Create a new project, link repo, and invite members
  */
 const createProject = async (req, res) => {
-  const { name, description, status } = req.body;
+  const { name, description, status, repoName, invitees } = req.body;
   const ownerId = req.user.id;
+  const warnings = [];
 
   try {
-    const result = await prisma.$transaction(async (tx) => {
+    // We need owner details to send emails "on behalf of"
+    const ownerDetails = await prisma.user.findUnique({
+      where: { id: ownerId },
+      select: { name: true, email: true, githubToken: true }
+    });
+
+    const project = await prisma.$transaction(async (tx) => {
       // 1. Create the project
-      const project = await tx.project.create({
+      const proj = await tx.project.create({
         data: {
           name,
           description,
@@ -35,16 +45,121 @@ const createProject = async (req, res) => {
       // 2. Add owner as a project member with role MANAGER
       await tx.projectMember.create({
         data: {
-          projectId: project.id,
+          projectId: proj.id,
           userId: ownerId,
           role: "MANAGER"
         }
       });
 
-      return project;
+      // 3. Process Invitees within transaction (only DB parts)
+      if (invitees && Array.isArray(invitees) && invitees.length > 0) {
+        for (const invitee of invitees) {
+          const { email, role } = invitee;
+          if (!email) continue;
+          
+          const targetUser = await tx.user.findUnique({ where: { email } });
+          
+          if (targetUser) {
+            // Existing user -> Add immediately
+            await tx.projectMember.create({
+              data: { projectId: proj.id, userId: targetUser.id, role: role || "DEVELOPER" }
+            });
+            // Create in-app notification
+            await tx.notification.create({
+              data: {
+                userId: targetUser.id,
+                title: "Added to Workspace",
+                message: `${ownerDetails.name} added you to the workspace '${name}' as ${role || "DEVELOPER"}.`,
+                link: `/projects/${proj.id}`
+              }
+            });
+          } else {
+            // Non-existing user -> Create Pending Invite
+            const token = crypto.randomBytes(20).toString('hex');
+            const expiresAt = new Date();
+            expiresAt.setDate(expiresAt.getDate() + 7); // 7 days expiry
+            
+            await tx.pendingInvite.create({
+              data: {
+                email,
+                projectId: proj.id,
+                role: role || "DEVELOPER",
+                token,
+                expiresAt
+              }
+            });
+          }
+        }
+      }
+      return proj;
     });
 
-    return sendSuccess(res, 201, "Project created successfully", { project: result });
+    // 4. Handle Repo Linking (Outside transaction to avoid blocking DB on network calls)
+    if (repoName && repoName.includes("/")) {
+      if (!ownerDetails.githubToken) {
+        warnings.push("Repository not linked: Please authenticate with GitHub first.");
+      } else {
+        try {
+          const decryptedToken = decrypt(ownerDetails.githubToken);
+          const [repoOwner, repo] = repoName.split("/");
+          const octokit = new Octokit({ auth: decryptedToken });
+          
+          const response = await octokit.repos.get({ owner: repoOwner, repo });
+          const repoDetails = response.data;
+          
+          const webhookSecret = crypto.randomBytes(32).toString("hex");
+          const callbackUrl = process.env.GITHUB_WEBHOOK_URL || `${req.protocol}://${req.get("host")}/api/webhooks/github`;
+          
+          await octokit.repos.createHook({
+            owner: repoOwner,
+            repo,
+            name: "web",
+            active: true,
+            events: ["push", "pull_request"],
+            config: {
+              url: callbackUrl,
+              content_type: "json",
+              secret: webhookSecret
+            }
+          });
+          
+          await prisma.repository.create({
+            data: {
+              githubRepoId: String(repoDetails.id),
+              name: repoName,
+              owner: repoOwner,
+              webhookSecret,
+              projectId: project.id
+            }
+          });
+        } catch (repoErr) {
+          logger.error("Failed to link repository during project creation: %o", repoErr);
+          warnings.push(`Repository not linked: ${repoErr.message || "GitHub API Error"}`);
+        }
+      }
+    }
+
+    // 5. Send out email invitations and WebSocket notifications asynchronously
+    if (invitees && Array.isArray(invitees)) {
+      const io = req.app.get("io");
+      invitees.forEach(async (invitee) => {
+        const { email } = invitee;
+        if (!email) return;
+        const targetUser = await prisma.user.findUnique({ where: { email } });
+        if (targetUser && io) {
+          // Emit real-time notification
+          io.to(`user_${targetUser.id}`).emit("notification:new", {
+            title: "Added to Workspace",
+            message: `${ownerDetails.name} added you to '${name}'.`
+          });
+        } else if (!targetUser) {
+          // TODO: Send email using Nodemailer (with Reply-To: ownerDetails.email)
+          logger.info(`[Email Stub] Sending invite to ${email} on behalf of ${ownerDetails.email}`);
+        }
+      });
+    }
+
+    return sendSuccess(res, 201, "Project created successfully", { project, warnings });
   } catch (error) {
     logger.error("Project creation error: %o", error);
     return sendError(res, 500, "Failed to create project");

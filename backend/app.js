@@ -39,10 +39,10 @@ const apiLimiter = rateLimit({
 // Apply rate limiting to all /api routes
 app.use("/api", apiLimiter);
 
-// 4. GitHub Webhooks: MUST BE MOUNTED BEFORE express.json()
-// This ensures that the raw payload body buffer is preserved for HMAC verification.
-const { webhookRouter, repositoryRouter } = require("./src/modules/github/github.routes");
-app.use("/api/webhooks", webhookRouter);
+// 4. GitHub Routes
+const { webhookRouter, repositoryRouter, userGithubRouter } = require("./src/modules/github/github.routes");
+app.use("/api/webhooks", webhookRouter); // MUST BE MOUNTED BEFORE express.json()
+app.use("/api/github", userGithubRouter);
 
 // 5. Global Request Parsers (Applied to all routes other than webhooks)
 app.use(express.json({ limit: "10mb" }));

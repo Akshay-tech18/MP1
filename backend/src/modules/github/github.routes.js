@@ -3,12 +3,18 @@ const { protect } = require("../../middleware/auth.middleware");
 const { checkProjectRole } = require("../../middleware/rbac.middleware");
 const { verifyGitHubWebhook } = require("../../middleware/webhook.middleware");
 const {
+  getAvailableRepos,
   linkRepository,
   listRepositories,
   getCommits,
   getPullRequests
 } = require("./github.controller");
 const { handleGitHubWebhook } = require("./webhook.handler");
+
+// 1. User GitHub Router (General GitHub queries for the authenticated user)
+const userGithubRouter = express.Router();
+userGithubRouter.use(protect);
+userGithubRouter.get("/repos", getAvailableRepos);
 
 // 1. Webhook Router (Unauthenticated from client-side, verified via HMAC signature)
 const webhookRouter = express.Router();
@@ -48,6 +54,7 @@ repositoryRouter.get(
 );
 
 module.exports = {
+  userGithubRouter,
   repositoryRouter,
   webhookRouter
 };

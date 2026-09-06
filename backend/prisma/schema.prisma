@@ -79,31 +79,32 @@ enum ActivityType {
 }
 
 model User {
-  id           String          @id @default(uuid())
-  email        String          @unique
-  name         String
-  avatar       String?
-  role         SystemRole      @default(DEVELOPER)
-  googleId     String?         @unique
-  githubId     String?         @unique
-  githubToken  String?         // Encrypted at the app level
-  createdAt    DateTime        @default(now())
-  updatedAt    DateTime        @updatedAt
+  id          String     @id @default(uuid())
+  email       String     @unique
+  name        String
+  avatar      String?
+  role        SystemRole @default(DEVELOPER)
+  googleId    String?    @unique
+  githubId    String?    @unique
+  githubToken String? // Encrypted at the app level
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
 
   // Relationships
-  projectsOwned     Project[]       @relation("ProjectOwner")
+  projectsOwned      Project[]       @relation("ProjectOwner")
   projectMemberships ProjectMember[]
-  reportedTasks     Task[]          @relation("Reporter")
-  assignedTasks     Task[]          @relation("Assignee")
-  comments          TaskComment[]
-  sentMessages      Message[]       @relation("Sender")
-  receivedMessages  Message[]       @relation("Receiver")
-  activityLogs      ActivityLog[]
+  reportedTasks      Task[]          @relation("Reporter")
+  assignedTasks      Task[]          @relation("Assignee")
+  comments           TaskComment[]
+  sentMessages       Message[]       @relation("Sender")
+  receivedMessages   Message[]       @relation("Receiver")
+  activityLogs       ActivityLog[]
+  notifications      Notification[]
 
-  @@map("users")
   @@index([email])
   @@index([githubId])
   @@index([googleId])
+  @@map("users")
 }
 
 model Project {
@@ -119,16 +120,17 @@ model Project {
   updatedAt   DateTime      @updatedAt
 
   // Relationships
-  members      ProjectMember[]
-  sprints      Sprint[]
-  tasks        Task[]
-  repositories Repository[]
-  messages     Message[]
-  activityLogs ActivityLog[]
+  members        ProjectMember[]
+  sprints        Sprint[]
+  tasks          Task[]
+  repositories   Repository[]
+  messages       Message[]
+  activityLogs   ActivityLog[]
+  pendingInvites PendingInvite[]
 
-  @@map("projects")
   @@index([ownerId])
   @@index([status])
+  @@map("projects")
 }
 
 model ProjectMember {
@@ -142,9 +144,9 @@ model ProjectMember {
   updatedAt DateTime    @updatedAt
 
   @@unique([projectId, userId])
-  @@map("project_members")
   @@index([projectId])
   @@index([userId])
+  @@map("project_members")
 }
 
 model Sprint {
@@ -162,10 +164,10 @@ model Sprint {
   // Relationships
   tasks Task[]
 
-  @@map("sprints")
   @@index([projectId])
   @@index([status])
   @@index([startDate, endDate])
+  @@map("sprints")
 }
 
 model Task {
@@ -192,11 +194,11 @@ model Task {
   comments TaskComment[]
   commits  Commit[]
 
-  @@map("tasks")
   @@index([projectId, status])
   @@index([sprintId, status])
   @@index([assigneeId])
   @@index([taskNumber])
+  @@map("tasks")
 }
 
 model TaskComment {
@@ -209,15 +211,15 @@ model TaskComment {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@map("task_comments")
   @@index([taskId])
   @@index([userId])
+  @@map("task_comments")
 }
 
 model Repository {
   id            String   @id @default(uuid())
   githubRepoId  String   @unique
-  name          String   // e.g. "owner/repo"
+  name          String // e.g. "owner/repo"
   owner         String
   webhookSecret String
   projectId     String
@@ -230,29 +232,29 @@ model Repository {
   pullRequests      PullRequest[]
   predictionResults PredictionResult[]
 
-  @@map("repositories")
   @@index([projectId])
   @@index([githubRepoId])
+  @@map("repositories")
 }
 
 model Commit {
-  id           String      @id @default(uuid())
+  id           String     @id @default(uuid())
   sha          String
   message      String
   authorName   String
-  filesChanged Json        // JSON array of modified files
+  filesChanged Json // JSON array of modified files
   committedAt  DateTime
   repoId       String
-  repository   Repository  @relation(fields: [repoId], references: [id], onDelete: Cascade)
+  repository   Repository @relation(fields: [repoId], references: [id], onDelete: Cascade)
   taskId       String?
-  task         Task?       @relation(fields: [taskId], references: [id], onDelete: SetNull)
-  createdAt    DateTime    @default(now())
+  task         Task?      @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  createdAt    DateTime   @default(now())
 
   @@unique([repoId, sha])
-  @@map("commits")
   @@index([repoId])
   @@index([taskId])
   @@index([committedAt])
+  @@map("commits")
 }
 
 model PullRequest {
@@ -267,57 +269,57 @@ model PullRequest {
   updatedAt      DateTime         @updatedAt
 
   @@unique([repoId, githubPrNumber])
-  @@map("pull_requests")
   @@index([repoId])
   @@index([state])
+  @@map("pull_requests")
 }
 
 model Message {
-  id          String   @id @default(uuid())
-  content     String
-  isGroup     Boolean  @default(true)
-  projectId   String
-  project     Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  senderId    String
-  sender      User     @relation("Sender", fields: [senderId], references: [id], onDelete: Cascade)
-  receiverId  String?
-  receiver    User?    @relation("Receiver", fields: [receiverId], references: [id], onDelete: SetNull)
-  fileUrl     String?
-  createdAt   DateTime @default(now())
+  id         String   @id @default(uuid())
+  content    String
+  isGroup    Boolean  @default(true)
+  projectId  String
+  project    Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  senderId   String
+  sender     User     @relation("Sender", fields: [senderId], references: [id], onDelete: Cascade)
+  receiverId String?
+  receiver   User?    @relation("Receiver", fields: [receiverId], references: [id], onDelete: SetNull)
+  fileUrl    String?
+  createdAt  DateTime @default(now())
 
-  @@map("messages")
   @@index([projectId, isGroup])
   @@index([senderId])
   @@index([projectId])
+  @@map("messages")
 }
 
 model PredictionResult {
-  id               String     @id @default(uuid())
-  filePath         String
-  commitFrequency  Float
-  codeChurn        Float
-  numContributors  Int
-  prCount          Int
-  bugFixRatio      Float
-  xgboostRisk      RiskLevel  @default(LOW)
+  id                String     @id @default(uuid())
+  filePath          String
+  commitFrequency   Float
+  codeChurn         Float
+  numContributors   Int
+  prCount           Int
+  bugFixRatio       Float
+  xgboostRisk       RiskLevel  @default(LOW)
   xgboostConfidence Float
-  rfRisk           RiskLevel  @default(LOW)
-  rfConfidence     Float
-  agreement        Boolean
-  repoId           String
-  repository       Repository @relation(fields: [repoId], references: [id], onDelete: Cascade)
-  createdAt        DateTime   @default(now())
+  rfRisk            RiskLevel  @default(LOW)
+  rfConfidence      Float
+  agreement         Boolean
+  repoId            String
+  repository        Repository @relation(fields: [repoId], references: [id], onDelete: Cascade)
+  createdAt         DateTime   @default(now())
 
   @@unique([repoId, filePath])
-  @@map("prediction_results")
   @@index([repoId, xgboostRisk])
   @@index([repoId])
+  @@map("prediction_results")
 }
 
 model ActivityLog {
   id         String       @id @default(uuid())
   actionType ActivityType
-  entityType String       // e.g. "TASK", "PROJECT", "MEMBER"
+  entityType String // e.g. "TASK", "PROJECT", "MEMBER"
   entityId   String
   metadata   Json?
   projectId  String
@@ -326,8 +328,40 @@ model ActivityLog {
   user       User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt  DateTime     @default(now())
 
-  @@map("activity_logs")
   @@index([projectId])
   @@index([userId])
   @@index([createdAt])
+  @@map("activity_logs")
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  message   String
+  read      Boolean  @default(false)
+  link      String?
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+model PendingInvite {
+  id        String      @id @default(uuid())
+  email     String
+  projectId String
+  project   Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  role      ProjectRole @default(VIEWER)
+  token     String      @unique
+  status    String      @default("PENDING") // PENDING, ACCEPTED, EXPIRED
+  createdAt DateTime    @default(now())
+  expiresAt DateTime
+
+  @@index([email])
+  @@index([projectId])
+  @@index([token])
+  @@map("pending_invites")
 }

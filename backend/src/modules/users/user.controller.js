@@ -139,10 +139,51 @@ const changeSystemRole = async (req, res) => {
   }
 };
 
+/**
+ * Get user notifications
+ */
+const getNotifications = async (req, res) => {
+  try {
+    const notifications = await prisma.notification.findMany({
+      where: { userId: req.user.id },
+      orderBy: { createdAt: "desc" },
+      take: 50 // Limit to recent notifications
+    });
+    return sendSuccess(res, 200, "Notifications retrieved", { notifications });
+  } catch (error) {
+    logger.error("Get notifications error: %o", error);
+    return sendError(res, 500, "Failed to retrieve notifications");
+  }
+};
+
+/**
+ * Mark a notification as read
+ */
+const markNotificationRead = async (req, res) => {
+  const { id } = req.params;
+  try {
+    const notification = await prisma.notification.updateMany({
+      where: { id, userId: req.user.id },
+      data: { read: true }
+    });
+
+    if (notification.count === 0) {
+      return sendError(res, 404, "Notification not found or unauthorized");
+    }
+
+    return sendSuccess(res, 200, "Notification marked as read");
+  } catch (error) {
+    logger.error("Mark notification read error: %o", error);
+    return sendError(res, 500, "Failed to mark notification as read");
+  }
+};
+
 module.exports = {
   updateMe,
   searchUsers,
   getMeStats,
   changeSystemRole,
+  getNotifications,
+  markNotificationRead,
   SAFE_SELECT
 };

@@ -6,6 +6,49 @@ const { sendSuccess, sendError } = require("../../utils/response.utils");
 const logger = require("../../utils/logger");
 
 /**
+ * Get all GitHub repositories available to the authenticated user
+ */
+const getAvailableRepos = async (req, res) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.id },
+      select: { githubToken: true }
+    });
+
+    if (!user || !user.githubToken) {
+      return sendError(res, 400, "Please connect your GitHub account to access repositories.");
+    }
+
+    const decryptedToken = decrypt(user.githubToken);
+    const octokit = new Octokit({ auth: decryptedToken });
+
+    // Fetch user repos (we only want ones they can administer to set up webhooks)
+    const response = await octokit.repos.listForAuthenticatedUser({
+      visibility: "all",
+      affiliation: "owner,collaborator,organization_member",
+      sort: "updated",
+      per_page: 100
+    });
+
+    // Filter for admin permissions so we can create webhooks
+    const availableRepos = response.data
+      .filter(repo => repo.permissions && repo.permissions.admin)
+      .map(repo => ({
+        id: repo.id,
+        name: repo.full_name, // e.g., "owner/repo"
+        private: repo.private,
+        url: repo.html_url,
+        updatedAt: repo.updated_at
+      }));
+
+    return sendSuccess(res, 200, "Available repositories retrieved", { repositories: availableRepos });
+  } catch (error) {
+    logger.error("Get available repos error: %o", error);
+    return sendError(res, 500, "Failed to retrieve repositories from GitHub");
+  }
+};
+
+/**
  * Link a GitHub repository to a project, register webhook
  */
 const linkRepository = async (req, res) => {
@@ -192,6 +235,7 @@ const getPullRequests = async (req, res) => {
 };
 
 module.exports = {
+  getAvailableRepos,
   linkRepository,
   listRepositories,
   getCommits,
