@@ -321,11 +321,11 @@ export default function Dashboard() {
                   const metaTitle = log.metadata?.title || log.metadata?.name || log.metadata?.taskTitle;
                   return (
                     <div key={log.id} className="flex gap-3 text-sm items-start">
-                      <Avatar src={log.user.avatar} name={log.user.name} size="sm" />
+                      <Avatar src={log.user?.avatar} name={log.user?.name || log.metadata?.authorName || "User"} size="sm" />
                       <div className="flex-1 min-w-0">
                         <p className="dark:text-dp-text-secondary text-dp-text-light-secondary leading-normal text-[13px]">
                           <strong className="dark:text-dp-text-primary text-dp-text-light-primary font-semibold">
-                            {log.user.name}
+                            {log.user?.name || log.metadata?.authorName || "User"}
                           </strong>{" "}
                           {log.actionType === "TASK_CREATED" && "created a task"}
                           {log.actionType === "TASK_STATUS_CHANGED" && `moved a task to ${log.metadata?.newStatus?.replace("_", " ") || "updated status"}`}

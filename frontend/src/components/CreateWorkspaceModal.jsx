@@ -293,46 +293,67 @@ export default function CreateWorkspaceModal({ isOpen, onClose }) {
                     </div>
 
                     <div className="overflow-y-auto space-y-1 flex-1">
+                      {/* Allow custom repository entry */}
+                      {repoSearch.trim() && (
+                        <div
+                          onClick={() => {
+                            setSelectedRepo(repoSearch.trim());
+                            setRepoDropdownOpen(false);
+                          }}
+                          className="flex items-center gap-2 px-3 py-2 rounded-lg cursor-pointer text-xs font-semibold dark:bg-dp-primary/10 bg-dp-primary/5 text-dp-primary dark:hover:bg-dp-primary/20 hover:bg-dp-primary/10 transition-colors border border-dashed border-dp-primary/30"
+                        >
+                          <Plus className="w-3.5 h-3.5 flex-shrink-0" />
+                          <span className="truncate">Use repository: <strong className="font-mono">{repoSearch.trim()}</strong></span>
+                        </div>
+                      )}
+
                       {loadingRepos ? (
                         <div className="p-4 text-center text-xs dark:text-dp-text-muted text-dp-text-light-muted">
                           Fetching repositories from GitHub...
                         </div>
-                      ) : githubError ? (
-                        <div className="p-3 text-center text-xs dark:text-amber-400 text-amber-600 bg-amber-500/10 rounded-lg">
-                          {githubError}
-                        </div>
-                      ) : filteredRepos.length === 0 ? (
-                        <div className="p-4 text-center text-xs dark:text-dp-text-muted text-dp-text-light-muted">
-                          {repoSearch ? "No repositories match search" : "No repositories found for this account"}
-                        </div>
                       ) : (
-                        filteredRepos.map((repo) => {
-                          const isSelected = selectedRepo === repo.name;
-                          return (
-                            <div
-                              key={repo.id || repo.name}
-                              onClick={() => {
-                                setSelectedRepo(repo.name);
-                                setRepoDropdownOpen(false);
-                              }}
-                              className={`flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer text-xs transition-colors ${
-                                isSelected
-                                  ? "bg-dp-primary text-white"
-                                  : "dark:hover:bg-dp-dark-surface-hover hover:bg-dp-light-bg-secondary dark:text-dp-text-primary text-dp-text-light-primary"
-                              }`}
-                            >
-                              <div className="flex items-center gap-2 truncate">
-                                {repo.private ? (
-                                  <Lock className="w-3.5 h-3.5 opacity-70 flex-shrink-0" />
-                                ) : (
-                                  <Globe className="w-3.5 h-3.5 opacity-70 flex-shrink-0" />
-                                )}
-                                <span className="font-medium truncate">{repo.name}</span>
-                              </div>
-                              {isSelected && <Check className="w-3.5 h-3.5 flex-shrink-0" />}
+                        <>
+                          {githubError && (
+                            <div className="p-2.5 text-center text-xs dark:text-amber-400 text-amber-600 bg-amber-500/10 rounded-lg space-y-1">
+                              <div>{githubError}</div>
+                              <div className="text-[11px] opacity-80">Type <code className="font-mono font-bold">owner/repo</code> above to link manually.</div>
                             </div>
-                          );
-                        })
+                          )}
+
+                          {filteredRepos.length === 0 && !githubError && !repoSearch.trim() && (
+                            <div className="p-4 text-center text-xs dark:text-dp-text-muted text-dp-text-light-muted">
+                              No repositories found for this account.
+                            </div>
+                          )}
+
+                          {filteredRepos.map((repo) => {
+                            const isSelected = selectedRepo === repo.name;
+                            return (
+                              <div
+                                key={repo.id || repo.name}
+                                onClick={() => {
+                                  setSelectedRepo(repo.name);
+                                  setRepoDropdownOpen(false);
+                                }}
+                                className={`flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer text-xs transition-colors ${
+                                  isSelected
+                                    ? "bg-dp-primary text-white"
+                                    : "dark:hover:bg-dp-dark-surface-hover hover:bg-dp-light-bg-secondary dark:text-dp-text-primary text-dp-text-light-primary"
+                                }`}
+                              >
+                                <div className="flex items-center gap-2 truncate">
+                                  {repo.private ? (
+                                    <Lock className="w-3.5 h-3.5 opacity-70 flex-shrink-0" />
+                                  ) : (
+                                    <Globe className="w-3.5 h-3.5 opacity-70 flex-shrink-0" />
+                                  )}
+                                  <span className="font-medium truncate">{repo.name}</span>
+                                </div>
+                                {isSelected && <Check className="w-3.5 h-3.5 flex-shrink-0" />}
+                              </div>
+                            );
+                          })}
+                        </>
                       )}
                     </div>
                   </div>

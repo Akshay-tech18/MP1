@@ -113,25 +113,36 @@ const linkRepository = async (req, res) => {
 
     // 4. Create Webhook on GitHub
     try {
-      await octokit.repos.createHook({
-        owner,
-        repo,
-        name: "web",
-        active: true,
-        events: ["push", "pull_request"],
-        config: {
-          url: callbackUrl,
-          content_type: "json",
-          secret: webhookSecret
-        }
-      });
-    } catch (hookErr) {
-      logger.error("GitHub Webhook creation failed: %o", hookErr);
-      // If hook creation fails but repo exists, we can still link, or fail. Let's fail for safety in prod, 
-      // but log a warning. If it's a conflict (hook already exists), we can proceed.
-      if (hookErr.status !== 422) { // 422 is returned if webhook already exists
-        return sendError(res, 500, `Failed to register webhook on GitHub: ${hookErr.message}`);
+      if (typeof octokit.repos.createWebhook === "function") {
+        await octokit.repos.createWebhook({
+          owner,
+          repo,
+          name: "web",
+          active: true,
+          events: ["push", "pull_request"],
+          config: {
+            url: callbackUrl,
+            content_type: "json",
+            secret: webhookSecret
+          }
+        });
+      } else if (typeof octokit.repos.createHook === "function") {
+        await octokit.repos.createHook({
+          owner,
+          repo,
+          name: "web",
+          active: true,
+          events: ["push", "pull_request"],
+          config: {
+            url: callbackUrl,
+            content_type: "json",
+            secret: webhookSecret
+          }
+        });
       }
+    } catch (hookErr) {
+      logger.warn("GitHub Webhook creation skipped or failed (e.g. localhost URL or already exists): %s", hookErr.message);
+      // In development or if hook exists, continue so repository is still linked in DB
     }
 
     // 5. Store Repo details in DB

@@ -9,7 +9,7 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid
 } from "recharts";
 import {
-  BarChart3, RefreshCw, AlertCircle, FileCode, CheckCircle
+  BarChart3, RefreshCw, AlertCircle, FileCode, CheckCircle, Plus, Github, X
 } from "lucide-react";
 import { SocketEvent } from "../config/constants";
 
@@ -38,6 +38,10 @@ export default function Analytics() {
   const [bugRiskList, setBugRiskList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [scanning, setScanning] = useState(false);
+  const [showLinkModal, setShowLinkModal] = useState(false);
+  const [newRepoInput, setNewRepoInput] = useState("");
+  const [linkingRepo, setLinkingRepo] = useState(false);
+  const [linkError, setLinkError] = useState("");
 
   const loadAnalytics = async () => {
     if (!currentProject) return;
@@ -84,6 +88,32 @@ export default function Analytics() {
       await loadAnalytics();
     } catch (err) { console.error(err); }
     finally { setScanning(false); }
+  };
+
+  const handleLinkRepository = async (e) => {
+    e.preventDefault();
+    if (!newRepoInput.trim() || !newRepoInput.includes("/")) {
+      setLinkError("Repository name must be in format 'owner/repo'");
+      return;
+    }
+    setLinkingRepo(true);
+    setLinkError("");
+    try {
+      const res = await client.post(`/projects/${currentProject.id}/repositories`, {
+        repoName: newRepoInput.trim()
+      });
+      if (res.data.success) {
+        setNewRepoInput("");
+        setShowLinkModal(false);
+        await loadAnalytics();
+      } else {
+        setLinkError(res.data.message || "Failed to link repository");
+      }
+    } catch (err) {
+      setLinkError(err.response?.data?.message || "Failed to link repository");
+    } finally {
+      setLinkingRepo(false);
+    }
   };
 
   if (loading) {
@@ -142,17 +172,33 @@ export default function Analytics() {
                 <RefreshCw className={`w-4 h-4 ${scanning ? "animate-spin" : ""}`} />
                 {scanning ? "Scanning..." : "Run AI Scan"}
               </button>
+              <button
+                onClick={() => setShowLinkModal(true)}
+                className="btn-ghost py-2 px-2.5 text-xs flex items-center gap-1 border dark:border-dp-dark-border-light border-dp-light-border"
+                title="Link another repository"
+              >
+                <Plus className="w-3.5 h-3.5" />
+              </button>
             </div>
           )}
         </motion.div>
 
         {repositories.length === 0 && (
-          <div className="p-4 dark:bg-dp-warning/10 bg-dp-warning/5 border dark:border-amber-500/20 border-amber-200 dark:text-amber-300 text-amber-700 rounded-xl flex gap-2.5 items-start text-sm font-medium">
-            <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
-            <div>
-              <span>No repository linked to this space.</span>
-              <p className="text-[12px] dark:text-dp-text-muted text-dp-text-light-muted mt-1">Link a repository, push commits, and run the ML scanner to view prediction rankings.</p>
+          <div className="p-4 dark:bg-dp-warning/10 bg-dp-warning/5 border dark:border-amber-500/20 border-amber-200 dark:text-amber-300 text-amber-700 rounded-xl flex items-center justify-between gap-4 text-sm font-medium">
+            <div className="flex gap-2.5 items-start">
+              <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+              <div>
+                <span>No repository linked to this space.</span>
+                <p className="text-[12px] dark:text-dp-text-muted text-dp-text-light-muted mt-1">Link a GitHub repository to track commits, pull requests, and calculate AI bug defect risks.</p>
+              </div>
             </div>
+            <button
+              onClick={() => setShowLinkModal(true)}
+              className="btn-primary py-2 px-3.5 text-xs flex items-center gap-1.5 flex-shrink-0"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              Link Repository
+            </button>
           </div>
         )}
 
@@ -300,6 +346,58 @@ export default function Analytics() {
             )}
           </div>
         </motion.div>
+
+        {/* Modal: Link Repository */}
+        {showLinkModal && (
+          <div className="fixed inset-0 modal-overlay flex items-center justify-center z-50 p-4" onClick={() => setShowLinkModal(false)}>
+            <div className="glass-card glossy-card w-full max-w-md p-6 relative" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-between mb-4 border-b dark:border-dp-dark-border-light/40 border-dp-light-border/60 pb-3">
+                <h3 className="font-display font-bold text-sm dark:text-dp-text-primary text-dp-text-light-primary flex items-center gap-2">
+                  <Github className="w-4 h-4 text-dp-primary" />
+                  Link GitHub Repository
+                </h3>
+                <button onClick={() => setShowLinkModal(false)} className="w-6 h-6 rounded-lg flex items-center justify-center dark:hover:bg-dp-dark-surface-hover hover:bg-dp-light-bg-secondary dark:text-dp-text-muted text-dp-text-light-muted">
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+
+              {linkError && (
+                <div className="p-2.5 mb-3 bg-red-500/10 border border-red-500/20 text-red-400 text-xs rounded-lg">
+                  {linkError}
+                </div>
+              )}
+
+              <form onSubmit={handleLinkRepository} className="space-y-4">
+                <div>
+                  <label className="block text-[11px] font-bold uppercase tracking-wider dark:text-dp-text-muted text-dp-text-light-muted mb-1.5">
+                    Repository Name (owner/repo)
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. facebook/react or Akshay-tech18/MP1"
+                    value={newRepoInput}
+                    onChange={(e) => setNewRepoInput(e.target.value)}
+                    className="glass-input w-full text-xs"
+                    required
+                    autoFocus
+                  />
+                  <p className="text-[11px] dark:text-dp-text-muted text-dp-text-light-muted mt-1.5">
+                    Enter the GitHub repository in format <code>owner/repository</code>.
+                  </p>
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2">
+                  <button type="button" onClick={() => setShowLinkModal(false)} className="btn-ghost text-xs">
+                    Cancel
+                  </button>
+                  <button type="submit" disabled={linkingRepo} className="btn-primary text-xs flex items-center gap-1.5">
+                    {linkingRepo ? "Linking..." : "Link Repository"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
       </div>
     </PageTransition>
   );
