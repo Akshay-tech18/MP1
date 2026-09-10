@@ -3,6 +3,8 @@ const { Octokit } = require("@octokit/rest");
 const prisma = require("../../config/db");
 const { decrypt } = require("../../utils/crypto.utils");
 const { sendSuccess, sendError } = require("../../utils/response.utils");
+const { PullRequestState } = require("../../config/constants");
+const { parseCommitForTasks } = require("./commit.parser");
 const logger = require("../../utils/logger");
 
 /**
@@ -156,7 +158,14 @@ const linkRepository = async (req, res) => {
       }
     });
 
-    return sendSuccess(res, 201, "Repository linked and webhook registered successfully", { repository: dbRepo });
+    // 6. Automatically sync initial commits from GitHub
+    try {
+      await syncCommitsHelper(octokit, dbRepo, req);
+    } catch (syncErr) {
+      logger.warn("Initial commit sync warning: %s", syncErr.message);
+    }
+
+    return sendSuccess(res, 201, "Repository linked and commits synced successfully", { repository: dbRepo });
   } catch (error) {
     logger.error("Link repository error: %o", error);
     return sendError(res, 500, "Failed to link repository");
@@ -210,6 +219,7 @@ const getCommits = async (req, res) => {
     const queryOptions = {
       where: { repoId },
       include: {
+        repository: { select: { id: true, name: true, owner: true } },
         task: { select: { id: true, taskNumber: true, title: true } }
       },
       orderBy: { committedAt: "desc" },
@@ -233,6 +243,38 @@ const getCommits = async (req, res) => {
   } catch (error) {
     logger.error("Get commits error: %o", error);
     return sendError(res, 500, "Failed to retrieve commits");
+  }
+};
+
+/**
+ * List commits across all repositories in a project
+ */
+const getAllProjectCommits = async (req, res) => {
+  const { id: projectId } = req.params;
+  const { limit = 100 } = req.query;
+  const parsedLimit = parseInt(limit, 10);
+
+  try {
+    const repos = await prisma.repository.findMany({
+      where: { projectId },
+      select: { id: true, name: true, owner: true }
+    });
+    const repoIds = repos.map(r => r.id);
+
+    const commits = await prisma.commit.findMany({
+      where: { repoId: { in: repoIds } },
+      include: {
+        repository: { select: { id: true, name: true, owner: true } },
+        task: { select: { id: true, taskNumber: true, title: true } }
+      },
+      orderBy: { committedAt: "desc" },
+      take: parsedLimit
+    });
+
+    return sendSuccess(res, 200, "All project commits retrieved", { commits });
+  } catch (error) {
+    logger.error("Get all project commits error: %o", error);
+    return sendError(res, 500, "Failed to retrieve project commits");
   }
 };
 
@@ -280,10 +322,176 @@ const getPullRequests = async (req, res) => {
   }
 };
 
+/**
+ * Helper to sync commits and PRs from GitHub REST API
+ */
+async function syncCommitsHelper(octokit, repo, req = null) {
+  const [owner, repoName] = repo.name.split("/");
+  logger.info(`Starting GitHub commit sync for ${repo.name}...`);
+
+  let commitsData = [];
+  try {
+    const commitsRes = await octokit.repos.listCommits({
+      owner,
+      repo: repoName,
+      per_page: 100
+    });
+    commitsData = commitsRes.data || [];
+  } catch (err) {
+    logger.warn(`Could not list commits from GitHub for ${repo.name}: %s`, err.message);
+    return [];
+  }
+
+  const processedCommits = [];
+  for (const item of commitsData) {
+    const sha = item.sha;
+    const message = item.commit?.message || "No commit message";
+    const authorName = item.commit?.author?.name || item.author?.login || item.commit?.committer?.name || "Unknown Author";
+    const rawDate = item.commit?.author?.date || item.commit?.committer?.date;
+    const committedAt = rawDate ? new Date(rawDate) : new Date();
+
+    let filesChanged = [];
+    try {
+      const detail = await octokit.repos.getCommit({
+        owner,
+        repo: repoName,
+        ref: sha
+      });
+      filesChanged = (detail.data.files || []).map(f => f.filename);
+    } catch (err) {
+      filesChanged = [];
+    }
+
+    const commitRecord = await prisma.commit.upsert({
+      where: {
+        repoId_sha: { repoId: repo.id, sha }
+      },
+      update: {
+        message,
+        authorName,
+        filesChanged,
+        committedAt
+      },
+      create: {
+        sha,
+        message,
+        authorName,
+        filesChanged,
+        committedAt,
+        repoId: repo.id
+      }
+    });
+
+    try {
+      await parseCommitForTasks(req, repo.projectId, commitRecord);
+    } catch (parseErr) {
+      logger.warn("Parse commit task reference warning: %s", parseErr.message);
+    }
+    processedCommits.push(commitRecord);
+  }
+
+  // Also sync Pull Requests
+  try {
+    const prsRes = await octokit.pulls.list({
+      owner,
+      repo: repoName,
+      state: "all",
+      per_page: 30
+    });
+
+    for (const pr of prsRes.data || []) {
+      let prState = PullRequestState.OPEN;
+      if (pr.merged_at) {
+        prState = PullRequestState.MERGED;
+      } else if (pr.state === "closed") {
+        prState = PullRequestState.CLOSED;
+      }
+
+      await prisma.pullRequest.upsert({
+        where: {
+          repoId_githubPrNumber: { repoId: repo.id, githubPrNumber: pr.number }
+        },
+        update: {
+          title: pr.title,
+          state: prState,
+          mergedAt: pr.merged_at ? new Date(pr.merged_at) : null
+        },
+        create: {
+          githubPrNumber: pr.number,
+          title: pr.title,
+          state: prState,
+          mergedAt: pr.merged_at ? new Date(pr.merged_at) : null,
+          repoId: repo.id
+        }
+      });
+    }
+  } catch (prErr) {
+    logger.warn(`Could not sync PRs for ${repo.name}: %s`, prErr.message);
+  }
+
+  logger.info(`Successfully synced ${processedCommits.length} commits for ${repo.name}`);
+  return processedCommits;
+}
+
+/**
+ * Controller to manually trigger commit and PR sync for a repository
+ */
+const syncRepositoryCommits = async (req, res) => {
+  const { id: projectId, repoId } = req.params;
+
+  try {
+    const repo = await prisma.repository.findFirst({
+      where: { id: repoId, projectId },
+      include: {
+        project: {
+          include: {
+            owner: { select: { githubToken: true } },
+            members: {
+              include: { user: { select: { githubToken: true } } }
+            }
+          }
+        }
+      }
+    });
+
+    if (!repo) {
+      return sendError(res, 404, "Repository not found in this project");
+    }
+
+    const currentUser = await prisma.user.findUnique({
+      where: { id: req.user.id },
+      select: { githubToken: true }
+    });
+
+    const tokenEncrypted = currentUser?.githubToken || repo.project.owner?.githubToken ||
+      repo.project.members.find(m => m.user?.githubToken)?.user?.githubToken;
+
+    if (!tokenEncrypted) {
+      return sendError(res, 400, "Please connect your GitHub account to sync repositories.");
+    }
+
+    const decryptedToken = decrypt(tokenEncrypted);
+    const octokit = new Octokit({ auth: decryptedToken });
+
+    const syncedCommits = await syncCommitsHelper(octokit, repo, req);
+
+    return sendSuccess(res, 200, `Successfully synced ${syncedCommits.length} commit(s) from GitHub`, {
+      syncedCount: syncedCommits.length,
+      commits: syncedCommits
+    });
+  } catch (error) {
+    logger.error("Sync repository commits error: %o", error);
+    return sendError(res, 500, `Failed to sync commits: ${error.message}`);
+  }
+};
+
 module.exports = {
   getAvailableRepos,
   linkRepository,
   listRepositories,
   getCommits,
-  getPullRequests
+  getAllProjectCommits,
+  getPullRequests,
+  syncRepositoryCommits,
+  syncCommitsHelper
 };

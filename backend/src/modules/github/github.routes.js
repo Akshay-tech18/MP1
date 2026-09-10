@@ -7,7 +7,9 @@ const {
   linkRepository,
   listRepositories,
   getCommits,
-  getPullRequests
+  getAllProjectCommits,
+  getPullRequests,
+  syncRepositoryCommits
 } = require("./github.controller");
 const { handleGitHubWebhook } = require("./webhook.handler");
 
@@ -39,6 +41,18 @@ repositoryRouter.get(
   "/",
   checkProjectRole("MANAGER", "DEVELOPER", "QA_TESTER", "VIEWER"),
   listRepositories
+);
+
+repositoryRouter.get(
+  "/commits",
+  checkProjectRole("MANAGER", "DEVELOPER", "QA_TESTER", "VIEWER"),
+  getAllProjectCommits
+);
+
+repositoryRouter.post(
+  "/:repoId/sync",
+  checkProjectRole("MANAGER", "DEVELOPER"),
+  syncRepositoryCommits
 );
 
 repositoryRouter.get(

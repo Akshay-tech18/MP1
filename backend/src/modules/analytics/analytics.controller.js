@@ -52,35 +52,41 @@ const getDashboardMetrics = async (req, res) => {
       };
     }
 
-    // 3. Commit Trend (30-day) - DB Agnostic JavaScript-based grouping for robustness
+    // 3. Commit Trend & Velocity - Supports repo filtering and range
+    const { repoId, range = "30d" } = req.query;
+
     const repos = await prisma.repository.findMany({
       where: { projectId },
       select: { id: true }
     });
     const repoIds = repos.map(r => r.id);
 
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const targetRepoIds = (repoId && repoId !== "ALL")
+      ? repoIds.filter(id => id === repoId)
+      : repoIds;
 
-    const commits = await prisma.commit.findMany({
+    const now = new Date();
+    const daysCount = range === "90d" ? 90 : 30;
+    const windowStart = new Date(now.getTime() - (daysCount - 1) * 24 * 60 * 60 * 1000);
+    windowStart.setHours(0, 0, 0, 0);
+
+    const commitsInWindow = await prisma.commit.findMany({
       where: {
-        repoId: { in: repoIds },
-        committedAt: { gte: thirtyDaysAgo }
+        repoId: { in: targetRepoIds },
+        committedAt: { gte: windowStart }
       },
       select: { committedAt: true }
     });
 
-    // Initialize 30-day trend map
+    // Generate real sequential days ending at today
     const trendMap = {};
-    for (let i = 29; i >= 0; i--) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
+    for (let i = daysCount - 1; i >= 0; i--) {
+      const d = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
       const dateStr = d.toISOString().split("T")[0];
       trendMap[dateStr] = 0;
     }
 
-    // Populate trend data
-    commits.forEach(commit => {
+    commitsInWindow.forEach(commit => {
       const dateStr = commit.committedAt.toISOString().split("T")[0];
       if (trendMap[dateStr] !== undefined) {
         trendMap[dateStr]++;
@@ -90,6 +96,24 @@ const getDashboardMetrics = async (req, res) => {
     const commitTrend = Object.keys(trendMap).map(day => ({
       day,
       count: trendMap[day]
+    }));
+
+    // Calculate active commit days (exact days with commit activity)
+    const allCommits = await prisma.commit.findMany({
+      where: { repoId: { in: targetRepoIds } },
+      select: { committedAt: true },
+      orderBy: { committedAt: "asc" }
+    });
+
+    const activeDaysMap = {};
+    allCommits.forEach(c => {
+      const dateStr = c.committedAt.toISOString().split("T")[0];
+      activeDaysMap[dateStr] = (activeDaysMap[dateStr] || 0) + 1;
+    });
+
+    const activeCommitDays = Object.keys(activeDaysMap).map(day => ({
+      day,
+      count: activeDaysMap[day]
     }));
 
     // 4. Recent activity feed (last 20 events)
@@ -127,6 +151,8 @@ const getDashboardMetrics = async (req, res) => {
       statusDistribution,
       activeSprint: activeSprintData,
       commitTrend,
+      activeCommitDays,
+      totalCommitsCount: allCommits.length,
       recentActivity,
       bugRiskSummary
     });
