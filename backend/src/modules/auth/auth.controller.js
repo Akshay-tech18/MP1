@@ -1,4 +1,4 @@
-const { signAccessToken, signRefreshToken, verifyRefreshToken } = require("../../utils/jwt.utils");
+const { signAccessToken, signRefreshToken, verifyAccessToken, verifyRefreshToken } = require("../../utils/jwt.utils");
 const prisma = require("../../config/db");
 const { sendSuccess, sendError } = require("../../utils/response.utils");
 const logger = require("../../utils/logger");
@@ -67,9 +67,43 @@ const googleCallback = (req, res) => {
 /**
  * Handle passport GitHub callback
  */
-const githubCallback = (req, res) => {
+const githubCallback = async (req, res) => {
   if (!req.user) {
     return res.redirect(`${process.env.CORS_ORIGIN || "http://localhost:3000"}/login?error=auth_failed`);
+  }
+
+  // If state was provided, it is an existing logged-in user connecting their GitHub account
+  const stateToken = req.query.state;
+  if (stateToken) {
+    try {
+      const decoded = verifyAccessToken(stateToken);
+      if (decoded && decoded.id) {
+        const updatedUser = await prisma.user.update({
+          where: { id: decoded.id },
+          data: {
+            githubId: req.user.githubId,
+            githubToken: req.user.githubToken,
+          },
+        });
+
+        const accessToken = signAccessToken(updatedUser);
+        const refreshToken = signRefreshToken(updatedUser);
+
+        res.cookie("accessToken", accessToken, {
+          ...COOKIE_OPTIONS,
+          maxAge: 15 * 60 * 1000,
+        });
+
+        res.cookie("refreshToken", refreshToken, {
+          ...COOKIE_OPTIONS,
+          maxAge: 7 * 24 * 60 * 60 * 1000,
+        });
+
+        return res.redirect(`${process.env.CORS_ORIGIN || "http://localhost:3000"}/dashboard?github=connected`);
+      }
+    } catch (e) {
+      logger.warn("Could not verify state token in githubCallback: %s", e.message);
+    }
   }
 
   const accessToken = signAccessToken(req.user);
@@ -85,7 +119,7 @@ const githubCallback = (req, res) => {
     maxAge: 7 * 24 * 60 * 60 * 1000,
   });
 
-  res.redirect(`${process.env.CORS_ORIGIN || "http://localhost:3000"}/dashboard?auth=success`);
+  res.redirect(`${process.env.CORS_ORIGIN || "http://localhost:3000"}/dashboard?github=connected`);
 };
 
 /**

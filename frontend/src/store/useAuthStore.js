@@ -121,10 +121,64 @@ const useAuthStore = create((set, get) => ({
           warnings: res.data.data?.warnings || [] 
         };
       }
-      return { success: false, message: res.data.message };
     } catch (err) {
-      const msg = err.response?.data?.message || "Failed to create project";
+      const respData = err.response?.data;
+      let msg = respData?.message || "Failed to create project";
+      if (respData?.errors && Array.isArray(respData.errors) && respData.errors.length > 0) {
+        msg = respData.errors
+          .map((e) => (e.message ? `${e.field ? e.field + ": " : ""}${e.message}` : String(e)))
+          .join(" • ");
+      }
+      return { success: false, message: msg, errors: respData?.errors };
+    }
+  },
+
+  /**
+   * Update an existing workspace
+   */
+  updateProject: async (projectId, updateData) => {
+    try {
+      const res = await client.patch(`/projects/${projectId}`, updateData);
+      if (res.data.success) {
+        const updated = res.data.data.project;
+        set((state) => ({
+          projects: state.projects.map((p) => (p.id === projectId ? { ...p, ...updated } : p)),
+          currentProject: state.currentProject?.id === projectId ? { ...state.currentProject, ...updated } : state.currentProject,
+        }));
+        return { success: true, project: updated };
+      }
+      return { success: false, message: res.data.message || "Failed to update workspace" };
+    } catch (err) {
+      const respData = err.response?.data;
+      let msg = respData?.message || "Failed to update workspace";
+      if (respData?.errors && Array.isArray(respData.errors) && respData.errors.length > 0) {
+        msg = respData.errors
+          .map((e) => (e.message ? `${e.field ? e.field + ": " : ""}${e.message}` : String(e)))
+          .join(" • ");
+      }
       return { success: false, message: msg };
+    }
+  },
+
+  /**
+   * Delete a workspace permanently
+   */
+  deleteProject: async (projectId) => {
+    try {
+      const res = await client.delete(`/projects/${projectId}`);
+      if (res.data.success) {
+        const remaining = get().projects.filter((p) => p.id !== projectId);
+        const nextActive = remaining.length > 0 ? remaining[0] : null;
+        set({ projects: remaining });
+        get().setCurrentProject(nextActive);
+        return { success: true };
+      }
+      return { success: false, message: res.data.message || "Failed to delete workspace" };
+    } catch (err) {
+      return {
+        success: false,
+        message: err.response?.data?.message || err.message || "Failed to delete workspace",
+      };
     }
   }
 }));

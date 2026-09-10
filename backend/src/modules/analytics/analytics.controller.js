@@ -1,12 +1,14 @@
 const prisma = require("../../config/db");
 const { sendSuccess, sendError } = require("../../utils/response.utils");
 const logger = require("../../utils/logger");
+const { syncCommitsForRepository, syncCommitsForProject } = require("../github/github.service");
 
 /**
  * Get project dashboard metrics
  */
 const getDashboardMetrics = async (req, res) => {
   const projectId = req.params.id;
+  const { timeframe = "monthly", repoId, sync } = req.query;
 
   try {
     // 1. Task distribution by status
@@ -52,69 +54,148 @@ const getDashboardMetrics = async (req, res) => {
       };
     }
 
-    // 3. Commit Trend & Velocity - Supports repo filtering and range
-    const { repoId, range = "30d" } = req.query;
-
+    // 3. Commit Trend & Velocity (Weekly, Monthly, Yearly) for workspace or specific repository
     const repos = await prisma.repository.findMany({
       where: { projectId },
-      select: { id: true }
+      select: { id: true, name: true, owner: true }
     });
-    const repoIds = repos.map(r => r.id);
+    const repoMap = new Map(repos.map(r => [r.id, r]));
+    const allRepoIds = repos.map(r => r.id);
 
-    const targetRepoIds = (repoId && repoId !== "ALL")
-      ? repoIds.filter(id => id === repoId)
-      : repoIds;
+    // Determine target repo(s)
+    let targetRepoIds = allRepoIds;
+    if (repoId && allRepoIds.includes(repoId)) {
+      targetRepoIds = [repoId];
+    }
 
+    // Auto-sync commits from GitHub if no commits exist in DB or explicitly requested
+    if (targetRepoIds.length > 0) {
+      const existingCommitsCount = await prisma.commit.count({
+        where: { repoId: { in: targetRepoIds } }
+      });
+
+      if (existingCommitsCount === 0 || sync === "true" || sync === "1") {
+        try {
+          if (repoId && allRepoIds.includes(repoId)) {
+            await syncCommitsForRepository(repoId, req.user?.id);
+          } else {
+            await syncCommitsForProject(projectId, req.user?.id);
+          }
+        } catch (syncErr) {
+          logger.warn("Auto-syncing commits encountered an issue: %s", syncErr.message);
+        }
+      }
+    }
+
+    // Set up timeframe buckets and date boundary
     const now = new Date();
-    const daysCount = range === "90d" ? 90 : 30;
-    const windowStart = new Date(now.getTime() - (daysCount - 1) * 24 * 60 * 60 * 1000);
-    windowStart.setHours(0, 0, 0, 0);
+    let startDate = new Date();
+    let trendMap = [];
+
+    if (timeframe === "weekly") {
+      // 7 Days
+      startDate.setDate(startDate.getDate() - 6);
+      startDate.setHours(0, 0, 0, 0);
+
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        const dateKey = d.toISOString().split("T")[0];
+        const weekday = d.toLocaleDateString("en-US", { weekday: "short" });
+        const monthDay = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+        trendMap.push({
+          key: dateKey,
+          day: `${weekday} ${monthDay}`,
+          shortLabel: weekday,
+          date: dateKey,
+          count: 0
+        });
+      }
+    } else if (timeframe === "yearly") {
+      // 12 Months
+      startDate.setFullYear(startDate.getFullYear() - 1);
+      startDate.setDate(1);
+      startDate.setHours(0, 0, 0, 0);
+
+      for (let i = 11; i >= 0; i--) {
+        const d = new Date();
+        d.setMonth(d.getMonth() - i);
+        const ymKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+        const monthName = d.toLocaleDateString("en-US", { month: "short" });
+        const yearLabel = d.toLocaleDateString("en-US", { month: "short", year: "2-digit" });
+        trendMap.push({
+          key: ymKey,
+          day: yearLabel,
+          shortLabel: monthName,
+          date: ymKey,
+          count: 0
+        });
+      }
+    } else {
+      // Default: monthly (30 Days)
+      startDate.setDate(startDate.getDate() - 29);
+      startDate.setHours(0, 0, 0, 0);
+
+      for (let i = 29; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        const dateKey = d.toISOString().split("T")[0];
+        const monthDay = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+        trendMap.push({
+          key: dateKey,
+          day: monthDay,
+          shortLabel: dateKey.slice(5),
+          date: dateKey,
+          count: 0
+        });
+      }
+    }
 
     const commitsInWindow = await prisma.commit.findMany({
       where: {
         repoId: { in: targetRepoIds },
-        committedAt: { gte: windowStart }
+        committedAt: { gte: startDate }
       },
-      select: { committedAt: true }
-    });
-
-    // Generate real sequential days ending at today
-    const trendMap = {};
-    for (let i = daysCount - 1; i >= 0; i--) {
-      const d = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
-      const dateStr = d.toISOString().split("T")[0];
-      trendMap[dateStr] = 0;
-    }
-
-    commitsInWindow.forEach(commit => {
-      const dateStr = commit.committedAt.toISOString().split("T")[0];
-      if (trendMap[dateStr] !== undefined) {
-        trendMap[dateStr]++;
+      orderBy: { committedAt: "desc" },
+      select: {
+        id: true,
+        sha: true,
+        message: true,
+        authorName: true,
+        committedAt: true,
+        repoId: true
       }
     });
 
-    const commitTrend = Object.keys(trendMap).map(day => ({
-      day,
-      count: trendMap[day]
-    }));
-
-    // Calculate active commit days (exact days with commit activity)
-    const allCommits = await prisma.commit.findMany({
-      where: { repoId: { in: targetRepoIds } },
-      select: { committedAt: true },
-      orderBy: { committedAt: "asc" }
+    const mapByKey = new Map(trendMap.map(t => [t.key, t]));
+    commits.forEach(commit => {
+      let key;
+      if (timeframe === "yearly") {
+        const d = new Date(commit.committedAt);
+        key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      } else {
+        key = commit.committedAt.toISOString().split("T")[0];
+      }
+      if (mapByKey.has(key)) {
+        mapByKey.get(key).count++;
+      }
     });
 
-    const activeDaysMap = {};
-    allCommits.forEach(c => {
-      const dateStr = c.committedAt.toISOString().split("T")[0];
-      activeDaysMap[dateStr] = (activeDaysMap[dateStr] || 0) + 1;
+    const commitDetails = commits.map(c => {
+      const repoObj = repoMap.get(c.repoId);
+      const repoName = repoObj ? repoObj.name : "Repository";
+      return {
+        id: c.id,
+        sha: c.sha.slice(0, 7),
+        fullSha: c.sha,
+        message: c.message,
+        authorName: c.authorName,
+        committedAt: c.committedAt,
+        repoId: c.repoId,
+        repoName,
+        url: repoObj ? `https://github.com/${repoObj.name}/commit/${c.sha}` : null
+      };
     });
-
-    const activeCommitDays = Object.keys(activeDaysMap).map(day => ({
-      day,
-      count: activeDaysMap[day]
-    }));
 
     // 4. Recent activity feed (last 20 events)
     const recentActivity = await prisma.activityLog.findMany({
@@ -150,9 +231,11 @@ const getDashboardMetrics = async (req, res) => {
     return sendSuccess(res, 200, "Dashboard metrics compiled", {
       statusDistribution,
       activeSprint: activeSprintData,
-      commitTrend,
-      activeCommitDays,
-      totalCommitsCount: allCommits.length,
+      commitTrend: trendMap,
+      commits: commitDetails,
+      timeframe,
+      selectedRepoId: (repoId && allRepoIds.includes(repoId)) ? repoId : null,
+      totalCommitsInPeriod: commits.length,
       recentActivity,
       bugRiskSummary
     });
@@ -316,8 +399,31 @@ const getBugRiskReport = async (req, res) => {
   }
 };
 
+/**
+ * Synchronize commits for a workspace or specific repository on demand
+ */
+const syncProjectCommits = async (req, res) => {
+  const projectId = req.params.id;
+  const { repoId } = req.body || {};
+
+  try {
+    let result;
+    if (repoId) {
+      result = await syncCommitsForRepository(repoId, req.user?.id);
+    } else {
+      result = await syncCommitsForProject(projectId, req.user?.id);
+    }
+    return sendSuccess(res, 200, "Commits synced successfully from GitHub", result);
+  } catch (err) {
+    logger.error("Error syncing project commits: %o", err);
+    return sendError(res, 500, "Failed to sync commits: " + err.message);
+  }
+};
+
 module.exports = {
   getDashboardMetrics,
   getSprintReport,
-  getBugRiskReport
+  getBugRiskReport,
+  syncProjectCommits
 };
+

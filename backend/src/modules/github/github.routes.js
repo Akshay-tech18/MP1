@@ -3,8 +3,13 @@ const { protect } = require("../../middleware/auth.middleware");
 const { checkProjectRole } = require("../../middleware/rbac.middleware");
 const { verifyGitHubWebhook } = require("../../middleware/webhook.middleware");
 const {
+  getGitHubStatus,
+  connectGitHubToken,
+  disconnectGitHub,
   getAvailableRepos,
   linkRepository,
+  unlinkRepository,
+  triggerSyncCommits,
   listRepositories,
   getCommits,
   getAllProjectCommits,
@@ -16,6 +21,9 @@ const { handleGitHubWebhook } = require("./webhook.handler");
 // 1. User GitHub Router (General GitHub queries for the authenticated user)
 const userGithubRouter = express.Router();
 userGithubRouter.use(protect);
+userGithubRouter.get("/status", getGitHubStatus);
+userGithubRouter.post("/connect", connectGitHubToken);
+userGithubRouter.delete("/disconnect", disconnectGitHub);
 userGithubRouter.get("/repos", getAvailableRepos);
 
 // 1. Webhook Router (Unauthenticated from client-side, verified via HMAC signature)
@@ -35,6 +43,18 @@ repositoryRouter.post(
   "/",
   checkProjectRole("MANAGER"),
   linkRepository
+);
+
+repositoryRouter.delete(
+  "/:repoId",
+  checkProjectRole("MANAGER"),
+  unlinkRepository
+);
+
+repositoryRouter.post(
+  "/:repoId/sync",
+  checkProjectRole("MANAGER", "DEVELOPER"),
+  triggerSyncCommits
 );
 
 repositoryRouter.get(

@@ -2,7 +2,6 @@ const express = require("express");
 const helmet = require("helmet");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
-const rateLimit = require("express-rate-limit");
 const passport = require("./src/config/passport");
 const prisma = require("./src/config/db");
 const { errorHandler } = require("./src/middleware/error.middleware");
@@ -33,21 +32,6 @@ app.use(
   })
 );
 
-// 3. Rate Limiting: 100 requests per 15 minutes per IP
-const apiLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 mins
-  max: 100,
-  message: {
-    success: false,
-    message: "Too many requests from this IP, please try again after 15 minutes."
-  },
-  standardHeaders: true,
-  legacyHeaders: false
-});
-
-// Apply rate limiting to all /api routes
-app.use("/api", apiLimiter);
-
 // 4. GitHub Routes
 const { webhookRouter, repositoryRouter, userGithubRouter } = require("./src/modules/github/github.routes");
 app.use("/api/webhooks", webhookRouter); // MUST BE MOUNTED BEFORE express.json()
@@ -61,19 +45,12 @@ app.use(cookieParser());
 // 6. Initialize Passport Auth Strategies
 app.use(passport.initialize());
 
-// Health Check Rate Limiter: 10 requests per minute
-const healthLimiter = rateLimit({
-  windowMs: 1 * 60 * 1000,
-  max: 10,
-  message: "Too many health check requests, please try again later."
-});
-
 // 7. Health Check Endpoints
-app.get("/health", healthLimiter, (req, res) => {
+app.get("/health", (req, res) => {
   return sendSuccess(res, 200, "Server is online and healthy");
 });
 
-app.get("/health/db", healthLimiter, async (req, res) => {
+app.get("/health/db", async (req, res) => {
   try {
     // Run simple query to check DB availability
     await prisma.$queryRaw`SELECT 1`;

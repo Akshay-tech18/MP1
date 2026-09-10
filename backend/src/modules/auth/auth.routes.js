@@ -25,10 +25,14 @@ router.get(
 );
 
 // GitHub OAuth
-router.get(
-  "/github",
-  passport.authenticate("github", { scope: ["user:email", "repo"], session: false })
-);
+router.get("/github", (req, res, next) => {
+  const state = req.query.token || req.cookies?.accessToken || "";
+  passport.authenticate("github", {
+    scope: ["user:email", "repo"],
+    session: false,
+    state: state ? String(state) : undefined,
+  })(req, res, next);
+});
 
 router.get(
   "/github/callback",

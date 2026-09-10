@@ -1,11 +1,128 @@
 const crypto = require("crypto");
 const { Octokit } = require("@octokit/rest");
 const prisma = require("../../config/db");
-const { decrypt } = require("../../utils/crypto.utils");
+const { encrypt, decrypt } = require("../../utils/crypto.utils");
 const { sendSuccess, sendError } = require("../../utils/response.utils");
 const { PullRequestState } = require("../../config/constants");
 const { parseCommitForTasks } = require("./commit.parser");
 const logger = require("../../utils/logger");
+const { syncCommitsForRepository } = require("./github.service");
+
+/**
+ * Get GitHub connection status for the authenticated user
+ */
+const getGitHubStatus = async (req, res) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.id },
+      select: { githubToken: true, githubId: true }
+    });
+
+    if (!user || !user.githubToken) {
+      return sendSuccess(res, 200, "GitHub not connected", {
+        connected: false
+      });
+    }
+
+    try {
+      const decryptedToken = decrypt(user.githubToken);
+      const octokit = new Octokit({ auth: decryptedToken });
+      const { data: ghUser } = await octokit.users.getAuthenticated();
+
+      return sendSuccess(res, 200, "GitHub connected", {
+        connected: true,
+        user: {
+          id: ghUser.id,
+          username: ghUser.login,
+          name: ghUser.name || ghUser.login,
+          avatarUrl: ghUser.avatar_url,
+          profileUrl: ghUser.html_url,
+          publicRepos: ghUser.public_repos,
+          totalPrivateRepos: ghUser.total_private_repos || 0
+        }
+      });
+    } catch (apiErr) {
+      logger.warn("Stored GitHub token is invalid or revoked: %s", apiErr.message);
+      return sendSuccess(res, 200, "GitHub token expired or revoked", {
+        connected: false,
+        error: "GitHub token has expired or was revoked. Please reconnect."
+      });
+    }
+  } catch (error) {
+    logger.error("Error getting GitHub status: %o", error);
+    return sendError(res, 500, "Failed to check GitHub connection status");
+  }
+};
+
+/**
+ * Connect GitHub account using Personal Access Token (PAT)
+ */
+const connectGitHubToken = async (req, res) => {
+  try {
+    const { token } = req.body;
+    if (!token || typeof token !== "string" || !token.trim()) {
+      return sendError(res, 400, "GitHub Personal Access Token is required");
+    }
+
+    const cleanToken = token.trim();
+    const octokit = new Octokit({ auth: cleanToken });
+
+    // Validate token with GitHub
+    let ghUser;
+    try {
+      const resp = await octokit.users.getAuthenticated();
+      ghUser = resp.data;
+    } catch (err) {
+      return sendError(res, 401, "Invalid GitHub token. Please ensure the token is active and includes 'repo' scope.");
+    }
+
+    // Encrypt and store token
+    const encryptedToken = encrypt(cleanToken);
+    await prisma.user.update({
+      where: { id: req.user.id },
+      data: {
+        githubId: String(ghUser.id),
+        githubToken: encryptedToken
+      }
+    });
+
+    return sendSuccess(res, 200, `Successfully connected to GitHub as @${ghUser.login}`, {
+      connected: true,
+      user: {
+        id: ghUser.id,
+        username: ghUser.login,
+        name: ghUser.name || ghUser.login,
+        avatarUrl: ghUser.avatar_url,
+        profileUrl: ghUser.html_url
+      }
+    });
+  } catch (error) {
+    logger.error("Error connecting GitHub token: %o", error);
+    return sendError(res, 500, "Failed to connect GitHub token: " + error.message);
+  }
+};
+
+/**
+ * Disconnect GitHub account
+ */
+const disconnectGitHub = async (req, res) => {
+  try {
+    await prisma.user.update({
+      where: { id: req.user.id },
+      data: {
+        githubToken: null,
+        githubId: null
+      }
+    });
+
+    return sendSuccess(res, 200, "GitHub disconnected successfully", {
+      connected: false
+    });
+  } catch (error) {
+    logger.error("Error disconnecting GitHub: %o", error);
+    return sendError(res, 500, "Failed to disconnect GitHub account");
+  }
+};
 
 /**
  * Get all GitHub repositories available to the authenticated user
@@ -18,13 +135,16 @@ const getAvailableRepos = async (req, res) => {
     });
 
     if (!user || !user.githubToken) {
-      return sendError(res, 400, "Please connect your GitHub account to access repositories.");
+      return sendError(res, 400, "Please connect your GitHub account to access repositories.", {
+        connected: false,
+        repositories: []
+      });
     }
 
     const decryptedToken = decrypt(user.githubToken);
     const octokit = new Octokit({ auth: decryptedToken });
 
-    // Fetch user repos (we only want ones they can administer to set up webhooks)
+    // Fetch user repos (all repos user has access to)
     const response = await octokit.repos.listForAuthenticatedUser({
       visibility: "all",
       affiliation: "owner,collaborator,organization_member",
@@ -32,24 +152,42 @@ const getAvailableRepos = async (req, res) => {
       per_page: 100
     });
 
-    // Filter for admin permissions so we can create webhooks
-    const availableRepos = response.data
-      .filter(repo => repo.permissions && repo.permissions.admin)
-      .map(repo => ({
+    // Check which repos are already linked to projects
+    const linkedRepos = await prisma.repository.findMany({
+      select: { githubRepoId: true, name: true, projectId: true }
+    });
+    const linkedRepoMap = new Map(linkedRepos.map((r) => [r.name.toLowerCase(), r]));
+
+    const availableRepos = response.data.map((repo) => {
+      const isLinked = linkedRepoMap.has(repo.full_name.toLowerCase());
+      const linkedInfo = linkedRepoMap.get(repo.full_name.toLowerCase());
+
+      return {
         id: repo.id,
-        name: repo.full_name, // e.g., "owner/repo"
+        name: repo.name,
+        fullName: repo.full_name, // e.g. "owner/repo"
+        owner: repo.owner?.login || "",
+        ownerAvatar: repo.owner?.avatar_url || "",
         private: repo.private,
         url: repo.html_url,
-        updatedAt: repo.updated_at
-      }));
+        description: repo.description || "No description provided",
+        updatedAt: repo.updated_at,
+        stars: repo.stargazers_count || 0,
+        language: repo.language || "Code",
+        defaultBranch: repo.default_branch || "main",
+        isLinked,
+        linkedProjectId: linkedInfo?.projectId || null
+      };
+    });
 
     return sendSuccess(res, 200, "Available repositories retrieved", {
+      connected: true,
       repositories: availableRepos,
       repos: availableRepos
     });
   } catch (error) {
     logger.error("Get available repos error: %o", error);
-    return sendError(res, 500, "Failed to retrieve repositories from GitHub");
+    return sendError(res, 500, "Failed to retrieve repositories from GitHub: " + error.message);
   }
 };
 
@@ -58,10 +196,10 @@ const getAvailableRepos = async (req, res) => {
  */
 const linkRepository = async (req, res) => {
   const projectId = req.params.id;
-  const { repoName } = req.body; // format "owner/repo"
-
-  if (!repoName || !repoName.includes("/")) {
-    return sendError(res, 400, "Repository name must be in format 'owner/repo'");
+  const { repoName } = req.body || {};
+  let targetRepoName = repoName ? String(repoName).trim() : "";
+  if (!targetRepoName) {
+    return sendError(res, 400, "Repository name is required");
   }
 
   try {
@@ -76,12 +214,12 @@ const linkRepository = async (req, res) => {
       if (process.env.NODE_ENV !== "production") {
         logger.warn("No GitHub token found for user. Creating a mock repository in development mode.");
         const mockRepoId = Math.floor(Math.random() * 100000000);
-        const [owner, repo] = repoName.split("/");
+        const [owner, repo] = targetRepoName.includes("/") ? targetRepoName.split("/") : ["dev", targetRepoName];
         
         const dbRepo = await prisma.repository.create({
           data: {
             githubRepoId: String(mockRepoId),
-            name: repoName,
+            name: targetRepoName,
             owner,
             webhookSecret: crypto.randomBytes(32).toString("hex"),
             projectId
@@ -95,9 +233,23 @@ const linkRepository = async (req, res) => {
     }
 
     const decryptedToken = decrypt(user.githubToken);
-    const [owner, repo] = repoName.split("/");
-
     const octokit = new Octokit({ auth: decryptedToken });
+
+    // Auto-resolve owner if not present in targetRepoName
+    let owner = "";
+    let repo = "";
+    if (!targetRepoName.includes("/")) {
+      try {
+        const { data: ghUser } = await octokit.users.getAuthenticated();
+        owner = ghUser.login;
+        repo = targetRepoName;
+        targetRepoName = `${owner}/${repo}`;
+      } catch (e) {
+        return sendError(res, 400, "Could not determine repository owner. Format must be 'owner/repo'");
+      }
+    } else {
+      [owner, repo] = targetRepoName.split("/");
+    }
     let repoDetails;
 
     // 2. Fetch repo metadata from GitHub API
@@ -147,25 +299,40 @@ const linkRepository = async (req, res) => {
       // In development or if hook exists, continue so repository is still linked in DB
     }
 
-    // 5. Store Repo details in DB
-    const dbRepo = await prisma.repository.create({
-      data: {
-        githubRepoId: String(repoDetails.id),
-        name: repoName,
-        owner,
-        webhookSecret,
-        projectId
-      }
+    // 5. Store or update Repo details in DB
+    const existingRepo = await prisma.repository.findUnique({
+      where: { githubRepoId: String(repoDetails.id) }
     });
 
-    // 6. Automatically sync initial commits from GitHub
-    try {
-      await syncCommitsHelper(octokit, dbRepo, req);
-    } catch (syncErr) {
-      logger.warn("Initial commit sync warning: %s", syncErr.message);
+    let dbRepo;
+    if (existingRepo) {
+      dbRepo = await prisma.repository.update({
+        where: { id: existingRepo.id },
+        data: {
+          projectId,
+          name: targetRepoName,
+          owner,
+          webhookSecret
+        }
+      });
+    } else {
+      dbRepo = await prisma.repository.create({
+        data: {
+          githubRepoId: String(repoDetails.id),
+          name: targetRepoName,
+          owner,
+          webhookSecret,
+          projectId
+        }
+      });
     }
 
-    return sendSuccess(res, 201, "Repository linked and commits synced successfully", { repository: dbRepo });
+    // Immediately trigger initial commit sync in background
+    syncCommitsForRepository(dbRepo.id, req.user.id).catch((err) => {
+      logger.warn("Initial commit sync failed for %s: %s", targetRepoName, err.message);
+    });
+
+    return sendSuccess(res, 201, "Repository linked and webhook registered successfully", { repository: dbRepo });
   } catch (error) {
     logger.error("Link repository error: %o", error);
     return sendError(res, 500, "Failed to link repository");
@@ -323,171 +490,67 @@ const getPullRequests = async (req, res) => {
 };
 
 /**
- * Helper to sync commits and PRs from GitHub REST API
+ * Unlink a repository from a workspace
  */
-async function syncCommitsHelper(octokit, repo, req = null) {
-  const [owner, repoName] = repo.name.split("/");
-  logger.info(`Starting GitHub commit sync for ${repo.name}...`);
-
-  let commitsData = [];
-  try {
-    const commitsRes = await octokit.repos.listCommits({
-      owner,
-      repo: repoName,
-      per_page: 100
-    });
-    commitsData = commitsRes.data || [];
-  } catch (err) {
-    logger.warn(`Could not list commits from GitHub for ${repo.name}: %s`, err.message);
-    return [];
-  }
-
-  const processedCommits = [];
-  for (const item of commitsData) {
-    const sha = item.sha;
-    const message = item.commit?.message || "No commit message";
-    const authorName = item.commit?.author?.name || item.author?.login || item.commit?.committer?.name || "Unknown Author";
-    const rawDate = item.commit?.author?.date || item.commit?.committer?.date;
-    const committedAt = rawDate ? new Date(rawDate) : new Date();
-
-    let filesChanged = [];
-    try {
-      const detail = await octokit.repos.getCommit({
-        owner,
-        repo: repoName,
-        ref: sha
-      });
-      filesChanged = (detail.data.files || []).map(f => f.filename);
-    } catch (err) {
-      filesChanged = [];
-    }
-
-    const commitRecord = await prisma.commit.upsert({
-      where: {
-        repoId_sha: { repoId: repo.id, sha }
-      },
-      update: {
-        message,
-        authorName,
-        filesChanged,
-        committedAt
-      },
-      create: {
-        sha,
-        message,
-        authorName,
-        filesChanged,
-        committedAt,
-        repoId: repo.id
-      }
-    });
-
-    try {
-      await parseCommitForTasks(req, repo.projectId, commitRecord);
-    } catch (parseErr) {
-      logger.warn("Parse commit task reference warning: %s", parseErr.message);
-    }
-    processedCommits.push(commitRecord);
-  }
-
-  // Also sync Pull Requests
-  try {
-    const prsRes = await octokit.pulls.list({
-      owner,
-      repo: repoName,
-      state: "all",
-      per_page: 30
-    });
-
-    for (const pr of prsRes.data || []) {
-      let prState = PullRequestState.OPEN;
-      if (pr.merged_at) {
-        prState = PullRequestState.MERGED;
-      } else if (pr.state === "closed") {
-        prState = PullRequestState.CLOSED;
-      }
-
-      await prisma.pullRequest.upsert({
-        where: {
-          repoId_githubPrNumber: { repoId: repo.id, githubPrNumber: pr.number }
-        },
-        update: {
-          title: pr.title,
-          state: prState,
-          mergedAt: pr.merged_at ? new Date(pr.merged_at) : null
-        },
-        create: {
-          githubPrNumber: pr.number,
-          title: pr.title,
-          state: prState,
-          mergedAt: pr.merged_at ? new Date(pr.merged_at) : null,
-          repoId: repo.id
-        }
-      });
-    }
-  } catch (prErr) {
-    logger.warn(`Could not sync PRs for ${repo.name}: %s`, prErr.message);
-  }
-
-  logger.info(`Successfully synced ${processedCommits.length} commits for ${repo.name}`);
-  return processedCommits;
-}
-
-/**
- * Controller to manually trigger commit and PR sync for a repository
- */
-const syncRepositoryCommits = async (req, res) => {
+const unlinkRepository = async (req, res) => {
   const { id: projectId, repoId } = req.params;
 
   try {
     const repo = await prisma.repository.findFirst({
-      where: { id: repoId, projectId },
-      include: {
-        project: {
-          include: {
-            owner: { select: { githubToken: true } },
-            members: {
-              include: { user: { select: { githubToken: true } } }
-            }
-          }
-        }
-      }
+      where: { id: repoId, projectId }
     });
 
     if (!repo) {
-      return sendError(res, 404, "Repository not found in this project");
+      return sendError(res, 404, "Repository not found in this workspace");
     }
 
-    const currentUser = await prisma.user.findUnique({
-      where: { id: req.user.id },
-      select: { githubToken: true }
+    await prisma.repository.delete({
+      where: { id: repo.id }
     });
 
-    const tokenEncrypted = currentUser?.githubToken || repo.project.owner?.githubToken ||
-      repo.project.members.find(m => m.user?.githubToken)?.user?.githubToken;
+    logger.info(`Repository '${repo.name}' unlinked from workspace '${projectId}'`);
+    return sendSuccess(res, 200, `Repository ${repo.name} unlinked from workspace`);
+  } catch (error) {
+    logger.error("Unlink repository error: %o", error);
+    return sendError(res, 500, "Failed to unlink repository: " + error.message);
+  }
+};
 
-    if (!tokenEncrypted) {
-      return sendError(res, 400, "Please connect your GitHub account to sync repositories.");
+/**
+ * Trigger on-demand sync for a repository in a workspace
+ */
+const triggerSyncCommits = async (req, res) => {
+  const { id: projectId, repoId } = req.params;
+
+  try {
+    const repo = await prisma.repository.findFirst({
+      where: { id: repoId, projectId }
+    });
+
+    if (!repo) {
+      return sendError(res, 404, "Repository not found in this workspace");
     }
 
-    const decryptedToken = decrypt(tokenEncrypted);
-    const octokit = new Octokit({ auth: decryptedToken });
+    const result = await syncCommitsForRepository(repo.id, req.user.id);
+    if (!result.success && result.error) {
+      return sendError(res, 400, result.error);
+    }
 
-    const syncedCommits = await syncCommitsHelper(octokit, repo, req);
-
-    return sendSuccess(res, 200, `Successfully synced ${syncedCommits.length} commit(s) from GitHub`, {
-      syncedCount: syncedCommits.length,
-      commits: syncedCommits
-    });
+    return sendSuccess(res, 200, `Successfully synced ${result.count || 0} commits`, result);
   } catch (error) {
     logger.error("Sync repository commits error: %o", error);
-    return sendError(res, 500, `Failed to sync commits: ${error.message}`);
+    return sendError(res, 500, "Failed to sync commits: " + error.message);
   }
 };
 
 module.exports = {
+  getGitHubStatus,
+  connectGitHubToken,
+  disconnectGitHub,
   getAvailableRepos,
   linkRepository,
+  unlinkRepository,
+  triggerSyncCommits,
   listRepositories,
   getCommits,
   getAllProjectCommits,

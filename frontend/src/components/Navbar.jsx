@@ -1,21 +1,39 @@
 import React, { useState, useRef, useEffect } from "react";
+import { AnimatePresence } from "framer-motion";
 import useAuthStore from "../store/useAuthStore";
 import useSocketStore from "../store/useSocketStore";
 import useNotificationStore from "../store/useNotificationStore";
 import VideoMeetingModal from "./VideoMeetingModal";
+import WorkspaceDropdown from "./WorkspaceDropdown";
+import ThemeToggle from "./ThemeToggle";
+import ProfilePopover from "./ProfilePopover";
 import {
   Search,
   Video,
   Bell,
   CheckCheck,
-  ExternalLink,
   Clock,
   Sparkles,
+  Github,
 } from "lucide-react";
+import GitIntegrationModal from "./GitIntegrationModal";
 import { useNavigate } from "react-router-dom";
 
+// Flower SVG icon matching ClickUp Brain / Nexus
+function BrainFlowerIcon({ className = "w-3.5 h-3.5" }) {
+  return (
+    <svg viewBox="0 0 24 24" className={className} fill="none">
+      <circle cx="12" cy="7" r="3.8" fill="#38bdf8" />
+      <circle cx="17" cy="12" r="3.8" fill="#c084fc" />
+      <circle cx="12" cy="17" r="3.8" fill="#f472b6" />
+      <circle cx="7" cy="12" r="3.8" fill="#34d399" />
+      <circle cx="12" cy="12" r="2.2" fill="#ffffff" />
+    </svg>
+  );
+}
+
 export default function Navbar() {
-  const { user, currentProject } = useAuthStore();
+  const { user, currentProject, logout } = useAuthStore();
   const { connected } = useSocketStore();
   const {
     notifications,
@@ -27,8 +45,19 @@ export default function Navbar() {
 
   const [showNotifications, setShowNotifications] = useState(false);
   const [isMeetingOpen, setIsMeetingOpen] = useState(false);
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
+  const [showGitModal, setShowGitModal] = useState(false);
   const notifDropdownRef = useRef(null);
   const navigate = useNavigate();
+
+  const initials = user?.name
+    ? user.name
+        .split(" ")
+        .map((n) => n[0])
+        .slice(0, 2)
+        .join("")
+        .toUpperCase()
+    : "AP";
 
   // Close notifications dropdown when clicking outside
   useEffect(() => {
@@ -69,86 +98,112 @@ export default function Navbar() {
   };
 
   return (
-    <div className="h-14 glass-sidebar border-b px-5 flex items-center justify-between select-none flex-shrink-0 relative z-20">
-      {/* Left: Space Breadcrumb */}
-      <div className="flex items-center gap-2.5">
-        <span className="font-display font-bold text-[15px] dark:text-dp-text-primary text-dp-text-light-primary tracking-tight">
-          {currentProject ? currentProject.name : "DevPilot Workspace"}
-        </span>
-        {currentProject && (
-          <span className="text-[11px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full dark:bg-dp-success/10 bg-dp-success/10 dark:text-dp-success text-dp-success">
-            {currentProject.status?.toLowerCase()}
-          </span>
-        )}
+    <div className="h-12 dark:bg-[#090b10] bg-white border-b dark:border-white/[0.08] border-slate-200 px-4 flex items-center justify-between select-none flex-shrink-0 relative z-20 transition-colors duration-200">
+      {/* Left: Workspace Dropdown Switcher (Matching Screenshot 2) */}
+      <div className="flex items-center gap-2">
+        <WorkspaceDropdown />
       </div>
 
-      {/* Center: Search Bar (Command Palette trigger placeholder) */}
-      <div className="hidden md:flex items-center">
-        <div className="relative group">
-          <div className="flex items-center gap-2.5 px-4 py-2 rounded-xl dark:bg-dp-dark-surface/60 bg-dp-light-bg-secondary/80 border dark:border-dp-dark-border-light/50 border-dp-light-border/80 cursor-pointer transition-all duration-200 dark:hover:border-dp-primary/30 hover:border-dp-primary/20 min-w-[260px]">
-            <Search className="w-4 h-4 dark:text-dp-text-muted text-dp-text-light-muted" />
-            <span className="text-[13px] dark:text-dp-text-muted text-dp-text-light-muted font-medium">
-              Search workspace...
-            </span>
-            <div className="ml-auto flex items-center gap-1">
-              <kbd className="text-[11px] dark:text-dp-text-muted text-dp-text-light-muted dark:bg-dp-dark-elevated/80 bg-dp-light-border/60 px-1.5 py-0.5 rounded font-mono">
-                ⌘
-              </kbd>
-              <kbd className="text-[11px] dark:text-dp-text-muted text-dp-text-light-muted dark:bg-dp-dark-elevated/80 bg-dp-light-border/60 px-1.5 py-0.5 rounded font-mono">
-                K
-              </kbd>
-            </div>
-          </div>
+      {/* Center: Search Bar & AI Chats Pill */}
+      <div className="hidden md:flex items-center gap-2">
+        {/* Search Command Trigger */}
+        <div className="flex items-center gap-2 px-3 py-1 rounded-lg dark:bg-white/5 bg-slate-100 border dark:border-white/[0.08] border-slate-200 cursor-pointer hover:border-slate-300 dark:hover:border-white/20 transition-colors w-56 dark:text-slate-400 text-slate-500">
+          <Search className="w-3.5 h-3.5" />
+          <span className="text-xs font-medium">Search</span>
+          <kbd className="ml-auto text-[10px] dark:bg-white/10 bg-slate-200 px-1 py-0.2 rounded font-mono dark:text-slate-300 text-slate-600">
+            ⌘K
+          </kbd>
         </div>
+
+        {/* AI Chats Pill */}
+        <button
+          onClick={() => navigate("/ai")}
+          className="flex items-center gap-1.5 px-3 py-1 rounded-lg dark:bg-white/5 bg-slate-100 hover:bg-slate-200 dark:hover:bg-white/10 border dark:border-white/[0.08] border-slate-200 hover:border-indigo-500/30 text-xs font-medium dark:text-slate-300 text-slate-700 hover:text-slate-900 dark:hover:text-white transition-all group"
+        >
+          <span>AI Chats</span>
+          <BrainFlowerIcon className="w-3.5 h-3.5 group-hover:rotate-45 transition-transform" />
+        </button>
+
+        {/* GitHub Integration Pill Button */}
+        <button
+          onClick={() => setShowGitModal(true)}
+          className="flex items-center gap-1.5 px-3 py-1 rounded-lg dark:bg-white/5 bg-slate-100 hover:bg-slate-200 dark:hover:bg-white/10 border dark:border-white/[0.08] border-slate-200 hover:border-indigo-500/30 text-xs font-medium dark:text-slate-300 text-slate-700 hover:text-slate-900 dark:hover:text-white transition-all group"
+          title="GitHub Integration & Repositories"
+        >
+          <Github className="w-3.5 h-3.5 text-slate-400 group-hover:text-indigo-400 transition-colors" />
+          <span>Git Integration</span>
+        </button>
       </div>
 
       {/* Right: Actions */}
-      <div className="flex items-center gap-3">
-        {/* WebSocket Real-time Sync Indicator */}
-        <div
-          className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg"
-          title={connected ? "Real-time sync active" : "Connecting..."}
+      <div className="flex items-center gap-2">
+        {/* Mobile Git Integration button */}
+        <button
+          onClick={() => setShowGitModal(true)}
+          className="md:hidden w-8 h-8 rounded-lg flex items-center justify-center dark:text-slate-400 text-slate-600 dark:hover:text-white hover:text-slate-900 transition-colors hover:bg-white/5"
+          title="GitHub Integration"
         >
-          <span
-            className={`w-2 h-2 rounded-full ${
-              connected ? "bg-dp-success animate-pulse" : "bg-dp-warning"
-            }`}
-          />
-          <span className="text-[12px] font-medium dark:text-dp-text-muted text-dp-text-light-muted hidden lg:inline">
-            {connected ? "Live" : "Sync"}
-          </span>
+          <Github className="w-4 h-4" />
+        </button>
+
+        {/* Sun / Moon Direct Theme Switcher Button */}
+        <ThemeToggle />
+
+        {/* User Profile Avatar & Details Popover (Directly to the right of Dark/Light theme button) */}
+        <div className="relative">
+          <button
+            onClick={() => setIsProfileOpen((prev) => !prev)}
+            className="w-8 h-8 rounded-full bg-slate-700 hover:bg-slate-600 flex items-center justify-center text-[11px] font-bold text-white relative hover:ring-2 hover:ring-indigo-500/50 transition-all shadow-sm flex-shrink-0 active:scale-95"
+            title={user?.name ? `${user.name} Profile` : "Account Profile"}
+          >
+            <span>{initials}</span>
+          </button>
+
+          <AnimatePresence>
+            {isProfileOpen && (
+              <ProfilePopover
+                user={user}
+                isOpen={isProfileOpen}
+                onClose={() => setIsProfileOpen(false)}
+                onLogout={logout}
+              />
+            )}
+          </AnimatePresence>
         </div>
 
-        {/* ══════ In-App Notifications Bell ══════ */}
+        {/* In-App Notifications Bell */}
         <div className="relative" ref={notifDropdownRef}>
           <button
             onClick={() => setShowNotifications(!showNotifications)}
-            className={`relative w-8 h-8 rounded-xl flex items-center justify-center transition-colors ${
+            className={`relative w-8 h-8 rounded-lg flex items-center justify-center transition-colors ${
               showNotifications
-                ? "dark:bg-dp-primary/20 bg-dp-primary/10 text-dp-primary"
-                : "dark:hover:bg-dp-dark-surface-hover hover:bg-dp-light-bg-secondary dark:text-dp-text-muted text-dp-text-light-muted hover:text-dp-primary"
+                ? "bg-white/10 text-white"
+                : "hover:bg-white/5 text-slate-400 hover:text-slate-200"
             }`}
             title="Notifications"
           >
             <Bell className="w-4 h-4" />
             {unreadCount > 0 && (
-              <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 bg-gradient-to-r from-dp-primary to-dp-accent text-white text-[10px] font-bold rounded-full flex items-center justify-center shadow-lg animate-pulse">
+              <span className="absolute -top-1 -right-1 min-w-[16px] h-[16px] px-1 bg-pink-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center shadow-lg animate-pulse">
                 {unreadCount > 99 ? "99+" : unreadCount}
               </span>
             )}
           </button>
 
-          {/* Notifications Flyout Dropdown */}
+          {/* Notifications Flyout Dropdown (Apple-Level Frosted Glassmorphism) */}
           {showNotifications && (
-            <div className="absolute right-0 mt-2 w-80 sm:w-96 glass-card glossy-card rounded-2xl shadow-2xl z-50 overflow-hidden flex flex-col border dark:border-dp-dark-border-light border-dp-light-border animate-in fade-in zoom-in-95 duration-150">
+            <div className="absolute right-0 mt-2 w-80 sm:w-96 rounded-3xl shadow-[0_25px_60px_rgba(0,0,0,0.85),inset_0_1px_1px_rgba(255,255,255,0.18)] z-50 overflow-hidden flex flex-col border dark:border-white/[0.12] border-slate-200 dark:bg-[#0c0f18]/90 bg-white/95 backdrop-blur-3xl dark:text-slate-200 text-slate-800 animate-in fade-in zoom-in-95 duration-150">
+              {/* Specular line */}
+              <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-white/25 to-transparent pointer-events-none" />
+
               {/* Header */}
-              <div className="p-3.5 px-4 border-b dark:border-dp-dark-border-light/50 border-dp-light-border flex items-center justify-between">
+              <div className="p-3.5 px-4 border-b dark:border-white/[0.08] border-slate-200 flex items-center justify-between dark:bg-white/[0.02] bg-slate-50/50">
                 <div className="flex items-center gap-2">
-                  <h4 className="font-display font-bold text-xs uppercase tracking-wider dark:text-dp-text-primary text-dp-text-light-primary">
+                  <h4 className="font-bold text-xs uppercase tracking-wider dark:text-white text-slate-900">
                     Notifications
                   </h4>
                   {unreadCount > 0 && (
-                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-dp-primary/15 text-dp-primary">
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/20 border border-indigo-500/30 text-indigo-400">
                       {unreadCount} new
                     </span>
                   )}
@@ -156,7 +211,7 @@ export default function Navbar() {
                 {unreadCount > 0 && (
                   <button
                     onClick={markAllAsRead}
-                    className="text-[11px] font-semibold text-dp-primary hover:underline flex items-center gap-1"
+                    className="text-[11px] font-semibold text-indigo-500 hover:text-indigo-600 dark:text-indigo-400 dark:hover:text-indigo-300 transition-colors flex items-center gap-1"
                   >
                     <CheckCheck className="w-3.5 h-3.5" />
                     <span>Mark all read</span>
@@ -165,18 +220,18 @@ export default function Navbar() {
               </div>
 
               {/* Notification List */}
-              <div className="max-h-80 overflow-y-auto divide-y dark:divide-dp-dark-border-light/30 divide-dp-light-border/50">
+              <div className="max-h-80 overflow-y-auto divide-y dark:divide-white/[0.04] divide-slate-100">
                 {loadingNotifs && notifications.length === 0 ? (
-                  <div className="p-8 text-center text-xs dark:text-dp-text-muted text-dp-text-light-muted">
+                  <div className="p-8 text-center text-xs text-slate-400">
                     Loading notifications...
                   </div>
                 ) : notifications.length === 0 ? (
                   <div className="py-10 px-4 text-center">
-                    <Sparkles className="w-6 h-6 mx-auto mb-2 text-dp-primary/60 opacity-60" />
-                    <p className="text-xs font-semibold dark:text-dp-text-primary text-dp-text-light-primary">
+                    <Sparkles className="w-6 h-6 mx-auto mb-2 text-indigo-400 opacity-60" />
+                    <p className="text-xs font-semibold dark:text-white text-slate-900">
                       You're all caught up!
                     </p>
-                    <p className="text-[11px] dark:text-dp-text-muted text-dp-text-light-muted mt-0.5">
+                    <p className="text-[11px] text-slate-400 mt-0.5">
                       New alerts and workspace updates will appear here.
                     </p>
                   </div>
@@ -187,15 +242,14 @@ export default function Navbar() {
                       onClick={() => handleNotificationClick(n)}
                       className={`p-3.5 px-4 transition-colors cursor-pointer flex items-start gap-3 text-left ${
                         !n.read
-                          ? "dark:bg-dp-primary/5 bg-dp-primary/[0.03] dark:hover:bg-dp-primary/10 hover:bg-dp-primary/[0.06]"
-                          : "dark:hover:bg-dp-dark-surface-hover hover:bg-dp-light-bg-secondary"
+                          ? "dark:bg-white/[0.05] bg-indigo-50/40 dark:hover:bg-white/[0.08] hover:bg-indigo-50/70"
+                          : "dark:hover:bg-white/[0.02] hover:bg-slate-50"
                       }`}
                     >
-                      {/* Unread indicator bullet */}
                       <span
                         className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${
                           !n.read
-                            ? "bg-dp-primary ring-4 ring-dp-primary/20"
+                            ? "bg-indigo-500 ring-4 ring-indigo-500/20"
                             : "bg-transparent"
                         }`}
                       />
@@ -205,18 +259,18 @@ export default function Navbar() {
                           <h5
                             className={`text-xs truncate ${
                               !n.read
-                                ? "font-bold dark:text-dp-text-primary text-dp-text-light-primary"
-                                : "font-medium dark:text-dp-text-secondary text-dp-text-light-secondary"
+                                ? "font-bold dark:text-white text-slate-900"
+                                : "font-medium dark:text-slate-300 text-slate-700"
                             }`}
                           >
                             {n.title}
                           </h5>
-                          <span className="text-[10px] dark:text-dp-text-muted text-dp-text-light-muted flex items-center gap-1 flex-shrink-0">
+                          <span className="text-[10px] text-slate-400 flex items-center gap-1 flex-shrink-0">
                             <Clock className="w-2.5 h-2.5" />
                             {formatTimeAgo(n.createdAt)}
                           </span>
                         </div>
-                        <p className="text-[12px] dark:text-dp-text-muted text-dp-text-light-muted mt-0.5 leading-snug line-clamp-2">
+                        <p className="text-[11px] dark:text-slate-400 text-slate-500 mt-0.5 leading-snug line-clamp-2">
                           {n.message}
                         </p>
                       </div>
@@ -228,23 +282,29 @@ export default function Navbar() {
           )}
         </div>
 
-        {/* ══════ Video Call Button (Jitsi Meet) ══════ */}
+        {/* Video Call Button (Apple-grade Frosted Glass with Neon Aura) */}
         <button
           onClick={() => setIsMeetingOpen(true)}
-          className="btn-primary flex items-center gap-2 px-3.5 py-1.5 text-[13px]"
+          className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-indigo-600/90 to-purple-600/90 hover:from-indigo-500 hover:to-purple-500 border border-white/20 text-xs font-bold text-white shadow-[0_0_18px_rgba(99,102,241,0.45)] backdrop-blur-md transition-all active:scale-95 group"
           title="Start or Join Workspace Video Meeting"
         >
-          <Video className="w-3.5 h-3.5" />
+          <Video className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />
           <span className="hidden sm:inline">Call</span>
         </button>
       </div>
 
-      {/* ══════ Jitsi Video Meeting Modal ══════ */}
+      {/* Jitsi Video Meeting Modal */}
       <VideoMeetingModal
         isOpen={isMeetingOpen}
         onClose={() => setIsMeetingOpen(false)}
         currentProject={currentProject}
         user={user}
+      />
+
+      {/* GitHub Integration & Repositories Modal */}
+      <GitIntegrationModal
+        isOpen={showGitModal}
+        onClose={() => setShowGitModal(false)}
       />
     </div>
   );

@@ -26,7 +26,7 @@ const AVAILABLE_ROLES = [
 ];
 
 export default function CreateWorkspaceModal({ isOpen, onClose }) {
-  const { createProject } = useAuthStore();
+  const { user, createProject } = useAuthStore();
 
   // Form states
   const [name, setName] = useState("");
@@ -106,6 +106,11 @@ export default function CreateWorkspaceModal({ isOpen, onClose }) {
       return;
     }
 
+    if (user?.email && email === user.email.toLowerCase()) {
+      setInviteError("You are already the owner of this workspace.");
+      return;
+    }
+
     if (invitees.some((inv) => inv.email === email)) {
       setInviteError("This user is already added to the invite list.");
       return;
@@ -155,16 +160,28 @@ export default function CreateWorkspaceModal({ isOpen, onClose }) {
         setErrorMsg(res.message || "Failed to create workspace");
       }
     } catch (err) {
-      setErrorMsg(err.response?.data?.message || "Failed to create workspace");
+      const respData = err.response?.data;
+      if (respData?.errors && Array.isArray(respData.errors) && respData.errors.length > 0) {
+        const detailStr = respData.errors
+          .map((e) => (e.message ? `${e.field ? e.field + ": " : ""}${e.message}` : String(e)))
+          .join(" • ");
+        setErrorMsg(detailStr);
+      } else {
+        setErrorMsg(respData?.message || err.message || "Failed to create workspace");
+      }
     } finally {
       setSubmitting(false);
     }
   };
 
   // Filter repos for searchable dropdown
-  const filteredRepos = repos.filter((r) =>
-    r.name.toLowerCase().includes(repoSearch.toLowerCase())
-  );
+  const filteredRepos = repos.filter((r) => {
+    const q = repoSearch.toLowerCase().trim();
+    if (!q) return true;
+    const nameMatch = r.name && r.name.toLowerCase().includes(q);
+    const fullMatch = (r.fullName || r.full_name) && (r.fullName || r.full_name).toLowerCase().includes(q);
+    return nameMatch || fullMatch;
+  });
 
   if (!isOpen) return null;
 
@@ -327,12 +344,13 @@ export default function CreateWorkspaceModal({ isOpen, onClose }) {
                           )}
 
                           {filteredRepos.map((repo) => {
-                            const isSelected = selectedRepo === repo.name;
+                            const fullRepoName = repo.fullName || repo.full_name || (repo.owner ? `${repo.owner}/${repo.name}` : repo.name);
+                            const isSelected = selectedRepo === fullRepoName || selectedRepo === repo.name;
                             return (
                               <div
-                                key={repo.id || repo.name}
+                                key={repo.id || fullRepoName}
                                 onClick={() => {
-                                  setSelectedRepo(repo.name);
+                                  setSelectedRepo(fullRepoName);
                                   setRepoDropdownOpen(false);
                                 }}
                                 className={`flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer text-xs transition-colors ${
@@ -347,7 +365,12 @@ export default function CreateWorkspaceModal({ isOpen, onClose }) {
                                   ) : (
                                     <Globe className="w-3.5 h-3.5 opacity-70 flex-shrink-0" />
                                   )}
-                                  <span className="font-medium truncate">{repo.name}</span>
+                                  <div className="flex flex-col truncate text-left">
+                                    <span className="font-medium truncate">{fullRepoName}</span>
+                                    {repo.description && repo.description !== "No description provided" && (
+                                      <span className="text-[10px] opacity-70 truncate max-w-xs">{repo.description}</span>
+                                    )}
+                                  </div>
                                 </div>
                                 {isSelected && <Check className="w-3.5 h-3.5 flex-shrink-0" />}
                               </div>

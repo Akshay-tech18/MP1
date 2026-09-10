@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Plus,
@@ -7,9 +8,11 @@ import {
   Search,
   Hash,
   PanelLeftClose,
-  X
+  X,
+  Settings,
 } from "lucide-react";
 import useAuthStore from "../store/useAuthStore";
+import WorkspaceSettingsModal from "./WorkspaceSettingsModal";
 
 const CHANNELS = ["general-chat", "doubts", "announcements", "standups"];
 
@@ -18,12 +21,15 @@ const CHANNELS = ["general-chat", "doubts", "announcements", "standups"];
  * Collapsible to give more workspace area.
  */
 export default function SidePanel() {
+  const navigate = useNavigate();
   const { projects, currentProject, setCurrentProject, createProject } = useAuthStore();
 
   const [collapsed, setCollapsed] = useState(false);
   const [query, setQuery] = useState("");
   const [openSpaces, setOpenSpaces] = useState({});
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [settingsTargetProjectId, setSettingsTargetProjectId] = useState(null);
   const [newProjName, setNewProjName] = useState("");
   const [newProjDesc, setNewProjDesc] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
@@ -126,6 +132,18 @@ export default function SidePanel() {
                     />
                     <Folder className="w-3.5 h-3.5 text-accent flex-shrink-0" />
                     <span className="truncate flex-1">{proj.name}</span>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSettingsTargetProjectId(proj.id);
+                        setShowSettingsModal(true);
+                      }}
+                      title={`Manage "${proj.name}" settings`}
+                      className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-surface-muted text-ink-muted hover:text-ink transition flex-shrink-0"
+                    >
+                      <Settings className="w-3 h-3" />
+                    </button>
                   </div>
                   <AnimatePresence>
                     {expanded && (
@@ -139,11 +157,25 @@ export default function SidePanel() {
                           {["Board", "Chat", "Analytics"].map((child) => (
                             <div
                               key={child}
+                              onClick={() => {
+                                setCurrentProject(proj);
+                                navigate(`/${child.toLowerCase()}`);
+                              }}
                               className="px-2 py-1 text-[11px] text-ink-faint hover:text-ink-soft cursor-pointer rounded"
                             >
                               {child}
                             </div>
                           ))}
+                          <div
+                            onClick={() => {
+                              setSettingsTargetProjectId(proj.id);
+                              setShowSettingsModal(true);
+                            }}
+                            className="px-2 py-1 text-[11px] text-accent hover:text-accent-strong cursor-pointer rounded flex items-center gap-1 font-medium"
+                          >
+                            <Settings className="w-3 h-3" />
+                            <span>Settings</span>
+                          </div>
                         </div>
                       </motion.div>
                     )}
@@ -260,6 +292,16 @@ export default function SidePanel() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Workspace Settings Modal */}
+      <WorkspaceSettingsModal
+        isOpen={showSettingsModal}
+        onClose={() => {
+          setShowSettingsModal(false);
+          setSettingsTargetProjectId(null);
+        }}
+        targetProjectId={settingsTargetProjectId}
+      />
     </div>
   );
 }

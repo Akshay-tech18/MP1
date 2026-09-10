@@ -4,7 +4,8 @@ const { checkProjectRole } = require("../../middleware/rbac.middleware");
 const {
   getDashboardMetrics,
   getSprintReport,
-  getBugRiskReport
+  getBugRiskReport,
+  syncProjectCommits
 } = require("./analytics.controller");
 
 // mergeParams is required to capture the projectId from parent route definition /api/projects/:id/analytics
@@ -16,6 +17,7 @@ router.use(protect);
 router.use(checkProjectRole("MANAGER", "DEVELOPER", "QA_TESTER", "VIEWER"));
 
 router.get("/dashboard", getDashboardMetrics);
+router.post("/sync-commits", syncProjectCommits);
 router.get("/sprints/:sprintId", getSprintReport);
 router.get("/bug-risk", getBugRiskReport);
 

@@ -1,169 +1,148 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useNavigate } from "react-router-dom";
 import useAuthStore from "../store/useAuthStore";
 import CreateWorkspaceModal from "./CreateWorkspaceModal";
+import VideoMeetingModal from "./VideoMeetingModal";
 import {
+  Inbox,
   Plus,
-  Folder,
-  ChevronDown,
-  ChevronRight,
-  Search,
+  Phone,
+  User,
+  MoreHorizontal,
   Hash,
-  Users,
+  Sparkles,
 } from "lucide-react";
 
-export default function SidePanel({ isOpen }) {
-  const { projects, currentProject, setCurrentProject } = useAuthStore();
-  const [expandedSpaces, setExpandedSpaces] = useState({});
+export default function Sidebar({ isOpen }) {
+  const navigate = useNavigate();
+  const { currentProject, user } = useAuthStore();
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [showMeetingModal, setShowMeetingModal] = useState(false);
 
-  const toggleExpand = (id) => {
-    setExpandedSpaces((prev) => ({ ...prev, [id]: !prev[id] }));
-  };
-
-  const filteredProjects = projects.filter((p) =>
-    p.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const workspaceName = currentProject?.name || "Team Workspace";
+  const initial = workspaceName.charAt(0).toUpperCase();
 
   return (
     <AnimatePresence>
       {isOpen && (
         <motion.div
           initial={{ width: 0, opacity: 0 }}
-          animate={{ width: 260, opacity: 1 }}
+          animate={{ width: 264, opacity: 1 }}
           exit={{ width: 0, opacity: 0 }}
-          transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-          className="glass-sidebar border-r flex flex-col h-full overflow-hidden select-none flex-shrink-0 relative z-20"
+          transition={{ duration: 0.18, ease: "easeOut" }}
+          className="w-[264px] dark:bg-[#0c0e14] bg-[#f8fafc] border-r dark:border-white/[0.08] border-slate-200 flex flex-col h-full overflow-hidden select-none flex-shrink-0 relative z-20 dark:text-slate-200 text-slate-700 transition-colors duration-200"
         >
-          {/* Header */}
-          <div className="p-4 pb-3 flex-shrink-0">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-[12px] font-bold uppercase tracking-widest dark:text-dp-text-muted text-dp-text-light-muted">
-                Spaces
-              </h2>
-              <button
-                onClick={() => setShowCreateModal(true)}
-                className="w-7 h-7 rounded-lg flex items-center justify-center transition-all duration-150 dark:hover:bg-dp-dark-surface-hover hover:bg-dp-light-bg-secondary dark:text-dp-text-muted text-dp-text-light-muted hover:text-dp-primary"
-              >
-                <Plus className="w-4 h-4" />
-              </button>
+          {/* 1. Header Toolbar */}
+          <div className="px-3.5 py-3 border-b dark:border-white/[0.06] border-slate-200 flex items-center justify-between flex-shrink-0">
+            <div className="flex items-center gap-2.5">
+              <span className="text-[13.5px] font-bold dark:text-white text-slate-900 flex items-center gap-1.5 tracking-tight">
+                <span>Home</span>
+                <Inbox className="w-4 h-4 text-slate-400" />
+              </span>
             </div>
 
-            {/* Search */}
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 dark:text-dp-text-muted text-dp-text-light-muted" />
-              <input
-                type="text"
-                placeholder="Search spaces..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="glass-input w-full pl-8 py-2 text-[13px]"
-              />
-            </div>
-          </div>
-
-          {/* Spaces List */}
-          <div className="flex-1 overflow-y-auto px-2.5 py-1 space-y-0.5">
-            {filteredProjects.length === 0 ? (
-              <div className="px-2 py-10 text-center">
-                <Folder className="w-7 h-7 mx-auto mb-2.5 dark:text-dp-text-muted text-dp-text-light-muted opacity-50" />
-                <p className="text-[12px] dark:text-dp-text-muted text-dp-text-light-muted">
-                  {searchQuery ? "No spaces found" : "Create your first space"}
-                </p>
-              </div>
-            ) : (
-              filteredProjects.map((proj) => {
-                const isSelected = currentProject?.id === proj.id;
-                const isExpanded = expandedSpaces[proj.id];
-
-                return (
-                  <div key={proj.id}>
-                    {/* Space Item */}
-                    <button
-                      onClick={() => {
-                        setCurrentProject(proj);
-                        toggleExpand(proj.id);
-                      }}
-                      className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-[13px] font-medium transition-all duration-150 group ${
-                        isSelected
-                          ? "dark:bg-dp-primary/10 bg-dp-primary/5 text-dp-primary dark:text-dp-primary-light"
-                          : "dark:text-dp-text-secondary text-dp-text-light-secondary dark:hover:bg-dp-dark-surface-hover hover:bg-dp-light-bg-secondary"
-                      }`}
-                    >
-                      {/* Expand Arrow */}
-                      <span className="w-4 h-4 flex items-center justify-center flex-shrink-0">
-                        {isExpanded ? (
-                          <ChevronDown className="w-3.5 h-3.5" />
-                        ) : (
-                          <ChevronRight className="w-3.5 h-3.5" />
-                        )}
-                      </span>
-
-                      {/* Folder Icon */}
-                      <span className={`w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0 text-[11px] font-bold ${
-                        isSelected
-                          ? "bg-dp-primary text-white"
-                          : "dark:bg-dp-dark-elevated bg-dp-light-bg-secondary dark:text-dp-text-muted text-dp-text-light-muted"
-                      }`}>
-                        {proj.name.charAt(0).toUpperCase()}
-                      </span>
-
-                      {/* Name */}
-                      <span className="truncate flex-1 text-left font-semibold">{proj.name}</span>
-
-                      {/* Status dot */}
-                      <span className={`w-2 h-2 rounded-full flex-shrink-0 ${
-                        proj.status === "ACTIVE"
-                          ? "bg-dp-success"
-                          : "dark:bg-dp-text-muted bg-dp-text-light-muted opacity-40"
-                      }`} />
-                    </button>
-
-                    {/* Nested items */}
-                    <AnimatePresence>
-                      {isExpanded && isSelected && (
-                        <motion.div
-                          initial={{ height: 0, opacity: 0 }}
-                          animate={{ height: "auto", opacity: 1 }}
-                          exit={{ height: 0, opacity: 0 }}
-                          transition={{ duration: 0.2, ease: "easeOut" }}
-                          className="overflow-hidden"
-                        >
-                          <div className="ml-7 pl-3 border-l dark:border-dp-dark-border-light border-dp-light-border py-1.5 space-y-0.5">
-                            <div className="flex items-center gap-2.5 px-2.5 py-1.5 text-[13px] dark:text-dp-text-muted text-dp-text-light-muted rounded cursor-default">
-                              <Hash className="w-3.5 h-3.5" />
-                              <span>General</span>
-                            </div>
-                            <div className="flex items-center gap-2.5 px-2.5 py-1.5 text-[13px] dark:text-dp-text-muted text-dp-text-light-muted rounded cursor-default">
-                              <Users className="w-3.5 h-3.5" />
-                              <span>Members</span>
-                            </div>
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
-                );
-              })
-            )}
-          </div>
-
-          {/* New Space Button */}
-          <div className="p-3 flex-shrink-0">
             <button
               onClick={() => setShowCreateModal(true)}
-              className="w-full flex items-center gap-2.5 px-3.5 py-2.5 rounded-xl text-[13px] font-semibold transition-all duration-150 dark:text-dp-text-muted text-dp-text-light-muted dark:hover:bg-dp-dark-surface-hover hover:bg-dp-light-bg-secondary hover:text-dp-primary"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg dark:bg-white bg-slate-900 dark:text-slate-900 text-white hover:opacity-90 text-xs font-bold transition-all shadow-md active:scale-95"
             >
-              <Plus className="w-4 h-4" />
-              New Space
+              <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+              <span>Create</span>
             </button>
           </div>
 
-          {/* ══════ Create Space Wizard Modal ══════ */}
+          {/* 2. Scrollable Body */}
+          <div className="flex-1 overflow-y-auto px-2.5 py-3 space-y-4 scrollbar-thin">
+            
+            {/* Quick Links (Meetings, My Tasks, More) */}
+            <div className="space-y-0.5">
+              <button
+                onClick={() => setShowMeetingModal(true)}
+                className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-[13.5px] font-medium dark:text-slate-200 text-slate-700 dark:hover:text-white hover:text-slate-900 dark:hover:bg-white/[0.06] hover:bg-slate-200/60 transition-all group"
+              >
+                <Phone className="w-4 h-4 text-slate-400 group-hover:text-indigo-500 transition-colors" />
+                <span>Meetings</span>
+              </button>
+
+              <button
+                onClick={() => navigate("/board")}
+                className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-[13.5px] font-medium dark:text-slate-200 text-slate-700 dark:hover:text-white hover:text-slate-900 dark:hover:bg-white/[0.06] hover:bg-slate-200/60 transition-all group"
+              >
+                <User className="w-4 h-4 text-slate-400 group-hover:text-indigo-500 transition-colors" />
+                <span>My Tasks</span>
+              </button>
+
+              <button
+                onClick={() => navigate("/dashboard")}
+                className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-[13.5px] font-medium dark:text-slate-200 text-slate-700 dark:hover:text-white hover:text-slate-900 dark:hover:bg-white/[0.06] hover:bg-slate-200/60 transition-all group"
+              >
+                <MoreHorizontal className="w-4 h-4 text-slate-400 group-hover:text-indigo-500 transition-colors" />
+                <span>More</span>
+              </button>
+            </div>
+
+            {/* Separator */}
+            <div className="h-px dark:bg-white/[0.04] bg-slate-200" />
+
+            {/* Section: Spaces */}
+            <div className="space-y-1">
+              <div className="px-2.5 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                Spaces
+              </div>
+
+              {/* All Tasks Link */}
+              <button
+                onClick={() => navigate("/board")}
+                className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-[13.5px] font-medium dark:text-slate-200 text-slate-700 dark:hover:text-white hover:text-slate-900 dark:hover:bg-white/[0.06] hover:bg-slate-200/60 transition-all truncate group"
+              >
+                <Sparkles className="w-4 h-4 text-indigo-500 flex-shrink-0 group-hover:rotate-12 transition-transform" />
+                <span className="truncate">All Tasks</span>
+              </button>
+            </div>
+
+            {/* Separator */}
+            <div className="h-px dark:bg-white/[0.04] bg-slate-200" />
+
+            {/* Section: Channels */}
+            <div className="space-y-1">
+              <div className="px-2.5 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                Channels
+              </div>
+
+              <button
+                onClick={() => navigate("/chat")}
+                className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-[13.5px] font-medium dark:text-slate-200 text-slate-700 dark:hover:text-white hover:text-slate-900 dark:hover:bg-white/[0.06] hover:bg-slate-200/60 transition-all truncate group"
+              >
+                <Hash className="w-4 h-4 text-slate-400 group-hover:text-cyan-500 transition-colors" />
+                <span className="truncate">General</span>
+                <span className="w-4 h-4 rounded-md bg-teal-600 flex items-center justify-center text-[9px] font-bold text-white ml-auto flex-shrink-0">
+                  {initial}
+                </span>
+              </button>
+
+              <button
+                onClick={() => navigate("/chat")}
+                className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-[13.5px] font-medium dark:text-slate-200 text-slate-700 dark:hover:text-white hover:text-slate-900 dark:hover:bg-white/[0.06] hover:bg-slate-200/60 transition-all group"
+              >
+                <Hash className="w-4 h-4 text-slate-400 group-hover:text-cyan-500 transition-colors" />
+                <span>Engineering & Sprints</span>
+              </button>
+            </div>
+
+          </div>
+
+          {/* Create Workspace Wizard Modal */}
           <CreateWorkspaceModal
             isOpen={showCreateModal}
             onClose={() => setShowCreateModal(false)}
+          />
+
+          {/* Jitsi Video Meeting Modal */}
+          <VideoMeetingModal
+            isOpen={showMeetingModal}
+            onClose={() => setShowMeetingModal(false)}
+            currentProject={currentProject}
+            user={user}
           />
         </motion.div>
       )}
