@@ -27,22 +27,27 @@ if (googleClientId && googleClientSecret && googleClientId !== "dummy_google_id"
 
           const avatar = profile.photos && profile.photos[0] ? profile.photos[0].value : `https://api.dicebear.com/7.x/adventurer/svg?seed=${profile.displayName}`;
 
-          // Upsert User
-          const user = await prisma.user.upsert({
-            where: { email },
-            update: {
-              googleId: profile.id,
-              name: profile.displayName || user.name,
-              avatar: avatar || user.avatar,
-            },
-            create: {
-              email,
-              name: profile.displayName || "Google User",
-              avatar,
-              role: "DEVELOPER", // default role
-              googleId: profile.id,
-            },
-          });
+          let user = await prisma.user.findUnique({ where: { email } });
+          if (user) {
+            user = await prisma.user.update({
+              where: { id: user.id },
+              data: {
+                googleId: profile.id,
+                name: profile.displayName || user.name,
+                avatar: avatar || user.avatar,
+              },
+            });
+          } else {
+            user = await prisma.user.create({
+              data: {
+                email,
+                name: profile.displayName || "Google User",
+                avatar,
+                role: "DEVELOPER",
+                googleId: profile.id,
+              },
+            });
+          }
 
           return done(null, user);
         } catch (error) {
@@ -122,25 +127,32 @@ if (githubClientId && githubClientSecret && githubClientId !== "dummy_github_id"
           const avatar = profile.photos && profile.photos[0] ? profile.photos[0].value : `https://api.dicebear.com/7.x/adventurer/svg?seed=${profile.displayName}`;
           const encryptedToken = encrypt(accessToken);
 
-          const user = await prisma.user.upsert({
-            where: { email },
-            update: {
-              githubId: profile.id,
-              githubToken: encryptedToken,
-              name: profile.displayName || user.name,
-              avatar: avatar || user.avatar,
-            },
-            create: {
-              email,
-              name: profile.displayName || "GitHub User",
-              avatar,
-              role: "DEVELOPER",
-              githubId: profile.id,
-              githubToken: encryptedToken,
-            },
-          });
-
-          return done(null, user);
+          let userWithEmail = await prisma.user.findUnique({ where: { email } });
+          
+          if (userWithEmail) {
+            userWithEmail = await prisma.user.update({
+              where: { id: userWithEmail.id },
+              data: {
+                githubId: profile.id,
+                githubToken: encryptedToken,
+                name: profile.displayName || userWithEmail.name,
+                avatar: avatar || userWithEmail.avatar,
+              },
+            });
+            return done(null, userWithEmail);
+          } else {
+            const newUser = await prisma.user.create({
+              data: {
+                email,
+                name: profile.displayName || "GitHub User",
+                avatar,
+                role: "DEVELOPER",
+                githubId: profile.id,
+                githubToken: encryptedToken,
+              },
+            });
+            return done(null, newUser);
+          }
         } catch (error) {
           logger.error("Error in GitHub OAuth verification: %o", error);
           return done(error, null);

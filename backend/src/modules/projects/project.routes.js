@@ -48,7 +48,8 @@ router.patch(
 
 router.delete(
   "/:id",
-  deleteProject // Ownership verified inside controller
+  checkProjectRole("MANAGER"), // Ownership verified inside controller, but RBAC is the baseline
+  deleteProject
 );
 
 router.post(

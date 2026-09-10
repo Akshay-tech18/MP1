@@ -78,7 +78,7 @@ const linkRepository = async (req, res) => {
             githubRepoId: String(mockRepoId),
             name: repoName,
             owner,
-            webhookSecret: "mock_webhook_secret_key_123",
+            webhookSecret: crypto.randomBytes(32).toString("hex"),
             projectId
           }
         });
@@ -180,6 +180,8 @@ const listRepositories = async (req, res) => {
  */
 const getCommits = async (req, res) => {
   const { id: projectId, repoId } = req.params;
+  const { cursor, limit = 50 } = req.query;
+  const parsedLimit = parseInt(limit, 10);
 
   try {
     // Verify repository belongs to project
@@ -191,15 +193,29 @@ const getCommits = async (req, res) => {
       return sendError(res, 404, "Repository not found in this project");
     }
 
-    const commits = await prisma.commit.findMany({
+    const queryOptions = {
       where: { repoId },
       include: {
         task: { select: { id: true, taskNumber: true, title: true } }
       },
-      orderBy: { committedAt: "desc" }
-    });
+      orderBy: { committedAt: "desc" },
+      take: parsedLimit + 1,
+    };
 
-    return sendSuccess(res, 200, "Commits retrieved successfully", { commits });
+    if (cursor) {
+      queryOptions.cursor = { id: cursor };
+      queryOptions.skip = 1; // Skip the cursor itself
+    }
+
+    const commits = await prisma.commit.findMany(queryOptions);
+
+    let nextCursor = null;
+    if (commits.length > parsedLimit) {
+      const nextItem = commits.pop();
+      nextCursor = nextItem.id;
+    }
+
+    return sendSuccess(res, 200, "Commits retrieved successfully", { commits, nextCursor });
   } catch (error) {
     logger.error("Get commits error: %o", error);
     return sendError(res, 500, "Failed to retrieve commits");
@@ -211,6 +227,8 @@ const getCommits = async (req, res) => {
  */
 const getPullRequests = async (req, res) => {
   const { id: projectId, repoId } = req.params;
+  const { cursor, limit = 50 } = req.query;
+  const parsedLimit = parseInt(limit, 10);
 
   try {
     // Verify repository belongs to project
@@ -222,12 +240,26 @@ const getPullRequests = async (req, res) => {
       return sendError(res, 404, "Repository not found in this project");
     }
 
-    const pullRequests = await prisma.pullRequest.findMany({
+    const queryOptions = {
       where: { repoId },
-      orderBy: { createdAt: "desc" }
-    });
+      orderBy: { createdAt: "desc" },
+      take: parsedLimit + 1,
+    };
 
-    return sendSuccess(res, 200, "Pull requests retrieved successfully", { pullRequests });
+    if (cursor) {
+      queryOptions.cursor = { id: cursor };
+      queryOptions.skip = 1;
+    }
+
+    const pullRequests = await prisma.pullRequest.findMany(queryOptions);
+
+    let nextCursor = null;
+    if (pullRequests.length > parsedLimit) {
+      const nextItem = pullRequests.pop();
+      nextCursor = nextItem.id;
+    }
+
+    return sendSuccess(res, 200, "Pull requests retrieved successfully", { pullRequests, nextCursor });
   } catch (error) {
     logger.error("Get PRs error: %o", error);
     return sendError(res, 500, "Failed to retrieve pull requests");

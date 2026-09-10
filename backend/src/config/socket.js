@@ -3,6 +3,7 @@ const { verifyAccessToken } = require("../utils/jwt.utils");
 const { SocketEvent } = require("./constants");
 const registerChatEvents = require("../modules/communication/chat.socket");
 const logger = require("../utils/logger");
+const prisma = require("./db");
 
 /**
  * Initialize Socket.IO Server on the HTTP Server
@@ -53,12 +54,28 @@ function initSocketServer(httpServer) {
     socket.join(`user:${socket.user.id}`);
 
     // Join Project Room
-    socket.on(SocketEvent.JOIN_PROJECT, (data) => {
+    socket.on(SocketEvent.JOIN_PROJECT, async (data) => {
       const { projectId } = data;
       if (!projectId) return;
 
-      socket.join(projectId);
-      logger.info(`Socket ${socket.id} joined project room: ${projectId}`);
+      try {
+        const member = await prisma.projectMember.findUnique({
+          where: {
+            projectId_userId: { projectId, userId: socket.user.id }
+          }
+        });
+
+        if (!member) {
+          logger.warn(`Unauthorized attempt by user ${socket.user.id} to join project ${projectId}`);
+          socket.emit("error", { message: "Unauthorized to join this project room." });
+          return;
+        }
+
+        socket.join(projectId);
+        logger.info(`Socket ${socket.id} joined project room: ${projectId}`);
+      } catch (err) {
+        logger.error(`Error joining project room: %o`, err);
+      }
     });
 
     // Leave Project Room

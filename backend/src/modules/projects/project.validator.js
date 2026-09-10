@@ -5,6 +5,8 @@ const createProjectSchema = z.object({
   name: z.string().min(2, "Project name must be at least 2 characters").max(100, "Project name cannot exceed 100 characters"),
   description: z.string().max(500, "Description cannot exceed 500 characters").optional().nullable(),
   status: z.nativeEnum(ProjectStatus).optional(),
+  repoName: z.string().regex(/^[a-zA-Z0-9_.-]+\/[a-zA-Z0-9_.-]+$/, "Repository name must be in format 'owner/repo'").optional().nullable(),
+  invitees: z.array(z.string().email("Invitee must be a valid email")).optional().nullable(),
 });
 
 const updateProjectSchema = z.object({

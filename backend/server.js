@@ -28,11 +28,20 @@ server.listen(PORT, () => {
   logger.info(`===============================`);
 });
 
+const prisma = require("./src/config/db");
+
 // Handle server shutdown events
-process.on("SIGTERM", () => {
+process.on("SIGTERM", async () => {
   logger.info("SIGTERM received. Shutting down server gracefully...");
-  server.close(() => {
+  
+  if (io) {
+    io.close(() => logger.info("Socket.IO server closed."));
+  }
+
+  server.close(async () => {
     logger.info("HTTP server closed.");
+    await prisma.$disconnect();
+    logger.info("Database connection closed.");
     process.exit(0);
   });
 });

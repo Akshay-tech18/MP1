@@ -8,8 +8,17 @@ const prisma = require("./src/config/db");
 const { errorHandler } = require("./src/middleware/error.middleware");
 const { sendSuccess, sendError } = require("./src/utils/response.utils");
 const logger = require("./src/utils/logger");
+const crypto = require("crypto");
 
 const app = express();
+
+// 0. Inject Correlation ID and Access Logging
+app.use((req, res, next) => {
+  req.id = crypto.randomUUID();
+  res.setHeader("X-Request-ID", req.id);
+  logger.info(`[${req.id}] ${req.method} ${req.originalUrl}`);
+  next();
+});
 
 // 1. Enable Helmet for Secure HTTP Headers
 app.use(helmet());
@@ -52,12 +61,19 @@ app.use(cookieParser());
 // 6. Initialize Passport Auth Strategies
 app.use(passport.initialize());
 
+// Health Check Rate Limiter: 10 requests per minute
+const healthLimiter = rateLimit({
+  windowMs: 1 * 60 * 1000,
+  max: 10,
+  message: "Too many health check requests, please try again later."
+});
+
 // 7. Health Check Endpoints
-app.get("/health", (req, res) => {
+app.get("/health", healthLimiter, (req, res) => {
   return sendSuccess(res, 200, "Server is online and healthy");
 });
 
-app.get("/health/db", async (req, res) => {
+app.get("/health/db", healthLimiter, async (req, res) => {
   try {
     // Run simple query to check DB availability
     await prisma.$queryRaw`SELECT 1`;

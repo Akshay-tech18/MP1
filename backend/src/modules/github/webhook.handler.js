@@ -6,7 +6,7 @@ const logger = require("../../utils/logger");
 const emitToProject = (req, projectId, event, data) => {
   const io = req.app.get("io");
   if (io) {
-    io.to(projectId).emit(event, data);
+    io.of("/project").to(projectId).emit(event, data);
   }
 };
 

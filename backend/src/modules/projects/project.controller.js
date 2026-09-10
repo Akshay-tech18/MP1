@@ -12,7 +12,7 @@ const logger = require("../../utils/logger");
 const emitToProject = (req, projectId, event, data) => {
   const io = req.app.get("io");
   if (io) {
-    io.to(projectId).emit(event, data);
+    io.of("/project").to(projectId).emit(event, data);
   }
 };
 
@@ -148,7 +148,7 @@ const createProject = async (req, res) => {
         const targetUser = await prisma.user.findUnique({ where: { email } });
         if (targetUser && io) {
           // Emit real-time notification
-          io.to(`user_${targetUser.id}`).emit("notification:new", {
+          io.of("/project").to(`user:${targetUser.id}`).emit("notification:new", {
             title: "Added to Workspace",
             message: `${ownerDetails.name} added you to '${name}'.`
           });

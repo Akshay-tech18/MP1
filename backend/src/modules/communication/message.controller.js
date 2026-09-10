@@ -67,10 +67,10 @@ const sendMessage = async (req, res) => {
     if (io) {
       if (message.isGroup) {
         // Group message: broadcast to all connected project members
-        io.to(projectId).emit(SocketEvent.CHAT_MESSAGE, message);
+        io.of("/project").to(projectId).emit(SocketEvent.CHAT_MESSAGE, message);
       } else {
         // Private Message (DM): emit to both sender's and receiver's private rooms
-        io.to(`user:${senderId}`).to(`user:${receiverId}`).emit(SocketEvent.CHAT_MESSAGE, message);
+        io.of("/project").to(`user:${senderId}`).to(`user:${receiverId}`).emit(SocketEvent.CHAT_MESSAGE, message);
       }
     }
 

@@ -6,7 +6,7 @@ const logger = require("../../utils/logger");
 const emitToProject = (req, projectId, event, data) => {
   const io = req.app.get("io");
   if (io) {
-    io.to(projectId).emit(event, data);
+    io.of("/project").to(projectId).emit(event, data);
   }
 };
 
@@ -223,19 +223,30 @@ const updateTask = async (req, res) => {
       );
     }
 
-    // 2. Perform updates
-    const updatedTask = await prisma.task.update({
-      where: { id: taskId },
-      data: updates,
-      include: {
-        assignee: { select: { id: true, name: true, avatar: true } },
-        reporter: { select: { id: true, name: true, avatar: true } }
-      }
-    });
-
-    // Run activity logs
+    // 2. Perform updates atomically with activity logs
+    let updatedTask;
     if (activities.length > 0) {
-      await Promise.all(activities);
+      const results = await prisma.$transaction([
+        prisma.task.update({
+          where: { id: taskId },
+          data: updates,
+          include: {
+            assignee: { select: { id: true, name: true, avatar: true } },
+            reporter: { select: { id: true, name: true, avatar: true } }
+          }
+        }),
+        ...activities
+      ]);
+      updatedTask = results[0];
+    } else {
+      updatedTask = await prisma.task.update({
+        where: { id: taskId },
+        data: updates,
+        include: {
+          assignee: { select: { id: true, name: true, avatar: true } },
+          reporter: { select: { id: true, name: true, avatar: true } }
+        }
+      });
     }
 
     // 3. Socket Emit

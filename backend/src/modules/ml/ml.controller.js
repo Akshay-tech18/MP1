@@ -14,7 +14,7 @@ const ML_SERVICE_API_KEY = process.env.ML_SERVICE_API_KEY || "dummy_ml_key";
 const emitToProject = (req, projectId, event, data) => {
   const io = req.app.get("io");
   if (io) {
-    io.to(projectId).emit(event, data);
+    io.of("/project").to(projectId).emit(event, data);
   }
 };
 

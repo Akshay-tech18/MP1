@@ -1,7 +1,10 @@
 const crypto = require("crypto");
 
-// Must be 32 bytes (64 hex characters)
-const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"; 
+const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY;
+
+if (!ENCRYPTION_KEY) {
+  throw new Error("FATAL ERROR: ENCRYPTION_KEY must be defined in environment variables (32 bytes hex).");
+}
 const IV_LENGTH = 16; // For AES, this is always 16
 
 /**
