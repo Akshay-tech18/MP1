@@ -30,8 +30,12 @@ const INITIAL_DOCS = [
     title: "Working with Neon and Prisma",
     location: "Team Space",
     tags: ["Backend", "Postgres"],
-    updated: "Dec 19 2025",
-    viewed: "Jan 19",
+    author: "Aditya N.",
+    readTime: "3m read",
+    isFresh: true,
+    updated: "Updated 14m ago",
+    viewed: "Just now",
+    relatedDocs: ["Database Schema", "Cloud Database"],
     content: `# Working with Neon and Prisma
 
 ## 1. Connection String Setup
@@ -52,8 +56,12 @@ npx prisma migrate dev
     title: "README for electron setup",
     location: "Team Space",
     tags: ["Desktop", "Packaging"],
+    author: "Akshay P.",
+    readTime: "2m read",
+    isFresh: false,
     updated: "Jan 15",
     viewed: "Jan 16",
+    relatedDocs: ["Electron", "Frontend README"],
     content: `# README for Electron Setup
 
 ## Quick Start
@@ -71,8 +79,12 @@ npm run electron:dev
     title: "Phase 1 - API Contract",
     location: "Team Space",
     tags: ["API", "Specs"],
-    updated: "Dec 24 2025",
-    viewed: "Jan 15",
+    author: "Aditya N.",
+    readTime: "5m read",
+    isFresh: true,
+    updated: "Updated 2h ago",
+    viewed: "Today",
+    relatedDocs: ["Working with Neon and Prisma", "App installation Implementation"],
     content: `# Phase 1 - API Contract
 
 ## Authentication Endpoints
@@ -90,8 +102,12 @@ npm run electron:dev
     title: "Cloud Database",
     location: "Team Space",
     tags: ["Infra"],
+    author: "DevOps Lead",
+    readTime: "2m read",
+    isFresh: false,
     updated: "Dec 16 2025",
     viewed: "Dec 24",
+    relatedDocs: ["Working with Neon and Prisma", "database query"],
     content: `# Cloud Database Architecture
 
 - Provider: Neon Serverless PostgreSQL
@@ -103,8 +119,12 @@ npm run electron:dev
     title: "Cloud research (2)",
     location: "Team Space",
     tags: ["Research"],
+    author: "DevOps Lead",
+    readTime: "4m read",
+    isFresh: false,
     updated: "Dec 17 2025",
     viewed: "Dec 19",
+    relatedDocs: ["Cloud Database"],
     content: `# Cloud Research Notes
 
 Benchmarked serverless PostgreSQL latency against RDS. Neon zero-scale cold starts averaged < 400ms.`,
@@ -114,8 +134,12 @@ Benchmarked serverless PostgreSQL latency against RDS. Neon zero-scale cold star
     title: "Setting up the backend in your system",
     location: "Team Space",
     tags: ["DevOps"],
+    author: "Aditya N.",
+    readTime: "3m read",
+    isFresh: false,
     updated: "Jan 12",
     viewed: "Dec 19",
+    relatedDocs: ["Working with Neon and Prisma", "Phase 1 - API Contract"],
     content: `# Backend Setup Guide
 
 1. Clone repo
@@ -129,8 +153,12 @@ Benchmarked serverless PostgreSQL latency against RDS. Neon zero-scale cold star
     title: "database query (only for reference)",
     location: "Team Space",
     tags: ["SQL"],
+    author: "Aditya N.",
+    readTime: "1m read",
+    isFresh: false,
     updated: "Dec 17 2025",
     viewed: "Dec 18",
+    relatedDocs: ["Database Schema"],
     content: `# Useful Database Queries
 
 \`\`\`sql
@@ -145,8 +173,12 @@ GROUP BY u.name;
     title: "Database Schema",
     location: "Team Space",
     tags: ["Schema"],
+    author: "Aditya N.",
+    readTime: "4m read",
+    isFresh: false,
     updated: "Dec 19 2025",
     viewed: "Dec 18",
+    relatedDocs: ["Working with Neon and Prisma", "Cloud Database"],
     content: `# Complete Database Schema
 
 Models: User, Workspace, Project, Task, Channel, Message, TimeEntry, Notification.`,
@@ -156,8 +188,12 @@ Models: User, Workspace, Project, Task, Channel, Message, TimeEntry, Notificatio
     title: "App installation Implementation",
     location: "Team Space",
     tags: ["Apps"],
+    author: "Akshay P.",
+    readTime: "3m read",
+    isFresh: false,
     updated: "Dec 17 2025",
     viewed: "Dec 17",
+    relatedDocs: ["Frontend README"],
     content: `# App Installation Spec
 
 GitHub App integration OAuth token exchange with auto webhook setup.`,
@@ -167,8 +203,12 @@ GitHub App integration OAuth token exchange with auto webhook setup.`,
     title: "Tech's and Software using",
     location: "Team Space",
     tags: ["Stack"],
+    author: "Aditya N.",
+    readTime: "2m read",
+    isFresh: false,
     updated: "Dec 17 2025",
     viewed: "Dec 17",
+    relatedDocs: ["Frontend README", "Setting up the backend"],
     content: `# Technology Stack
 
 - Frontend: React, Vite, TailwindCSS, Framer Motion, Lucide Icons
@@ -179,8 +219,12 @@ GitHub App integration OAuth token exchange with auto webhook setup.`,
     title: "Electron",
     location: "Team Space",
     tags: ["Desktop"],
+    author: "Akshay P.",
+    readTime: "2m read",
+    isFresh: false,
     updated: "Dec 18 2025",
     viewed: "Dec 16",
+    relatedDocs: ["README for electron setup"],
     content: `# Desktop Electron Configuration
 
 Single instance lock and native tray notifications support.`,
@@ -190,8 +234,12 @@ Single instance lock and native tray notifications support.`,
     title: "biometric working",
     location: "+ Add Location",
     tags: [],
+    author: "Hardware Eng",
+    readTime: "3m read",
+    isFresh: false,
     updated: "Jan 24",
     viewed: "-",
+    relatedDocs: [],
     content: `# Biometric Working Spec
 
 Hardware interface definitions for RFID and biometric fingerprint readers.`,
@@ -201,8 +249,12 @@ Hardware interface definitions for RFID and biometric fingerprint readers.`,
     title: "Frontend README",
     location: "-",
     tags: [],
+    author: "Aditya N.",
+    readTime: "2m read",
+    isFresh: false,
     updated: "Dec 27 2025",
     viewed: "-",
+    relatedDocs: ["Tech's and Software using"],
     content: `# Frontend Architecture
 
 DevPilot modern web dashboard UI matching ClickUp 3.0 dark mode specifications.`,
@@ -214,21 +266,37 @@ const FEATURED_CARDS = [
     id: "fc1",
     title: "Prisma Change Log",
     desc: "Sync schema updates",
+    author: "Aditya N.",
+    readTime: "3m",
+    updated: "14m ago",
+    status: "Verified",
   },
   {
     id: "fc2",
     title: "Dev Workflow Guide",
     desc: "Standardize PRs",
+    author: "Akshay P.",
+    readTime: "4m",
+    updated: "2h ago",
+    status: "Core",
   },
   {
     id: "fc3",
     title: "IoT Data Specs",
     desc: "Centralize telemetry",
+    author: "DevOps",
+    readTime: "6m",
+    updated: "Yesterday",
+    status: "Draft",
   },
   {
     id: "fc4",
     title: "Communication Rules",
     desc: "Fix team alignment",
+    author: "Team Lead",
+    readTime: "2m",
+    updated: "3d ago",
+    status: "Active",
   },
 ];
 
@@ -237,13 +305,15 @@ export default function Docs() {
   const [docsList, setDocsList] = useState(INITIAL_DOCS);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedDoc, setSelectedDoc] = useState(null);
+  const [hoveredDoc, setHoveredDoc] = useState(null);
   const [isCreatingDoc, setIsCreatingDoc] = useState(false);
   const [newDocTitle, setNewDocTitle] = useState("");
 
   const filteredDocs = docsList.filter((doc) => {
     return (
       doc.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      doc.tags.some((t) => t.toLowerCase().includes(searchQuery.toLowerCase()))
+      doc.tags.some((t) => t.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (doc.author && doc.author.toLowerCase().includes(searchQuery.toLowerCase()))
     );
   });
 
@@ -256,8 +326,12 @@ export default function Docs() {
       title: newDocTitle.trim(),
       location: "Team Space",
       tags: ["Workspace"],
+      author: "Aditya N.",
+      readTime: "1m read",
+      isFresh: true,
       updated: "Just now",
       viewed: "Just now",
+      relatedDocs: ["Working with Neon and Prisma"],
       content: `# ${newDocTitle.trim()}\n\nStart typing notes or press \`/\` for commands...`,
     };
 
@@ -275,10 +349,10 @@ export default function Docs() {
         <div className="w-60 dark:bg-[#0f121a] bg-slate-50 border-r dark:border-white/[0.08] border-slate-200 flex flex-col h-full flex-shrink-0 transition-colors">
           {/* Header */}
           <div className="p-3.5 border-b dark:border-white/[0.06] border-slate-200 flex items-center justify-between">
-            <h2 className="text-sm font-bold dark:text-white text-slate-900">Docs</h2>
+            <h2 className="text-section-heading dark:text-white text-slate-900">Docs</h2>
             <button
               onClick={() => setIsCreatingDoc(true)}
-              className="flex items-center gap-1 px-2.5 py-1 rounded-lg dark:bg-white/5 bg-slate-200/80 dark:hover:bg-white/10 hover:bg-slate-300/70 text-xs font-semibold dark:text-slate-200 text-slate-800 border dark:border-white/5 border-slate-200 transition-colors"
+              className="flex items-center gap-1 px-2.5 py-1 rounded-lg dark:bg-white/5 bg-slate-200/80 dark:hover:bg-white/10 hover:bg-slate-300/70 text-btn-refined dark:text-slate-200 text-slate-800 border dark:border-white/5 border-slate-200 transition-colors"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Create</span>
@@ -289,7 +363,7 @@ export default function Docs() {
           <div className="p-2 space-y-0.5 border-b dark:border-white/[0.06] border-slate-200">
             <button
               onClick={() => setActiveCategory("all")}
-              className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+              className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-nav-secondary transition-colors ${
                 activeCategory === "all"
                   ? "dark:bg-white/10 bg-slate-200/80 dark:text-white text-slate-900 font-semibold"
                   : "text-slate-500 dark:hover:text-slate-200 hover:text-slate-900 dark:hover:bg-white/5 hover:bg-slate-100"
@@ -303,7 +377,7 @@ export default function Docs() {
 
             <button
               onClick={() => setActiveCategory("my")}
-              className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+              className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-nav-secondary transition-colors ${
                 activeCategory === "my"
                   ? "dark:bg-white/10 bg-slate-200/80 dark:text-white text-slate-900 font-semibold"
                   : "text-slate-500 dark:hover:text-slate-200 hover:text-slate-900 dark:hover:bg-white/5 hover:bg-slate-100"
@@ -315,12 +389,12 @@ export default function Docs() {
                 </span>
                 <span>My Docs</span>
               </div>
-              <span className="text-[11px] text-slate-400">6</span>
+              <span className="text-caption-meta text-slate-400">6</span>
             </button>
 
             <button
               onClick={() => setActiveCategory("shared")}
-              className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+              className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-nav-secondary transition-colors ${
                 activeCategory === "shared"
                   ? "dark:bg-white/10 bg-slate-200/80 dark:text-white text-slate-900 font-semibold"
                   : "text-slate-500 dark:hover:text-slate-200 hover:text-slate-900 dark:hover:bg-white/5 hover:bg-slate-100"
@@ -332,7 +406,7 @@ export default function Docs() {
 
             <button
               onClick={() => setActiveCategory("private")}
-              className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+              className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-nav-secondary transition-colors ${
                 activeCategory === "private"
                   ? "dark:bg-white/10 bg-slate-200/80 dark:text-white text-slate-900 font-semibold"
                   : "text-slate-500 dark:hover:text-slate-200 hover:text-slate-900 dark:hover:bg-white/5 hover:bg-slate-100"
@@ -344,7 +418,7 @@ export default function Docs() {
 
             <button
               onClick={() => setActiveCategory("meetings")}
-              className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+              className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-nav-secondary transition-colors ${
                 activeCategory === "meetings"
                   ? "dark:bg-white/10 bg-slate-200/80 dark:text-white text-slate-900 font-semibold"
                   : "text-slate-500 dark:hover:text-slate-200 hover:text-slate-900 dark:hover:bg-white/5 hover:bg-slate-100"
@@ -356,7 +430,7 @@ export default function Docs() {
 
             <button
               onClick={() => setActiveCategory("archived")}
-              className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+              className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-nav-secondary transition-colors ${
                 activeCategory === "archived"
                   ? "dark:bg-white/10 bg-slate-200/80 dark:text-white text-slate-900 font-semibold"
                   : "text-slate-500 dark:hover:text-slate-200 hover:text-slate-900 dark:hover:bg-white/5 hover:bg-slate-100"
@@ -369,25 +443,25 @@ export default function Docs() {
 
           {/* Favorites Empty State Card */}
           <div className="p-3 border-b dark:border-white/[0.06] border-slate-200">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-2">
+            <span className="text-metric-label text-slate-400 block mb-2">
               Favorites
             </span>
             <div className="p-3 rounded-xl dark:bg-white/[0.02] bg-white border border-dashed dark:border-white/[0.08] border-slate-200 text-center shadow-xs">
               <Star className="w-5 h-5 text-amber-500 fill-amber-500/20 mx-auto mb-1.5" />
-              <p className="text-[11px] text-slate-400">Star a Doc to see it here</p>
+              <p className="text-caption-meta text-slate-400">Star a Doc to see it here</p>
             </div>
           </div>
 
           {/* Recent Pages List */}
           <div className="p-3 flex-1 overflow-y-auto space-y-1">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1.5">
+            <span className="text-metric-label text-slate-400 block mb-1.5">
               Recent Pages
             </span>
             {docsList.slice(0, 5).map((d) => (
               <button
                 key={d.id}
                 onClick={() => setSelectedDoc(d)}
-                className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left text-xs text-slate-500 dark:hover:text-slate-200 hover:text-slate-900 dark:hover:bg-white/5 hover:bg-slate-200/60 transition-colors truncate"
+                className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-left text-[13px] text-slate-500 dark:hover:text-slate-200 hover:text-slate-900 dark:hover:bg-white/5 hover:bg-slate-200/60 transition-colors truncate"
               >
                 <FileText className="w-3 h-3 flex-shrink-0 text-slate-400" />
                 <span className="truncate">{d.title}</span>
@@ -397,12 +471,12 @@ export default function Docs() {
 
           {/* Popular Wikis Box */}
           <div className="p-3 border-t dark:border-white/[0.06] border-slate-200">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-2">
+            <span className="text-metric-label text-slate-400 block mb-2">
               Popular Wikis
             </span>
             <div className="p-3 rounded-xl dark:bg-white/[0.02] bg-white border dark:border-white/[0.05] border-slate-200 text-center shadow-xs">
               <Shield className="w-4 h-4 text-emerald-500 mx-auto mb-1 opacity-70" />
-              <p className="text-[10px] text-slate-400 leading-snug">
+              <p className="text-caption-meta text-slate-400 leading-snug">
                 Most viewed and active Wikis appear here
               </p>
             </div>
@@ -413,15 +487,15 @@ export default function Docs() {
         <div className="flex-1 flex flex-col h-full overflow-y-auto dark:bg-[#0c0e14] bg-[#f8fafc]">
           {/* Main Top Header */}
           <div className="h-14 border-b dark:border-white/[0.08] border-slate-200 px-6 flex items-center justify-between flex-shrink-0 dark:bg-[#0c0e14] bg-white transition-colors">
-            <h1 className="text-base font-bold dark:text-white text-slate-900">All Docs</h1>
+            <h1 className="text-page-title dark:text-white text-slate-900">All Docs</h1>
             <div className="flex items-center gap-2">
-              <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg dark:bg-white/5 bg-slate-100 dark:hover:bg-white/10 hover:bg-slate-200/80 text-xs font-medium dark:text-slate-300 text-slate-700 border dark:border-white/5 border-slate-200 transition-colors">
+              <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg dark:bg-white/5 bg-slate-100 dark:hover:bg-white/10 hover:bg-slate-200/80 text-btn-refined dark:text-slate-300 text-slate-700 border dark:border-white/5 border-slate-200 transition-colors">
                 <Download className="w-3.5 h-3.5" />
                 <span>Import</span>
               </button>
               <button
                 onClick={() => setIsCreatingDoc(true)}
-                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl dark:bg-white bg-slate-900 dark:text-slate-900 text-white hover:opacity-90 text-xs font-bold transition-all shadow-sm active:scale-95"
+                className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl dark:bg-white bg-slate-900 dark:text-slate-900 text-white hover:opacity-90 text-btn-refined transition-all shadow-sm active:scale-95"
               >
                 <span>New Doc</span>
                 <ChevronDown className="w-3 h-3 dark:text-slate-700 text-slate-300" />
@@ -441,14 +515,24 @@ export default function Docs() {
                     const match = docsList.find((d) => d.title.includes(fc.title.split(" ")[0]));
                     if (match) setSelectedDoc(match);
                   }}
-                  className="p-3.5 rounded-xl dark:bg-[#121520] bg-white dark:hover:bg-[#181c2b] hover:bg-slate-50 border dark:border-white/[0.06] border-slate-200 hover:border-indigo-500/30 transition-all cursor-pointer group shadow-sm"
+                  className="p-3.5 rounded-xl dark:bg-[#121520] bg-white dark:hover:bg-[#181c2b] hover:bg-slate-50 border dark:border-white/[0.06] border-slate-200 hover:border-indigo-500/30 transition-all cursor-pointer group shadow-sm micro-elevate"
                 >
-                  <h4 className="text-xs font-bold dark:text-slate-200 text-slate-800 group-hover:text-indigo-600 dark:group-hover:text-white transition-colors truncate">
+                  <div className="flex items-center justify-between gap-1 mb-1.5">
+                    <span className="text-badge-meta font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                      {fc.status}
+                    </span>
+                    <span className="text-[11.5px] text-slate-400 font-medium">{fc.readTime}</span>
+                  </div>
+                  <h4 className="text-card-title dark:text-slate-200 text-slate-800 group-hover:text-indigo-500 dark:group-hover:text-white transition-colors truncate">
                     {fc.title}
                   </h4>
-                  <p className="text-[11px] text-slate-400 mt-0.5 truncate">
+                  <p className="text-[12px] text-slate-400 mt-0.5 truncate">
                     {fc.desc}
                   </p>
+                  <div className="flex items-center justify-between text-task-metadata text-slate-400 pt-2 mt-2 border-t dark:border-white/[0.04] border-slate-100">
+                    <span className="truncate">{fc.author}</span>
+                    <span className="text-[11px]">{fc.updated}</span>
+                  </div>
                 </div>
               ))}
             </div>
@@ -456,15 +540,15 @@ export default function Docs() {
             {/* Filter & Search Toolbar */}
             <div className="flex items-center justify-between gap-4 pt-2">
               <div className="flex items-center gap-3">
-                <button className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg dark:bg-white/5 bg-slate-100 dark:hover:bg-white/10 hover:bg-slate-200/80 text-xs dark:text-slate-300 text-slate-700 border dark:border-white/5 border-slate-200 transition-colors">
+                <button className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg dark:bg-white/5 bg-slate-100 dark:hover:bg-white/10 hover:bg-slate-200/80 text-btn-refined dark:text-slate-300 text-slate-700 border dark:border-white/5 border-slate-200 transition-colors">
                   <Filter className="w-3.5 h-3.5" />
                   <span>Filters</span>
                 </button>
-                <button className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg dark:bg-white/5 bg-slate-100 dark:hover:bg-white/10 hover:bg-slate-200/80 text-xs dark:text-slate-300 text-slate-700 border dark:border-white/5 border-slate-200 transition-colors">
+                <button className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg dark:bg-white/5 bg-slate-100 dark:hover:bg-white/10 hover:bg-slate-200/80 text-btn-refined dark:text-slate-300 text-slate-700 border dark:border-white/5 border-slate-200 transition-colors">
                   <ArrowUpDown className="w-3.5 h-3.5" />
                   <span>Sort</span>
                 </button>
-                <div className="flex items-center gap-1 text-xs text-slate-400">
+                <div className="flex items-center gap-1 text-[12px] text-slate-400">
                   <span>Tags:</span>
                 </div>
               </div>
@@ -474,10 +558,10 @@ export default function Docs() {
                 <Search className="w-3.5 h-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
                 <input
                   type="text"
-                  placeholder="Search"
+                  placeholder="Search docs or authors..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-8 pr-3 py-1.5 rounded-lg dark:bg-white/5 bg-white border dark:border-white/[0.08] border-slate-200 text-xs dark:text-slate-200 text-slate-800 placeholder-slate-400 outline-none focus:border-indigo-500 w-48 shadow-sm transition-all"
+                  className="pl-8 pr-3 py-1.5 rounded-lg dark:bg-white/5 bg-white border dark:border-white/[0.08] border-slate-200 text-[13px] dark:text-slate-200 text-slate-800 placeholder-slate-400 outline-none focus:border-indigo-500 w-52 shadow-sm transition-all"
                 />
               </div>
             </div>
@@ -486,15 +570,16 @@ export default function Docs() {
             <div className="rounded-xl border dark:border-white/[0.08] border-slate-200 overflow-hidden dark:bg-[#10131d] bg-white shadow-sm">
               <table className="w-full text-left text-xs border-collapse">
                 <thead>
-                  <tr className="border-b dark:border-white/[0.08] border-slate-200 dark:bg-[#141724] bg-slate-50 text-slate-500 font-semibold text-[11px]">
+                  <tr className="border-b dark:border-white/[0.08] border-slate-200 dark:bg-[#141724] bg-slate-50 text-slate-500 font-semibold text-[12px]">
                     <th className="py-2.5 px-4 w-10">
                       <input type="checkbox" className="rounded bg-white/10 border-white/20 accent-indigo-500" />
                     </th>
                     <th className="py-2.5 px-3">Name</th>
-                    <th className="py-2.5 px-4 w-44">Location</th>
+                    <th className="py-2.5 px-4 w-36">Author</th>
+                    <th className="py-2.5 px-4 w-36">Location</th>
                     <th className="py-2.5 px-4 w-32">Tags</th>
-                    <th className="py-2.5 px-4 w-28">Date updated</th>
-                    <th className="py-2.5 px-4 w-28">Date viewed</th>
+                    <th className="py-2.5 px-4 w-32">Date updated</th>
+                    <th className="py-2.5 px-4 w-24">Read time</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y dark:divide-white/[0.04] divide-slate-100">
@@ -502,47 +587,110 @@ export default function Docs() {
                     <tr
                       key={doc.id}
                       onClick={() => setSelectedDoc(doc)}
+                      onMouseEnter={() => setHoveredDoc(doc)}
+                      onMouseLeave={() => setHoveredDoc(null)}
                       className="dark:hover:bg-white/[0.04] hover:bg-slate-50/70 transition-colors cursor-pointer group"
                     >
                       <td className="py-2 px-4" onClick={(e) => e.stopPropagation()}>
                         <input type="checkbox" className="rounded bg-white/10 border-white/20 accent-indigo-500" />
                       </td>
-                      <td className="py-2 px-3 font-medium dark:text-slate-200 text-slate-800 dark:group-hover:text-white group-hover:text-slate-900 flex items-center gap-2.5">
-                        <span className="w-5 h-5 rounded flex items-center justify-center bg-cyan-600/20 text-cyan-500 flex-shrink-0">
-                          <FileText className="w-3.5 h-3.5" />
-                        </span>
-                        <span className="truncate">{doc.title}</span>
+                      <td className="py-2.5 px-3">
+                        <div className="flex items-center gap-2.5">
+                          <span className="w-5 h-5 rounded flex items-center justify-center bg-cyan-600/20 text-cyan-500 flex-shrink-0">
+                            <FileText className="w-3.5 h-3.5" />
+                          </span>
+                          <div className="min-w-0">
+                            <span className="text-card-title dark:text-slate-100 text-slate-900 dark:group-hover:text-indigo-400 group-hover:text-indigo-600 transition-colors truncate block">
+                              {doc.title}
+                            </span>
+                            {doc.relatedDocs && doc.relatedDocs.length > 0 && (
+                              <span className="text-[11.5px] text-slate-400 truncate block">
+                                ↳ Related: {doc.relatedDocs[0]}
+                              </span>
+                            )}
+                          </div>
+                        </div>
                       </td>
-                      <td className="py-2 px-4 text-slate-400">
+                      <td className="py-2.5 px-4 text-slate-400 font-medium text-[12.5px]">
+                        {doc.author || "Aditya"}
+                      </td>
+                      <td className="py-2.5 px-4 text-slate-400">
                         {doc.location === "Team Space" ? (
-                          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-indigo-500/15 text-indigo-500 text-[11px] font-medium">
+                          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-indigo-500/15 text-indigo-500 text-[12px] font-medium">
                             <Users className="w-3 h-3" />
                             <span>Team Space</span>
                           </span>
                         ) : (
-                          <span className="text-slate-400 text-[11px]">{doc.location}</span>
+                          <span className="text-slate-400 text-[12px]">{doc.location}</span>
                         )}
                       </td>
-                      <td className="py-2 px-4 text-slate-400">
+                      <td className="py-2.5 px-4 text-slate-400">
                         {doc.tags && doc.tags.length > 0 ? (
                           <div className="flex items-center gap-1">
                             {doc.tags.map((t) => (
-                              <span key={t} className="px-1.5 py-0.5 rounded dark:bg-white/5 bg-slate-100 text-[10px] dark:text-slate-400 text-slate-600 border dark:border-transparent border-slate-200">
+                              <span key={t} className="px-1.5 py-0.5 rounded dark:bg-white/5 bg-slate-100 text-badge-meta dark:text-slate-400 text-slate-600 border dark:border-transparent border-slate-200">
                                 {t}
                               </span>
                             ))}
                           </div>
                         ) : (
-                          <span className="text-slate-400">-</span>
+                          <span className="text-slate-400 text-[12px]">-</span>
                         )}
                       </td>
-                      <td className="py-2 px-4 text-slate-400 text-[11px]">{doc.updated}</td>
-                      <td className="py-2 px-4 text-slate-400 text-[11px]">{doc.viewed}</td>
+                      <td className="py-2.5 px-4 text-slate-400 text-[12px]">
+                        <div className="flex items-center gap-1.5">
+                          {doc.isFresh && (
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse flex-shrink-0" title="Recently modified" />
+                          )}
+                          <span className={doc.isFresh ? "font-semibold dark:text-slate-300 text-slate-700" : ""}>
+                            {doc.updated}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="py-2.5 px-4 text-slate-400 text-[12px]">{doc.readTime || "2m"}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
+
+            {/* Hover Instant Preview Popover */}
+            <AnimatePresence>
+              {hoveredDoc && (
+                <motion.div
+                  initial={{ opacity: 0, y: 8, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 8, scale: 0.98 }}
+                  transition={{ duration: 0.12 }}
+                  className="fixed bottom-6 right-8 w-80 rounded-2xl dark:bg-[#151926] bg-white border dark:border-white/15 border-slate-200 shadow-2xl p-4 z-40 pointer-events-none"
+                >
+                  <div className="flex items-center justify-between text-caption-meta text-slate-400 mb-1.5">
+                    <span className="uppercase font-bold tracking-wider text-indigo-400">Quick Preview</span>
+                    <span>{hoveredDoc.readTime || "2m read"}</span>
+                  </div>
+                  <h5 className="text-card-title dark:text-white text-slate-900 line-clamp-1 mb-1">
+                    {hoveredDoc.title}
+                  </h5>
+                  <p className="text-[12px] text-slate-400 line-clamp-3 mb-2.5 leading-relaxed font-sans">
+                    {hoveredDoc.content.slice(0, 160).replace(/[#*`]/g, "")}...
+                  </p>
+                  <div className="flex items-center justify-between text-task-metadata text-slate-400 pt-2 border-t dark:border-white/[0.06] border-slate-100">
+                    <span>By {hoveredDoc.author || "Aditya"}</span>
+                    <span>{hoveredDoc.updated}</span>
+                  </div>
+                  {hoveredDoc.relatedDocs && hoveredDoc.relatedDocs.length > 0 && (
+                    <div className="mt-2 pt-1.5 text-task-metadata text-slate-400 flex items-center gap-1.5 flex-wrap">
+                      <span className="text-slate-400">Related:</span>
+                      {hoveredDoc.relatedDocs.map((r) => (
+                        <span key={r} className="px-1.5 py-0.5 rounded text-badge-meta dark:bg-white/5 bg-slate-100 dark:text-slate-300 text-slate-700">
+                          {r}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
 
           </div>
         </div>
@@ -564,11 +712,11 @@ export default function Docs() {
                       <FileText className="w-4 h-4" />
                     </span>
                     <div>
-                      <h3 className="text-sm font-bold dark:text-white text-slate-900 leading-tight">
+                      <h3 className="text-major-heading dark:text-white text-slate-900 leading-tight">
                         {selectedDoc.title}
                       </h3>
-                      <p className="text-[11px] text-slate-400">
-                        Location: {selectedDoc.location} • Last updated {selectedDoc.updated}
+                      <p className="text-task-metadata text-slate-400">
+                        By {selectedDoc.author || "Aditya"} • Location: {selectedDoc.location} • {selectedDoc.updated}
                       </p>
                     </div>
                   </div>
@@ -585,9 +733,30 @@ export default function Docs() {
                   </div>
                 </div>
 
+                {/* Related Documents Chips in Reader */}
+                {selectedDoc.relatedDocs && selectedDoc.relatedDocs.length > 0 && (
+                  <div className="px-6 py-2 border-b dark:border-white/[0.06] border-slate-200 dark:bg-white/[0.01] bg-slate-50 flex items-center gap-2 text-xs">
+                    <span className="text-[12px] text-slate-400 font-semibold">Related Docs:</span>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {selectedDoc.relatedDocs.map((r) => (
+                        <button
+                          key={r}
+                          onClick={() => {
+                            const found = docsList.find((d) => d.title === r);
+                            if (found) setSelectedDoc(found);
+                          }}
+                          className="px-2 py-0.5 rounded-md dark:bg-white/5 bg-slate-200/60 dark:hover:bg-white/10 hover:bg-slate-300 text-[12px] dark:text-indigo-300 text-indigo-600 font-medium transition-colors"
+                        >
+                          {r}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {/* Reader Body */}
                 <div className="p-6 overflow-y-auto text-xs leading-relaxed space-y-4 font-mono dark:bg-[#0c0e14] bg-slate-50">
-                  <pre className="whitespace-pre-wrap font-sans text-sm dark:text-slate-300 text-slate-700 leading-relaxed">
+                  <pre className="whitespace-pre-wrap font-sans text-[13.5px] dark:text-slate-300 text-slate-700 leading-relaxed">
                     {selectedDoc.content}
                   </pre>
                 </div>

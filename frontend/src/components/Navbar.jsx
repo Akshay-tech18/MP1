@@ -47,8 +47,47 @@ export default function Navbar() {
   const [isMeetingOpen, setIsMeetingOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [showGitModal, setShowGitModal] = useState(false);
+  const [showSearchModal, setShowSearchModal] = useState(false);
+  const [commandQuery, setCommandQuery] = useState("");
   const notifDropdownRef = useRef(null);
+  const searchInputRef = useRef(null);
   const navigate = useNavigate();
+
+  // Keyboard shortcut: Cmd+K / Ctrl+K
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setShowSearchModal((prev) => !prev);
+      } else if (e.key === "Escape") {
+        setShowSearchModal(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
+  useEffect(() => {
+    if (showSearchModal) {
+      setTimeout(() => searchInputRef.current?.focus(), 50);
+    }
+  }, [showSearchModal]);
+
+  const commandItems = [
+    { id: "cmd-1", label: "Open Kanban Planner & Sprint", category: "Navigation", icon: "📋", action: () => navigate("/board") },
+    { id: "cmd-2", label: "Launch Nexus AI Workspace", category: "Intelligence", icon: "✨", action: () => navigate("/ai") },
+    { id: "cmd-3", label: "Log Weekly Timesheet Hours", category: "Operational", icon: "⏱️", action: () => navigate("/timesheets") },
+    { id: "cmd-4", label: "Inspect Codebase Defect Risk", category: "Intelligence", icon: "📊", action: () => navigate("/analytics") },
+    { id: "cmd-5", label: "Manage Team Workload & Invites", category: "Operational", icon: "👥", action: () => navigate("/teams") },
+    { id: "cmd-6", label: "Working with Neon and Prisma", category: "Docs", icon: "📄", action: () => navigate("/docs") },
+    { id: "cmd-7", label: "Phase 1 - API Contract Spec", category: "Docs", icon: "📄", action: () => navigate("/docs") },
+    { id: "cmd-8", label: "Database Schema Architecture", category: "Docs", icon: "📄", action: () => navigate("/docs") },
+  ];
+
+  const filteredCommands = commandItems.filter((c) =>
+    c.label.toLowerCase().includes(commandQuery.toLowerCase()) ||
+    c.category.toLowerCase().includes(commandQuery.toLowerCase())
+  );
 
   const initials = user?.name
     ? user.name
@@ -105,12 +144,16 @@ export default function Navbar() {
       </div>
 
       {/* Center: Search Bar & AI Chats Pill */}
-      <div className="hidden md:flex items-center gap-2">
+      <div className="hidden md:flex items-center gap-2 relative">
         {/* Search Command Trigger */}
-        <div className="flex items-center gap-2 px-3 py-1 rounded-lg dark:bg-white/5 bg-slate-100 border dark:border-white/[0.08] border-slate-200 cursor-pointer hover:border-slate-300 dark:hover:border-white/20 transition-colors w-56 dark:text-slate-400 text-slate-500">
+        <div
+          onClick={() => setShowSearchModal(true)}
+          className="flex items-center gap-2 px-3 py-1 rounded-lg dark:bg-white/5 bg-slate-100 border dark:border-white/[0.08] border-slate-200 cursor-pointer hover:border-slate-300 dark:hover:border-white/20 transition-colors w-56 dark:text-slate-400 text-slate-500"
+          title="Global Search & Quick Commands (⌘K)"
+        >
           <Search className="w-3.5 h-3.5" />
-          <span className="text-xs font-medium">Search</span>
-          <kbd className="ml-auto text-[10px] dark:bg-white/10 bg-slate-200 px-1 py-0.2 rounded font-mono dark:text-slate-300 text-slate-600">
+          <span className="text-nav-top">Search</span>
+          <kbd className="ml-auto text-caption-meta dark:bg-white/10 bg-slate-200 px-1 py-0.2 rounded font-mono dark:text-slate-300 text-slate-600">
             ⌘K
           </kbd>
         </div>
@@ -118,7 +161,7 @@ export default function Navbar() {
         {/* AI Chats Pill */}
         <button
           onClick={() => navigate("/ai")}
-          className="flex items-center gap-1.5 px-3 py-1 rounded-lg dark:bg-white/5 bg-slate-100 hover:bg-slate-200 dark:hover:bg-white/10 border dark:border-white/[0.08] border-slate-200 hover:border-indigo-500/30 text-xs font-medium dark:text-slate-300 text-slate-700 hover:text-slate-900 dark:hover:text-white transition-all group"
+          className="flex items-center gap-1.5 px-3 py-1 rounded-lg dark:bg-white/5 bg-slate-100 hover:bg-slate-200 dark:hover:bg-white/10 border dark:border-white/[0.08] border-slate-200 hover:border-indigo-500/30 text-nav-top dark:text-slate-300 text-slate-700 hover:text-slate-900 dark:hover:text-white transition-all group"
         >
           <span>AI Chats</span>
           <BrainFlowerIcon className="w-3.5 h-3.5 group-hover:rotate-45 transition-transform" />
@@ -127,13 +170,84 @@ export default function Navbar() {
         {/* GitHub Integration Pill Button */}
         <button
           onClick={() => setShowGitModal(true)}
-          className="flex items-center gap-1.5 px-3 py-1 rounded-lg dark:bg-white/5 bg-slate-100 hover:bg-slate-200 dark:hover:bg-white/10 border dark:border-white/[0.08] border-slate-200 hover:border-indigo-500/30 text-xs font-medium dark:text-slate-300 text-slate-700 hover:text-slate-900 dark:hover:text-white transition-all group"
+          className="flex items-center gap-1.5 px-3 py-1 rounded-lg dark:bg-white/5 bg-slate-100 hover:bg-slate-200 dark:hover:bg-white/10 border dark:border-white/[0.08] border-slate-200 hover:border-indigo-500/30 text-nav-top dark:text-slate-300 text-slate-700 hover:text-slate-900 dark:hover:text-white transition-all group"
           title="GitHub Integration & Repositories"
         >
           <Github className="w-3.5 h-3.5 text-slate-400 group-hover:text-indigo-400 transition-colors" />
           <span>Git Integration</span>
         </button>
       </div>
+
+      {/* Global Command Palette Popover */}
+      <AnimatePresence>
+        {showSearchModal && (
+          <div
+            className="fixed inset-0 z-50 flex items-start justify-center pt-20 bg-black/60 backdrop-blur-sm p-4"
+            onClick={() => setShowSearchModal(false)}
+          >
+            <div
+              className="w-full max-w-lg rounded-2xl dark:bg-[#121520] bg-white border dark:border-white/15 border-slate-200 shadow-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-150"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Input Header */}
+              <div className="p-3.5 px-4 border-b dark:border-white/[0.08] border-slate-200 flex items-center gap-2.5">
+                <Search className="w-4 h-4 text-indigo-400 flex-shrink-0" />
+                <input
+                  ref={searchInputRef}
+                  type="text"
+                  placeholder="Type a command, task, document or member..."
+                  value={commandQuery}
+                  onChange={(e) => setCommandQuery(e.target.value)}
+                  className="w-full bg-transparent text-body-secondary dark:text-white text-slate-900 placeholder-slate-400 outline-none"
+                />
+                <kbd className="text-caption-meta dark:bg-white/10 bg-slate-200 px-1.5 py-0.5 rounded font-mono text-slate-400 flex-shrink-0">
+                  ESC
+                </kbd>
+              </div>
+
+              {/* Suggestions List */}
+              <div className="max-h-80 overflow-y-auto p-2 space-y-1">
+                <div className="px-2 py-1 text-metric-label uppercase font-bold tracking-wider text-slate-400">
+                  Workspace Actions & Documents
+                </div>
+
+                {filteredCommands.length === 0 ? (
+                  <div className="p-6 text-center text-task-metadata text-slate-400">
+                    No matching commands found
+                  </div>
+                ) : (
+                  filteredCommands.map((item) => (
+                    <button
+                      key={item.id}
+                      onClick={() => {
+                        item.action();
+                        setShowSearchModal(false);
+                      }}
+                      className="w-full flex items-center justify-between p-2 rounded-xl dark:hover:bg-white/10 hover:bg-slate-100 text-left transition-colors group"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <span className="text-sm">{item.icon}</span>
+                        <span className="text-card-title font-semibold dark:text-slate-200 text-slate-800 dark:group-hover:text-white group-hover:text-indigo-600 truncate">
+                          {item.label}
+                        </span>
+                      </div>
+                      <span className="text-badge-meta uppercase font-bold tracking-wider px-1.5 py-0.5 rounded dark:bg-white/5 bg-slate-200 text-slate-400">
+                        {item.category}
+                      </span>
+                    </button>
+                  ))
+                )}
+              </div>
+
+              {/* Footer */}
+              <div className="p-2.5 px-4 border-t dark:border-white/[0.06] border-slate-200 dark:bg-white/[0.02] bg-slate-50 flex items-center justify-between text-caption-meta text-slate-400 font-mono">
+                <span>Navigate with click or ↵</span>
+                <span>Pro Tip: Press ⌘K anywhere</span>
+              </div>
+            </div>
+          </div>
+        )}
+      </AnimatePresence>
 
       {/* Right: Actions */}
       <div className="flex items-center gap-2">
@@ -153,7 +267,7 @@ export default function Navbar() {
         <div className="relative">
           <button
             onClick={() => setIsProfileOpen((prev) => !prev)}
-            className="w-8 h-8 rounded-full bg-slate-700 hover:bg-slate-600 flex items-center justify-center text-[11px] font-bold text-white relative hover:ring-2 hover:ring-indigo-500/50 transition-all shadow-sm flex-shrink-0 active:scale-95"
+            className="w-8 h-8 rounded-full bg-slate-700 hover:bg-slate-600 flex items-center justify-center text-caption-meta font-bold text-white relative hover:ring-2 hover:ring-indigo-500/50 transition-all shadow-sm flex-shrink-0 active:scale-95"
             title={user?.name ? `${user.name} Profile` : "Account Profile"}
           >
             <span>{initials}</span>
@@ -184,7 +298,7 @@ export default function Navbar() {
           >
             <Bell className="w-4 h-4" />
             {unreadCount > 0 && (
-              <span className="absolute -top-1 -right-1 min-w-[16px] h-[16px] px-1 bg-pink-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center shadow-lg animate-pulse">
+              <span className="absolute -top-1 -right-1 min-w-[16px] h-[16px] px-1 bg-pink-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center shadow-lg animate-pulse">
                 {unreadCount > 99 ? "99+" : unreadCount}
               </span>
             )}
@@ -199,11 +313,11 @@ export default function Navbar() {
               {/* Header */}
               <div className="p-3.5 px-4 border-b dark:border-white/[0.08] border-slate-200 flex items-center justify-between dark:bg-white/[0.02] bg-slate-50/50">
                 <div className="flex items-center gap-2">
-                  <h4 className="font-bold text-xs uppercase tracking-wider dark:text-white text-slate-900">
+                  <h4 className="font-bold text-section-heading uppercase tracking-wider dark:text-white text-slate-900">
                     Notifications
                   </h4>
                   {unreadCount > 0 && (
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-500/20 border border-indigo-500/30 text-indigo-400">
+                    <span className="text-badge-meta font-bold px-2 py-0.5 rounded-full bg-indigo-500/20 border border-indigo-500/30 text-indigo-400">
                       {unreadCount} new
                     </span>
                   )}
@@ -211,7 +325,7 @@ export default function Navbar() {
                 {unreadCount > 0 && (
                   <button
                     onClick={markAllAsRead}
-                    className="text-[11px] font-semibold text-indigo-500 hover:text-indigo-600 dark:text-indigo-400 dark:hover:text-indigo-300 transition-colors flex items-center gap-1"
+                    className="text-task-metadata font-semibold text-indigo-500 hover:text-indigo-600 dark:text-indigo-400 dark:hover:text-indigo-300 transition-colors flex items-center gap-1"
                   >
                     <CheckCheck className="w-3.5 h-3.5" />
                     <span>Mark all read</span>
@@ -222,16 +336,16 @@ export default function Navbar() {
               {/* Notification List */}
               <div className="max-h-80 overflow-y-auto divide-y dark:divide-white/[0.04] divide-slate-100">
                 {loadingNotifs && notifications.length === 0 ? (
-                  <div className="p-8 text-center text-xs text-slate-400">
+                  <div className="p-8 text-center text-task-metadata text-slate-400">
                     Loading notifications...
                   </div>
                 ) : notifications.length === 0 ? (
                   <div className="py-10 px-4 text-center">
                     <Sparkles className="w-6 h-6 mx-auto mb-2 text-indigo-400 opacity-60" />
-                    <p className="text-xs font-semibold dark:text-white text-slate-900">
+                    <p className="text-card-title font-semibold dark:text-white text-slate-900">
                       You're all caught up!
                     </p>
-                    <p className="text-[11px] text-slate-400 mt-0.5">
+                    <p className="text-caption-meta text-slate-400 mt-0.5">
                       New alerts and workspace updates will appear here.
                     </p>
                   </div>
@@ -257,7 +371,7 @@ export default function Navbar() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-2">
                           <h5
-                            className={`text-xs truncate ${
+                            className={`text-card-title truncate ${
                               !n.read
                                 ? "font-bold dark:text-white text-slate-900"
                                 : "font-medium dark:text-slate-300 text-slate-700"
@@ -265,12 +379,12 @@ export default function Navbar() {
                           >
                             {n.title}
                           </h5>
-                          <span className="text-[10px] text-slate-400 flex items-center gap-1 flex-shrink-0">
+                          <span className="text-caption-meta text-slate-400 flex items-center gap-1 flex-shrink-0">
                             <Clock className="w-2.5 h-2.5" />
                             {formatTimeAgo(n.createdAt)}
                           </span>
                         </div>
-                        <p className="text-[11px] dark:text-slate-400 text-slate-500 mt-0.5 leading-snug line-clamp-2">
+                        <p className="text-task-metadata dark:text-slate-400 text-slate-500 mt-0.5 leading-snug line-clamp-2">
                           {n.message}
                         </p>
                       </div>
@@ -285,7 +399,7 @@ export default function Navbar() {
         {/* Video Call Button (Apple-grade Frosted Glass with Neon Aura) */}
         <button
           onClick={() => setIsMeetingOpen(true)}
-          className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-indigo-600/90 to-purple-600/90 hover:from-indigo-500 hover:to-purple-500 border border-white/20 text-xs font-bold text-white shadow-[0_0_18px_rgba(99,102,241,0.45)] backdrop-blur-md transition-all active:scale-95 group"
+          className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-indigo-600/90 to-purple-600/90 hover:from-indigo-500 hover:to-purple-500 border border-white/20 text-btn-refined font-bold text-white shadow-[0_0_18px_rgba(99,102,241,0.45)] backdrop-blur-md transition-all active:scale-95 group"
           title="Start or Join Workspace Video Meeting"
         >
           <Video className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" />

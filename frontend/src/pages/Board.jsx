@@ -248,8 +248,8 @@ export default function Board() {
         {/* Board Subheader */}
         <div className="h-11 glass-sidebar border-b px-4 flex items-center justify-between flex-shrink-0">
           <div className="flex items-center gap-3">
-            <span className="text-[10px] font-bold dark:text-dp-text-muted text-dp-text-light-muted uppercase tracking-wider">Sprint:</span>
-            <select value={selectedSprintId} onChange={(e) => setSelectedSprintId(e.target.value)} className="glass-select">
+            <span className="text-metric-label dark:text-dp-text-muted text-dp-text-light-muted">Sprint:</span>
+            <select value={selectedSprintId} onChange={(e) => setSelectedSprintId(e.target.value)} className="glass-select text-[13px]">
               <option value="all">All Sprints & Backlog</option>
               <option value="backlog">Backlog Only</option>
               {sprints.map(sprint => (
@@ -257,7 +257,7 @@ export default function Board() {
               ))}
             </select>
           </div>
-          <button onClick={() => { setCreateColumnTarget("TODO"); setShowCreateModal(true); }} className="btn-primary flex items-center gap-1.5 py-1.5 text-[11px]">
+          <button onClick={() => { setCreateColumnTarget("TODO"); setShowCreateModal(true); }} className="btn-primary flex items-center gap-1.5 py-1.5 text-btn-refined">
             <Plus className="w-3.5 h-3.5" /> Add Task
           </button>
         </div>
@@ -269,18 +269,33 @@ export default function Board() {
               {COLUMNS.map((colName) => {
                 const colTasks = tasks.filter((t) => t.status === colName);
                 const config = COLUMN_CONFIG[colName];
+                const colSP = colTasks.reduce(
+                  (acc, t) => acc + (t.priority === "CRITICAL" ? 5 : t.priority === "HIGH" ? 3 : t.priority === "MEDIUM" ? 2 : 1),
+                  0
+                );
+                const isHeavyLoad = colName === "IN_PROGRESS" && colTasks.length >= 4;
+
                 return (
-                  <div key={colName} className="w-[272px] flex-shrink-0 rounded-xl flex flex-col max-h-full dark:bg-dp-dark-surface/40 bg-dp-light-bg-secondary/60 border dark:border-dp-dark-border-light/30 border-dp-light-border/60">
+                  <div key={colName} className="w-[280px] flex-shrink-0 rounded-2xl flex flex-col max-h-full dark:bg-dp-dark-surface/40 bg-dp-light-bg-secondary/60 border dark:border-dp-dark-border-light/40 border-dp-light-border/60 shadow-sm">
                     
-                    {/* Column Header */}
-                    <div className="p-3 flex items-center justify-between flex-shrink-0">
-                      <div className="flex items-center gap-2">
+                    {/* Column Header with Operational Telemetry */}
+                    <div className="p-3 border-b dark:border-white/[0.04] border-slate-200/60 flex items-center justify-between flex-shrink-0">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <span className={`w-2 h-2 rounded-full ${config.dot}`} />
-                        <span className={`status-badge ${config.badge}`}>{config.label}</span>
-                        <span className="text-[10px] dark:text-dp-text-muted text-dp-text-light-muted font-bold font-mono">{colTasks.length}</span>
+                        <span className={`status-badge text-[12px] font-semibold ${config.badge}`}>{config.label}</span>
+                        <span className="text-[11.5px] dark:text-slate-400 text-slate-500 font-mono font-semibold">
+                          {colTasks.length} • {colSP} SP
+                        </span>
+                        {isHeavyLoad && (
+                          <span className="text-badge-meta font-bold px-1.5 py-0.2 rounded bg-amber-500/15 text-amber-400 border border-amber-500/25">
+                            Pressure
+                          </span>
+                        )}
                       </div>
                       <button onClick={() => { setCreateColumnTarget(colName); setShowCreateModal(true); }}
-                        className="w-6 h-6 rounded-md flex items-center justify-center dark:text-dp-text-muted text-dp-text-light-muted dark:hover:bg-dp-dark-surface-hover hover:bg-dp-light-surface-hover hover:text-dp-primary transition-colors">
+                        className="w-6 h-6 rounded-md flex items-center justify-center dark:text-dp-text-muted text-dp-text-light-muted dark:hover:bg-dp-dark-surface-hover hover:bg-dp-light-surface-hover hover:text-dp-primary transition-colors"
+                        title="Add task to column"
+                      >
                         <Plus className="w-3.5 h-3.5" />
                       </button>
                     </div>
@@ -291,74 +306,95 @@ export default function Board() {
                         <div
                           ref={provided.innerRef}
                           {...provided.droppableProps}
-                          className={`flex-1 overflow-y-auto px-2 pb-2 space-y-2 min-h-[140px] rounded-lg transition-colors duration-150 ${
+                          className={`flex-1 overflow-y-auto px-2 pb-2 pt-2 space-y-2 min-h-[160px] rounded-lg transition-colors duration-150 ${
                             snapshot.isDraggingOver
                               ? "dark:bg-indigo-500/[0.05] bg-indigo-500/[0.04] ring-1 ring-indigo-500/20"
                               : ""
                           }`}
                         >
                           {colTasks.length === 0 && (
-                            <div className="h-20 rounded-lg border border-dashed dark:border-white/5 border-slate-300/60 flex flex-col items-center justify-center text-center p-2 select-none my-1">
-                              <span className="text-[11px] font-medium dark:text-dp-text-muted/60 text-slate-400">
-                                No tasks
+                            <div className="py-7 px-3 rounded-xl border border-dashed dark:border-white/10 border-slate-300/80 flex flex-col items-center justify-center text-center select-none my-1 space-y-1.5">
+                              <span className="text-[13px] font-semibold dark:text-slate-300 text-slate-700">
+                                No work waiting here
                               </span>
-                              <span className="text-[10px] dark:text-dp-text-muted/40 text-slate-400/80">
-                                Drag cards here
+                              <span className="text-[12px] dark:text-slate-500 text-slate-400 leading-tight">
+                                Drag a task into this stage or add one
                               </span>
+                              <button
+                                onClick={() => { setCreateColumnTarget(colName); setShowCreateModal(true); }}
+                                className="mt-1 px-2.5 py-1 rounded-lg text-[11.5px] font-semibold dark:bg-white/5 bg-slate-100 hover:bg-slate-200 dark:hover:bg-white/10 border dark:border-white/10 border-slate-200 text-slate-400 hover:text-indigo-400 transition-colors flex items-center gap-1"
+                              >
+                                <Plus className="w-3 h-3" />
+                                <span>Add Task</span>
+                              </button>
                             </div>
                           )}
 
-                          {colTasks.map((taskItem, index) => (
-                            <Draggable key={taskItem.id} draggableId={taskItem.id} index={index}>
-                              {(dp, ds) => (
-                                <div
-                                  ref={dp.innerRef}
-                                  {...dp.draggableProps}
-                                  {...dp.dragHandleProps}
-                                  onClick={() => setSelectedTaskId(taskItem.id)}
-                                  className={`p-3 rounded-xl cursor-grab active:cursor-grabbing transition-all duration-150 select-none flex flex-col gap-2 border ${
-                                    ds.isDragging
-                                      ? "shadow-xl scale-[1.02] dark:bg-dp-dark-surface bg-white dark:border-indigo-500/50 border-indigo-500/40 z-50 ring-1 ring-indigo-500/30"
-                                      : "dark:bg-dp-dark-surface/80 bg-white dark:border-white/5 border-slate-200/80 dark:hover:border-white/15 hover:border-slate-300 shadow-sm"
-                                  }`}
-                                >
-                                  <h4 className="text-[12px] font-semibold dark:text-dp-text-primary text-dp-text-light-primary leading-normal line-clamp-2">
-                                    {taskItem.title}
-                                  </h4>
-                                  <div className="flex items-center justify-between text-[9px] dark:text-dp-text-muted text-dp-text-light-muted">
-                                    <div className="flex items-center gap-2">
-                                      <span className="font-bold font-mono">TASK-{taskItem.taskNumber}</span>
-                                      <span className={`status-badge text-[8px] ${PRIORITY_STYLES[taskItem.priority]}`}>
-                                        {taskItem.priority[0]}
-                                      </span>
+                          {colTasks.map((taskItem, index) => {
+                            const priorityEdgeClass = taskItem.priority === "CRITICAL"
+                              ? "priority-edge-urgent"
+                              : taskItem.priority === "HIGH"
+                              ? "priority-edge-high"
+                              : taskItem.priority === "MEDIUM"
+                              ? "priority-edge-normal"
+                              : "priority-edge-low";
+
+                            return (
+                              <Draggable key={taskItem.id} draggableId={taskItem.id} index={index}>
+                                {(dp, ds) => (
+                                  <div
+                                    ref={dp.innerRef}
+                                    {...dp.draggableProps}
+                                    {...dp.dragHandleProps}
+                                    onClick={() => setSelectedTaskId(taskItem.id)}
+                                    className={`p-3 rounded-xl cursor-grab active:cursor-grabbing select-none flex flex-col gap-2 border micro-elevate group ${priorityEdgeClass} ${
+                                      ds.isDragging
+                                        ? "shadow-2xl scale-[1.02] dark:bg-dp-dark-surface bg-white dark:border-indigo-500/50 border-indigo-500/40 z-50 ring-1 ring-indigo-500/30"
+                                        : "dark:bg-dp-dark-surface/90 bg-white dark:border-white/5 border-slate-200/80 dark:hover:border-white/20 hover:border-slate-300 shadow-sm"
+                                    }`}
+                                  >
+                                    <div className="flex items-start justify-between gap-2">
+                                      <h4 className="text-card-title dark:text-dp-text-primary text-dp-text-light-primary line-clamp-2 flex-1">
+                                        {taskItem.title}
+                                      </h4>
                                     </div>
-                                    <div className="flex items-center gap-2">
-                                      {taskItem._count?.comments > 0 && (
-                                        <span className="flex items-center gap-0.5">
-                                          <MessageSquare className="w-2.5 h-2.5" />
-                                          {taskItem._count.comments}
+                                    <div className="flex items-center justify-between text-task-metadata dark:text-dp-text-muted text-dp-text-light-muted pt-1 border-t dark:border-white/[0.04] border-slate-100">
+                                      <div className="flex items-center gap-2">
+                                        <span className="font-semibold font-mono text-[11.5px] dark:text-slate-300 text-slate-700">
+                                          #{taskItem.taskNumber}
                                         </span>
-                                      )}
-                                      {taskItem.assignee ? (
-                                        <Avatar
-                                          src={taskItem.assignee.avatar}
-                                          name={taskItem.assignee.name}
-                                          size="xs"
-                                        />
-                                      ) : (
-                                        <div
-                                          className="w-5 h-5 rounded-full dark:bg-dp-dark-elevated bg-dp-light-bg-secondary dark:text-dp-text-muted text-dp-text-light-muted border border-dashed dark:border-dp-dark-border-light border-dp-light-border flex items-center justify-center"
-                                          title="Unassigned"
-                                        >
-                                          <User className="w-2.5 h-2.5" />
-                                        </div>
-                                      )}
+                                        <span className={`status-badge text-badge-meta font-semibold ${PRIORITY_STYLES[taskItem.priority]}`}>
+                                          {taskItem.priority}
+                                        </span>
+                                      </div>
+                                      <div className="flex items-center gap-2">
+                                        {taskItem._count?.comments > 0 && (
+                                          <span className="flex items-center gap-0.5 dark:text-slate-400 text-slate-500 font-mono text-[11.5px]">
+                                            <MessageSquare className="w-2.5 h-2.5" />
+                                            {taskItem._count.comments}
+                                          </span>
+                                        )}
+                                        {taskItem.assignee ? (
+                                          <Avatar
+                                            src={taskItem.assignee.avatar}
+                                            name={taskItem.assignee.name}
+                                            size="xs"
+                                          />
+                                        ) : (
+                                          <div
+                                            className="w-5 h-5 rounded-full dark:bg-dp-dark-elevated bg-dp-light-bg-secondary dark:text-dp-text-muted text-dp-text-light-muted border border-dashed dark:border-dp-dark-border-light border-dp-light-border flex items-center justify-center"
+                                            title="Unassigned"
+                                          >
+                                            <User className="w-2.5 h-2.5" />
+                                          </div>
+                                        )}
+                                      </div>
                                     </div>
                                   </div>
-                                </div>
-                              )}
-                            </Draggable>
-                          ))}
+                                )}
+                              </Draggable>
+                            );
+                          })}
                           {provided.placeholder}
                         </div>
                       )}
@@ -383,8 +419,8 @@ export default function Board() {
               {/* Drawer Header */}
               <div className="p-4 border-b dark:border-dp-dark-border-light/50 border-dp-light-border flex items-center justify-between flex-shrink-0">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold dark:text-dp-text-muted text-dp-text-light-muted font-mono">TASK-{taskDetails.taskNumber}</span>
-                  <span className={`status-badge ${COLUMN_CONFIG[taskDetails.status]?.badge}`}>{taskDetails.status.replace("_", " ")}</span>
+                  <span className="text-task-metadata font-bold dark:text-dp-text-muted text-dp-text-light-muted font-mono">TASK-{taskDetails.taskNumber}</span>
+                  <span className={`status-badge text-badge-meta font-semibold ${COLUMN_CONFIG[taskDetails.status]?.badge}`}>{taskDetails.status.replace("_", " ")}</span>
                 </div>
                 <button onClick={() => setSelectedTaskId(null)} className="w-7 h-7 rounded-lg flex items-center justify-center dark:hover:bg-dp-dark-surface-hover hover:bg-dp-light-bg-secondary dark:text-dp-text-muted text-dp-text-light-muted transition-colors">
                   <X className="w-4 h-4" />
@@ -395,36 +431,36 @@ export default function Board() {
               <div className="flex-1 overflow-y-auto p-5 space-y-5">
                 {/* Title & Description */}
                 <div>
-                  <h3 className="text-base font-display font-bold dark:text-dp-text-primary text-dp-text-light-primary leading-snug">{taskDetails.title}</h3>
-                  <p className="text-xs dark:text-dp-text-muted text-dp-text-light-muted mt-2 dark:bg-dp-dark-surface/60 bg-dp-light-bg-secondary p-3 rounded-lg leading-relaxed border dark:border-dp-dark-border-light/30 border-dp-light-border/60">
+                  <h3 className="text-major-heading dark:text-dp-text-primary text-dp-text-light-primary leading-snug">{taskDetails.title}</h3>
+                  <p className="text-body-secondary dark:text-dp-text-muted text-dp-text-light-muted mt-2 dark:bg-dp-dark-surface/60 bg-dp-light-bg-secondary p-3 rounded-lg leading-relaxed border dark:border-dp-dark-border-light/30 border-dp-light-border/60">
                     {taskDetails.description || "No description provided."}
                   </p>
                 </div>
 
                 {/* Properties Grid */}
-                <div className="grid grid-cols-2 gap-3 border-t border-b dark:border-dp-dark-border-light/30 border-dp-light-border/60 py-4 text-xs">
+                <div className="grid grid-cols-2 gap-3 border-t border-b dark:border-dp-dark-border-light/30 border-dp-light-border/60 py-4 text-[13px]">
                   <div className="space-y-1.5">
-                    <span className="text-[10px] font-bold dark:text-dp-text-muted text-dp-text-light-muted uppercase tracking-wider block">Priority</span>
-                    <select value={taskDetails.priority} onChange={(e) => handleUpdateTaskField("priority", e.target.value)} className="glass-select w-full">
+                    <span className="text-metric-label dark:text-dp-text-muted text-dp-text-light-muted block">Priority</span>
+                    <select value={taskDetails.priority} onChange={(e) => handleUpdateTaskField("priority", e.target.value)} className="glass-select w-full text-[13px]">
                       <option value="LOW">LOW</option><option value="MEDIUM">MEDIUM</option><option value="HIGH">HIGH</option><option value="CRITICAL">CRITICAL</option>
                     </select>
                   </div>
                   <div className="space-y-1.5">
-                    <span className="text-[10px] font-bold dark:text-dp-text-muted text-dp-text-light-muted uppercase tracking-wider block">Status</span>
-                    <select value={taskDetails.status} onChange={(e) => handleUpdateTaskField("status", e.target.value)} className="glass-select w-full">
+                    <span className="text-metric-label dark:text-dp-text-muted text-dp-text-light-muted block">Status</span>
+                    <select value={taskDetails.status} onChange={(e) => handleUpdateTaskField("status", e.target.value)} className="glass-select w-full text-[13px]">
                       {COLUMNS.map(col => (<option key={col} value={col}>{col.replace("_", " ")}</option>))}
                     </select>
                   </div>
                   <div className="space-y-1.5">
-                    <span className="text-[10px] font-bold dark:text-dp-text-muted text-dp-text-light-muted uppercase tracking-wider block">Assignee</span>
-                    <select value={taskDetails.assigneeId || ""} onChange={(e) => handleUpdateTaskField("assigneeId", e.target.value)} className="glass-select w-full">
+                    <span className="text-metric-label dark:text-dp-text-muted text-dp-text-light-muted block">Assignee</span>
+                    <select value={taskDetails.assigneeId || ""} onChange={(e) => handleUpdateTaskField("assigneeId", e.target.value)} className="glass-select w-full text-[13px]">
                       <option value="">Unassigned</option>
                       {members.map(member => (<option key={member.userId} value={member.userId}>{member.user.name}</option>))}
                     </select>
                   </div>
                   <div className="space-y-1.5">
-                    <span className="text-[10px] font-bold dark:text-dp-text-muted text-dp-text-light-muted uppercase tracking-wider block">Sprint</span>
-                    <select value={taskDetails.sprintId || ""} onChange={(e) => handleUpdateTaskField("sprintId", e.target.value)} className="glass-select w-full">
+                    <span className="text-metric-label dark:text-dp-text-muted text-dp-text-light-muted block">Sprint</span>
+                    <select value={taskDetails.sprintId || ""} onChange={(e) => handleUpdateTaskField("sprintId", e.target.value)} className="glass-select w-full text-[13px]">
                       <option value="">Backlog</option>
                       {sprints.map(s => (<option key={s.id} value={s.id}>{s.name}</option>))}
                     </select>
@@ -434,13 +470,13 @@ export default function Board() {
                 {/* Linked Commits */}
                 {taskDetails.commits && taskDetails.commits.length > 0 && (
                   <div className="space-y-2">
-                    <span className="text-[10px] font-bold dark:text-dp-text-muted text-dp-text-light-muted uppercase tracking-wider block">Linked Commits</span>
+                    <span className="text-metric-label dark:text-dp-text-muted text-dp-text-light-muted block">Linked Commits</span>
                     {taskDetails.commits.map(commit => (
-                      <div key={commit.id} className="p-2.5 border dark:border-dp-dark-border-light/30 border-dp-light-border/60 rounded-lg dark:bg-dp-dark-surface/40 bg-dp-light-bg-secondary text-[11px] font-mono">
-                        <div className="flex justify-between font-bold dark:text-dp-text-secondary text-dp-text-light-secondary">
+                      <div key={commit.id} className="p-2.5 border dark:border-dp-dark-border-light/30 border-dp-light-border/60 rounded-lg dark:bg-dp-dark-surface/40 bg-dp-light-bg-secondary text-[12px] font-mono">
+                        <div className="flex justify-between font-semibold dark:text-dp-text-secondary text-dp-text-light-secondary">
                           <span>sha: {commit.sha.slice(0, 7)}</span><span>{commit.authorName}</span>
                         </div>
-                        <p className="dark:text-dp-text-muted text-dp-text-light-muted mt-1">{commit.message}</p>
+                        <p className="dark:text-dp-text-muted text-dp-text-light-muted mt-1 font-sans text-[12px]">{commit.message}</p>
                       </div>
                     ))}
                   </div>
@@ -448,27 +484,27 @@ export default function Board() {
 
                 {/* Comments */}
                 <div className="space-y-3">
-                  <span className="text-[10px] font-bold dark:text-dp-text-muted text-dp-text-light-muted uppercase tracking-wider block">Comments ({comments.length})</span>
+                  <span className="text-metric-label dark:text-dp-text-muted text-dp-text-light-muted block">Comments ({comments.length})</span>
                   <div className="space-y-2.5 max-h-60 overflow-y-auto pr-1">
                     {comments.length === 0 ? (
-                      <p className="text-xs dark:text-dp-text-muted text-dp-text-light-muted italic text-center py-4">No comments yet.</p>
+                      <p className="text-body-secondary dark:text-dp-text-muted text-dp-text-light-muted italic text-center py-4">No comments yet.</p>
                     ) : (
                       comments.map(comment => (
-                        <div key={comment.id} className="flex gap-2 text-xs items-start p-2.5 rounded-lg dark:bg-dp-dark-surface/40 bg-dp-light-bg-secondary border dark:border-dp-dark-border-light/20 border-dp-light-border/40">
+                        <div key={comment.id} className="flex gap-2 items-start p-2.5 rounded-lg dark:bg-dp-dark-surface/40 bg-dp-light-bg-secondary border dark:border-dp-dark-border-light/20 border-dp-light-border/40">
                           <Avatar src={comment.user.avatar} name={comment.user.name} size="sm" />
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between">
-                              <span className="font-bold dark:text-dp-text-primary text-dp-text-light-primary">{comment.user.name}</span>
-                              <span className="text-[10px] dark:text-dp-text-muted text-dp-text-light-muted">{new Date(comment.createdAt).toLocaleDateString()}</span>
+                              <span className="font-semibold text-[13px] dark:text-dp-text-primary text-dp-text-light-primary">{comment.user.name}</span>
+                              <span className="text-[11px] dark:text-dp-text-muted text-dp-text-light-muted">{new Date(comment.createdAt).toLocaleDateString()}</span>
                             </div>
-                            <p className="dark:text-dp-text-secondary text-dp-text-light-secondary mt-1 leading-relaxed">{comment.content}</p>
+                            <p className="dark:text-dp-text-secondary text-dp-text-light-secondary mt-1 text-[13px] leading-relaxed">{comment.content}</p>
                           </div>
                         </div>
                       ))
                     )}
                   </div>
                   <form onSubmit={handleAddComment} className="flex gap-2">
-                    <input type="text" placeholder="Post a comment..." value={newComment} onChange={(e) => setNewComment(e.target.value)} className="glass-input flex-1" />
+                    <input type="text" placeholder="Post a comment..." value={newComment} onChange={(e) => setNewComment(e.target.value)} className="glass-input flex-1 text-[13px]" />
                     <button type="submit" className="btn-primary p-2 flex-shrink-0"><Send className="w-3.5 h-3.5" /></button>
                   </form>
                 </div>
@@ -491,7 +527,7 @@ export default function Board() {
                 className="glass-card w-[480px] max-w-[95vw] p-6 relative z-10"
                 onClick={(e) => e.stopPropagation()}>
                 <div className="flex items-center justify-between mb-4">
-                  <h3 className="font-display font-bold text-sm dark:text-dp-text-primary text-dp-text-light-primary flex items-center gap-2">
+                  <h3 className="text-section-heading dark:text-dp-text-primary text-dp-text-light-primary flex items-center gap-2">
                     <Plus className="w-4 h-4 text-dp-primary" />
                     Create Task in "{COLUMN_CONFIG[createColumnTarget]?.label}"
                   </h3>
@@ -502,38 +538,38 @@ export default function Board() {
                 
                 <form onSubmit={handleCreateTask} className="space-y-3">
                   <div>
-                    <label className="block text-[10px] font-bold dark:text-dp-text-muted text-dp-text-light-muted uppercase tracking-wider mb-1">Title</label>
-                    <input type="text" placeholder="What needs to be done?" value={newTaskTitle} onChange={(e) => setNewTaskTitle(e.target.value)} className="glass-input w-full" required autoFocus />
+                    <label className="block text-metric-label dark:text-dp-text-muted text-dp-text-light-muted mb-1">Title</label>
+                    <input type="text" placeholder="What needs to be done?" value={newTaskTitle} onChange={(e) => setNewTaskTitle(e.target.value)} className="glass-input w-full text-[13px]" required autoFocus />
                   </div>
                   <div>
-                    <label className="block text-[10px] font-bold dark:text-dp-text-muted text-dp-text-light-muted uppercase tracking-wider mb-1">Description</label>
-                    <textarea rows="3" placeholder="Add details..." value={newTaskDesc} onChange={(e) => setNewTaskDesc(e.target.value)} className="glass-input w-full resize-none" />
+                    <label className="block text-metric-label dark:text-dp-text-muted text-dp-text-light-muted mb-1">Description</label>
+                    <textarea rows="3" placeholder="Add details..." value={newTaskDesc} onChange={(e) => setNewTaskDesc(e.target.value)} className="glass-input w-full text-[13px] resize-none" />
                   </div>
                   <div className="grid grid-cols-3 gap-2.5">
                     <div>
-                      <label className="block text-[10px] font-bold dark:text-dp-text-muted text-dp-text-light-muted uppercase tracking-wider mb-1">Priority</label>
-                      <select value={newTaskPriority} onChange={(e) => setNewTaskPriority(e.target.value)} className="glass-select w-full">
+                      <label className="block text-metric-label dark:text-dp-text-muted text-dp-text-light-muted mb-1">Priority</label>
+                      <select value={newTaskPriority} onChange={(e) => setNewTaskPriority(e.target.value)} className="glass-select w-full text-[13px]">
                         <option value="LOW">LOW</option><option value="MEDIUM">MEDIUM</option><option value="HIGH">HIGH</option><option value="CRITICAL">CRITICAL</option>
                       </select>
                     </div>
                     <div>
-                      <label className="block text-[10px] font-bold dark:text-dp-text-muted text-dp-text-light-muted uppercase tracking-wider mb-1">Assignee</label>
-                      <select value={newTaskAssignee} onChange={(e) => setNewTaskAssignee(e.target.value)} className="glass-select w-full">
+                      <label className="block text-metric-label dark:text-dp-text-muted text-dp-text-light-muted mb-1">Assignee</label>
+                      <select value={newTaskAssignee} onChange={(e) => setNewTaskAssignee(e.target.value)} className="glass-select w-full text-[13px]">
                         <option value="">Unassigned</option>
                         {members.map(m => (<option key={m.userId} value={m.userId}>{m.user.name}</option>))}
                       </select>
                     </div>
                     <div>
-                      <label className="block text-[10px] font-bold dark:text-dp-text-muted text-dp-text-light-muted uppercase tracking-wider mb-1">Sprint</label>
-                      <select value={newTaskSprint} onChange={(e) => setNewTaskSprint(e.target.value)} className="glass-select w-full">
+                      <label className="block text-metric-label dark:text-dp-text-muted text-dp-text-light-muted mb-1">Sprint</label>
+                      <select value={newTaskSprint} onChange={(e) => setNewTaskSprint(e.target.value)} className="glass-select w-full text-[13px]">
                         <option value="">Backlog</option>
                         {sprints.map(s => (<option key={s.id} value={s.id}>{s.name}</option>))}
                       </select>
                     </div>
                   </div>
                   <div className="flex justify-end gap-2 pt-1">
-                    <button type="button" onClick={() => { setShowCreateModal(false); setNewTaskTitle(""); setNewTaskDesc(""); setNewTaskAssignee(""); setNewTaskSprint(""); }} className="btn-ghost">Cancel</button>
-                    <button type="submit" className="btn-primary">Add Task</button>
+                    <button type="button" onClick={() => { setShowCreateModal(false); setNewTaskTitle(""); setNewTaskDesc(""); setNewTaskAssignee(""); setNewTaskSprint(""); }} className="btn-ghost text-btn-refined">Cancel</button>
+                    <button type="submit" className="btn-primary text-btn-refined">Add Task</button>
                   </div>
                 </form>
               </motion.div>

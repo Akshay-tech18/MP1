@@ -36,7 +36,7 @@ export default function Sidebar({ isOpen }) {
           {/* 1. Header Toolbar */}
           <div className="px-3.5 py-3 border-b dark:border-white/[0.06] border-slate-200 flex items-center justify-between flex-shrink-0">
             <div className="flex items-center gap-2.5">
-              <span className="text-[13.5px] font-bold dark:text-white text-slate-900 flex items-center gap-1.5 tracking-tight">
+              <span className="text-nav-primary font-bold dark:text-white text-slate-900 flex items-center gap-1.5 tracking-tight">
                 <span>Home</span>
                 <Inbox className="w-4 h-4 text-slate-400" />
               </span>
@@ -44,7 +44,7 @@ export default function Sidebar({ isOpen }) {
 
             <button
               onClick={() => setShowCreateModal(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg dark:bg-white bg-slate-900 dark:text-slate-900 text-white hover:opacity-90 text-xs font-bold transition-all shadow-md active:scale-95"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg dark:bg-white bg-slate-900 dark:text-slate-900 text-white hover:opacity-90 text-btn-refined font-bold transition-all shadow-md active:scale-95"
             >
               <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
               <span>Create</span>
@@ -58,7 +58,7 @@ export default function Sidebar({ isOpen }) {
             <div className="space-y-0.5">
               <button
                 onClick={() => setShowMeetingModal(true)}
-                className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-[13.5px] font-medium dark:text-slate-200 text-slate-700 dark:hover:text-white hover:text-slate-900 dark:hover:bg-white/[0.06] hover:bg-slate-200/60 transition-all group"
+                className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-nav-primary font-medium dark:text-slate-200 text-slate-700 dark:hover:text-white hover:text-slate-900 dark:hover:bg-white/[0.06] hover:bg-slate-200/60 transition-all group"
               >
                 <Phone className="w-4 h-4 text-slate-400 group-hover:text-indigo-500 transition-colors" />
                 <span>Meetings</span>
@@ -66,7 +66,7 @@ export default function Sidebar({ isOpen }) {
 
               <button
                 onClick={() => navigate("/board")}
-                className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-[13.5px] font-medium dark:text-slate-200 text-slate-700 dark:hover:text-white hover:text-slate-900 dark:hover:bg-white/[0.06] hover:bg-slate-200/60 transition-all group"
+                className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-nav-primary font-medium dark:text-slate-200 text-slate-700 dark:hover:text-white hover:text-slate-900 dark:hover:bg-white/[0.06] hover:bg-slate-200/60 transition-all group"
               >
                 <User className="w-4 h-4 text-slate-400 group-hover:text-indigo-500 transition-colors" />
                 <span>My Tasks</span>
@@ -74,7 +74,7 @@ export default function Sidebar({ isOpen }) {
 
               <button
                 onClick={() => navigate("/dashboard")}
-                className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-[13.5px] font-medium dark:text-slate-200 text-slate-700 dark:hover:text-white hover:text-slate-900 dark:hover:bg-white/[0.06] hover:bg-slate-200/60 transition-all group"
+                className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-nav-primary font-medium dark:text-slate-200 text-slate-700 dark:hover:text-white hover:text-slate-900 dark:hover:bg-white/[0.06] hover:bg-slate-200/60 transition-all group"
               >
                 <MoreHorizontal className="w-4 h-4 text-slate-400 group-hover:text-indigo-500 transition-colors" />
                 <span>More</span>
@@ -86,14 +86,14 @@ export default function Sidebar({ isOpen }) {
 
             {/* Section: Spaces */}
             <div className="space-y-1">
-              <div className="px-2.5 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+              <div className="px-2.5 text-metric-label font-bold text-slate-400 uppercase tracking-wider">
                 Spaces
               </div>
 
               {/* All Tasks Link */}
               <button
                 onClick={() => navigate("/board")}
-                className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-[13.5px] font-medium dark:text-slate-200 text-slate-700 dark:hover:text-white hover:text-slate-900 dark:hover:bg-white/[0.06] hover:bg-slate-200/60 transition-all truncate group"
+                className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-nav-primary font-medium dark:text-slate-200 text-slate-700 dark:hover:text-white hover:text-slate-900 dark:hover:bg-white/[0.06] hover:bg-slate-200/60 transition-all truncate group"
               >
                 <Sparkles className="w-4 h-4 text-indigo-500 flex-shrink-0 group-hover:rotate-12 transition-transform" />
                 <span className="truncate">All Tasks</span>
@@ -105,24 +105,24 @@ export default function Sidebar({ isOpen }) {
 
             {/* Section: Channels */}
             <div className="space-y-1">
-              <div className="px-2.5 text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+              <div className="px-2.5 text-metric-label font-bold text-slate-400 uppercase tracking-wider">
                 Channels
               </div>
 
               <button
                 onClick={() => navigate("/chat")}
-                className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-[13.5px] font-medium dark:text-slate-200 text-slate-700 dark:hover:text-white hover:text-slate-900 dark:hover:bg-white/[0.06] hover:bg-slate-200/60 transition-all truncate group"
+                className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-nav-primary font-medium dark:text-slate-200 text-slate-700 dark:hover:text-white hover:text-slate-900 dark:hover:bg-white/[0.06] hover:bg-slate-200/60 transition-all truncate group"
               >
                 <Hash className="w-4 h-4 text-slate-400 group-hover:text-cyan-500 transition-colors" />
                 <span className="truncate">General</span>
-                <span className="w-4 h-4 rounded-md bg-teal-600 flex items-center justify-center text-[9px] font-bold text-white ml-auto flex-shrink-0">
+                <span className="w-4 h-4 rounded-md bg-teal-600 flex items-center justify-center text-badge-meta font-bold text-white ml-auto flex-shrink-0">
                   {initial}
                 </span>
               </button>
 
               <button
                 onClick={() => navigate("/chat")}
-                className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-[13.5px] font-medium dark:text-slate-200 text-slate-700 dark:hover:text-white hover:text-slate-900 dark:hover:bg-white/[0.06] hover:bg-slate-200/60 transition-all group"
+                className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-nav-primary font-medium dark:text-slate-200 text-slate-700 dark:hover:text-white hover:text-slate-900 dark:hover:bg-white/[0.06] hover:bg-slate-200/60 transition-all group"
               >
                 <Hash className="w-4 h-4 text-slate-400 group-hover:text-cyan-500 transition-colors" />
                 <span>Engineering & Sprints</span>

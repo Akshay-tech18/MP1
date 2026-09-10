@@ -47,9 +47,9 @@ export default function WorkspaceDropdown() {
       {/* Workspace Switcher Button */}
       <button
         onClick={() => setIsOpen((prev) => !prev)}
-        className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg dark:bg-[#181b24] bg-slate-100 hover:bg-slate-200 dark:hover:bg-[#202532] border dark:border-white/[0.08] border-slate-200 transition-all text-xs font-semibold dark:text-slate-200 text-slate-800 group shadow-sm"
+        className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg dark:bg-[#181b24] bg-slate-100 hover:bg-slate-200 dark:hover:bg-[#202532] border dark:border-white/[0.08] border-slate-200 transition-all text-nav-top font-semibold dark:text-slate-200 text-slate-800 group shadow-sm"
       >
-        <span className="w-5 h-5 rounded-md bg-teal-600 flex items-center justify-center text-white text-[11px] font-bold shadow-sm">
+        <span className="w-5 h-5 rounded-md bg-teal-600 flex items-center justify-center text-white text-caption-meta font-bold shadow-sm">
           {initial}
         </span>
         <span className="truncate max-w-[160px]">{workspaceName}</span>
@@ -87,10 +87,10 @@ export default function WorkspaceDropdown() {
                 {initial}
               </div>
               <div className="flex-1 min-w-0">
-                <h4 className="text-xs font-bold dark:text-white text-slate-900 truncate">
+                <h4 className="text-card-title font-bold dark:text-white text-slate-900 truncate">
                   {workspaceName}
                 </h4>
-                <p className="text-[11px] text-slate-400 flex items-center gap-1.5 mt-0.5">
+                <p className="text-task-metadata text-slate-400 flex items-center gap-1.5 mt-0.5">
                   <span>
                     {(currentProject?.members?.length ?? currentProject?._count?.members ?? 1)}{" "}
                     {(currentProject?.members?.length ?? currentProject?._count?.members ?? 1) === 1
@@ -115,7 +115,7 @@ export default function WorkspaceDropdown() {
                   setSettingsTargetProjectId(currentProject?.id);
                   setShowSettingsModal(true);
                 }}
-                className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl dark:bg-white/5 bg-slate-100 hover:bg-slate-200/80 dark:hover:bg-white/10 border dark:border-white/5 border-slate-200 text-xs font-semibold dark:text-slate-200 text-slate-700 transition-colors shadow-sm"
+                className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl dark:bg-white/5 bg-slate-100 hover:bg-slate-200/80 dark:hover:bg-white/10 border dark:border-white/5 border-slate-200 text-btn-refined font-semibold dark:text-slate-200 text-slate-700 transition-colors shadow-sm"
               >
                 <Settings className="w-3.5 h-3.5 text-slate-400" />
                 <span>Workspace Settings</span>
@@ -126,13 +126,13 @@ export default function WorkspaceDropdown() {
             <div className="flex-1 overflow-y-auto overflow-x-hidden pr-1 space-y-2.5 scrollbar-thin max-h-[46vh]">
               {/* Manage Section */}
               <div className="space-y-0.5 border-t dark:border-white/[0.06] border-slate-200 pt-2">
-                <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider px-2 block mb-1">
+                <span className="text-metric-label font-semibold text-slate-400 uppercase tracking-wider px-2 block mb-1">
                   Manage
                 </span>
 
                 <button
                   onClick={() => setIsOpen(false)}
-                  className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs dark:hover:bg-white/5 hover:bg-slate-100 transition-colors group"
+                  className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-body-secondary dark:hover:bg-white/5 hover:bg-slate-100 transition-colors group"
                 >
                   <div className="w-4 h-4 flex items-center justify-center text-indigo-400">
                     <Layers className="w-3.5 h-3.5" />
@@ -142,7 +142,7 @@ export default function WorkspaceDropdown() {
 
                 <button
                   onClick={() => setIsOpen(false)}
-                  className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs dark:hover:bg-white/5 hover:bg-slate-100 transition-colors group"
+                  className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-body-secondary dark:hover:bg-white/5 hover:bg-slate-100 transition-colors group"
                 >
                   <div className="w-4 h-4 flex items-center justify-center text-cyan-400">
                     <LayoutTemplate className="w-3.5 h-3.5" />
@@ -152,7 +152,7 @@ export default function WorkspaceDropdown() {
 
                 <button
                   onClick={() => setIsOpen(false)}
-                  className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs dark:hover:bg-white/5 hover:bg-slate-100 transition-colors group"
+                  className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-body-secondary dark:hover:bg-white/5 hover:bg-slate-100 transition-colors group"
                 >
                   <div className="w-4 h-4 flex items-center justify-center text-amber-400">
                     <FileEdit className="w-3.5 h-3.5" />
@@ -162,7 +162,7 @@ export default function WorkspaceDropdown() {
 
                 <button
                   onClick={() => setIsOpen(false)}
-                  className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs dark:hover:bg-white/5 hover:bg-slate-100 transition-colors group"
+                  className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-body-secondary dark:hover:bg-white/5 hover:bg-slate-100 transition-colors group"
                 >
                   <div className="w-4 h-4 flex items-center justify-center text-emerald-400">
                     <Bot className="w-3.5 h-3.5" />
@@ -172,7 +172,7 @@ export default function WorkspaceDropdown() {
 
                 <button
                   onClick={() => setIsOpen(false)}
-                  className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs dark:hover:bg-white/5 hover:bg-slate-100 transition-colors group"
+                  className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-body-secondary dark:hover:bg-white/5 hover:bg-slate-100 transition-colors group"
                 >
                   <div className="flex items-center gap-2.5">
                     <div className="w-4 h-4 flex items-center justify-center text-purple-400">
@@ -180,7 +180,7 @@ export default function WorkspaceDropdown() {
                     </div>
                     <span className="dark:text-slate-300 text-slate-700 dark:group-hover:text-white group-hover:text-slate-900 font-medium">Tag Manager</span>
                   </div>
-                  <span className="px-1.5 py-0.5 rounded text-[9px] font-bold uppercase bg-purple-600/30 text-purple-400 border border-purple-500/20">
+                  <span className="px-1.5 py-0.5 rounded text-badge-meta font-bold uppercase bg-purple-600/30 text-purple-400 border border-purple-500/20">
                     New
                   </span>
                 </button>
@@ -190,17 +190,17 @@ export default function WorkspaceDropdown() {
               {projects.length > 1 && (
                 <div className="border-t dark:border-white/[0.06] border-slate-200 pt-2 space-y-0.5">
                   <div className="flex items-center justify-between px-2 mb-1">
-                    <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider">
+                    <span className="text-metric-label font-semibold text-slate-400 uppercase tracking-wider">
                       Switch Workspace
                     </span>
-                    <span className="text-[9px] font-mono px-1.5 py-0.2 rounded-full bg-slate-200 dark:bg-white/10 text-slate-500 dark:text-slate-400">
+                    <span className="text-caption-meta font-mono px-1.5 py-0.2 rounded-full bg-slate-200 dark:bg-white/10 text-slate-500 dark:text-slate-400">
                       {projects.length}
                     </span>
                   </div>
                   {projects.map((p) => (
                     <div
                       key={p.id}
-                      className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition-colors group ${
+                      className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-body-secondary transition-colors group ${
                         p.id === currentProject?.id
                           ? "bg-indigo-600/20 text-indigo-400 font-semibold"
                           : "dark:hover:bg-white/5 hover:bg-slate-100 dark:text-slate-300 text-slate-700"
@@ -245,7 +245,7 @@ export default function WorkspaceDropdown() {
                   setIsOpen(false);
                   setShowCreateModal(true);
                 }}
-                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl dark:bg-white/10 bg-slate-900 hover:bg-black dark:hover:bg-white/15 text-xs font-bold text-white transition-all shadow-md active:scale-95 border dark:border-white/10 border-transparent"
+                className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl dark:bg-white/10 bg-slate-900 hover:bg-black dark:hover:bg-white/15 text-btn-refined font-bold text-white transition-all shadow-md active:scale-95 border dark:border-white/10 border-transparent"
               >
                 <Plus className="w-4 h-4 text-white/80" />
                 <span>Create Workspace</span>

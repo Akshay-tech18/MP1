@@ -327,40 +327,55 @@ export default function Dashboard() {
         {/* ══════ Scrollable Dashboard Body ══════ */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
           
-          {/* 1. Header: Greeting + Sprint Command Ribbon */}
+          {/* 1. Header: Greeting + Sprint Command Ribbon with Workspace Status Pulse */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
-              <h2 className="text-2xl font-extrabold dark:text-white text-slate-900 tracking-tight flex items-center gap-2">
+              <h2 className="text-page-title dark:text-white text-slate-900 flex items-center gap-2">
                 <span>Welcome back,</span>
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500">
                   {user?.name || "Engineer"}!
                 </span>
               </h2>
-              <p className="text-xs text-slate-500 mt-1">
-                Here's what's shipping in your <span className="dark:text-slate-200 text-slate-800 font-semibold">{currentProject?.name || "Active Workspace"}</span> today.
-              </p>
+              {/* Workspace Status Pulse (Ultra-compact context line) */}
+              <div className="flex items-center gap-2 mt-1.5 flex-wrap text-caption-meta dark:text-slate-400 text-slate-500">
+                <span className="flex items-center gap-1.5 font-semibold dark:text-slate-200 text-slate-700">
+                  <span className="signal-dot signal-dot-success animate-pulse" />
+                  Sprint 2
+                </span>
+                <span className="opacity-40">•</span>
+                <span><strong className="dark:text-slate-200 text-slate-800">{assignedCount}</strong> active tasks</span>
+                <span className="opacity-40">•</span>
+                <span className="text-rose-400 font-medium">1 urgent</span>
+                <span className="opacity-40">•</span>
+                <span>32 SP completed</span>
+                <span className="opacity-40">•</span>
+                <span className="font-semibold text-amber-500">Next deadline: Today</span>
+              </div>
             </div>
 
-            {/* Sprint Status Badge (Clean, NO green dot) */}
-            <div className="flex items-center gap-3 dark:bg-[#121520] bg-white border dark:border-white/[0.08] border-slate-200 p-2 px-3.5 rounded-xl text-xs shadow-sm">
+            {/* Sprint Status Badge (Operational Telemetry) */}
+            <div className="flex items-center gap-3 dark:bg-[#121520] bg-white border dark:border-white/[0.08] border-slate-200 p-2 px-3.5 rounded-xl text-xs shadow-sm flex-shrink-0">
               <div className="flex items-center gap-2">
-                <span className="font-semibold dark:text-white text-slate-800">Sprint 2</span>
+                <span className="font-semibold dark:text-white text-slate-800 text-[13px]">Sprint 2</span>
               </div>
               <span className="dark:text-slate-600 text-slate-300">|</span>
-              <div className="flex items-center gap-2 text-slate-500">
+              <div className="flex items-center gap-1.5 text-slate-500 text-[12px]">
                 <Clock className="w-3.5 h-3.5 text-amber-500" />
                 <span>Ends in 4 days</span>
               </div>
               <span className="dark:text-slate-600 text-slate-300">|</span>
-              <span className="font-mono text-emerald-500 font-semibold">86% Velocity</span>
+              <span className="font-mono text-emerald-500 font-semibold flex items-center gap-1 text-[12px]">
+                <TrendingUp className="w-3 h-3" />
+                86% Velocity
+              </span>
             </div>
           </div>
 
-          {/* 2. Quick Jump Shortcuts */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {/* 2. Quick Jump Feature Cards with Contextual Micro-Information */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <button
               onClick={() => navigate("/board")}
-              className="p-3.5 rounded-2xl dark:bg-[#121520] bg-white hover:bg-slate-50 dark:hover:bg-[#161a29] border dark:border-white/[0.08] border-slate-200 hover:border-indigo-500/30 transition-all text-left group shadow-sm flex flex-col justify-between"
+              className="p-3.5 rounded-2xl dark:bg-[#121520] bg-white hover:bg-slate-50 dark:hover:bg-[#161a29] border dark:border-white/[0.08] border-slate-200 hover:border-indigo-500/30 transition-all text-left group shadow-sm flex flex-col justify-between micro-elevate"
             >
               <div className="flex items-center justify-between mb-2">
                 <div className="w-8 h-8 rounded-xl bg-indigo-500/15 text-indigo-500 flex items-center justify-center">
@@ -369,16 +384,22 @@ export default function Dashboard() {
                 <ArrowUpRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-indigo-500 transition-colors" />
               </div>
               <div>
-                <h4 className="text-xs font-bold dark:text-white text-slate-900 group-hover:text-indigo-500 dark:group-hover:text-indigo-300 transition-colors">
+                <h4 className="text-card-title dark:text-white text-slate-900 group-hover:text-indigo-500 dark:group-hover:text-indigo-300 transition-colors">
                   Kanban Board
                 </h4>
-                <p className="text-[11px] text-slate-500 mt-0.5">Drag & drop sprint cards</p>
+                <div className="flex items-center gap-1.5 mt-1 text-[11.5px] text-slate-400">
+                  <span className="font-semibold dark:text-slate-300 text-slate-600">4 active tasks</span>
+                  <span>•</span>
+                  <span className="text-rose-400 font-medium">1 urgent</span>
+                  <span>•</span>
+                  <span>2 due this week</span>
+                </div>
               </div>
             </button>
 
             <button
               onClick={() => navigate("/ai")}
-              className="p-3.5 rounded-2xl dark:bg-[#121520] bg-white hover:bg-slate-50 dark:hover:bg-[#161a29] border dark:border-white/[0.08] border-slate-200 hover:border-pink-500/30 transition-all text-left group shadow-sm flex flex-col justify-between"
+              className="p-3.5 rounded-2xl dark:bg-[#121520] bg-white hover:bg-slate-50 dark:hover:bg-[#161a29] border dark:border-white/[0.08] border-slate-200 hover:border-pink-500/30 transition-all text-left group shadow-sm flex flex-col justify-between micro-elevate"
             >
               <div className="flex items-center justify-between mb-2">
                 <div className="w-8 h-8 rounded-xl bg-pink-500/15 text-pink-500 flex items-center justify-center">
@@ -387,16 +408,20 @@ export default function Dashboard() {
                 <ArrowUpRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-pink-500 transition-colors" />
               </div>
               <div>
-                <h4 className="text-xs font-bold dark:text-white text-slate-900 group-hover:text-pink-500 dark:group-hover:text-pink-300 transition-colors">
+                <h4 className="text-card-title dark:text-white text-slate-900 group-hover:text-pink-500 dark:group-hover:text-pink-300 transition-colors">
                   Nexus² AI
                 </h4>
-                <p className="text-[11px] text-slate-500 mt-0.5">Ask questions & summarize docs</p>
+                <div className="flex items-center gap-1.5 mt-1 text-[11.5px] text-slate-400">
+                  <span className="font-semibold dark:text-slate-300 text-slate-600">3 docs indexed</span>
+                  <span>•</span>
+                  <span>Last analysis: 12m ago</span>
+                </div>
               </div>
             </button>
 
             <button
               onClick={() => navigate("/timesheets")}
-              className="p-3.5 rounded-2xl dark:bg-[#121520] bg-white hover:bg-slate-50 dark:hover:bg-[#161a29] border dark:border-white/[0.08] border-slate-200 hover:border-amber-500/30 transition-all text-left group shadow-sm flex flex-col justify-between"
+              className="p-3.5 rounded-2xl dark:bg-[#121520] bg-white hover:bg-slate-50 dark:hover:bg-[#161a29] border dark:border-white/[0.08] border-slate-200 hover:border-amber-500/30 transition-all text-left group shadow-sm flex flex-col justify-between micro-elevate"
             >
               <div className="flex items-center justify-between mb-2">
                 <div className="w-8 h-8 rounded-xl bg-amber-500/15 text-amber-500 flex items-center justify-center">
@@ -405,16 +430,20 @@ export default function Dashboard() {
                 <ArrowUpRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-amber-500 transition-colors" />
               </div>
               <div>
-                <h4 className="text-xs font-bold dark:text-white text-slate-900 group-hover:text-amber-500 dark:group-hover:text-amber-300 transition-colors">
+                <h4 className="text-card-title dark:text-white text-slate-900 group-hover:text-amber-500 dark:group-hover:text-amber-300 transition-colors">
                   Weekly Timesheets
                 </h4>
-                <p className="text-[11px] text-slate-500 mt-0.5">Log hours & review allocations</p>
+                <div className="flex items-center gap-1.5 mt-1 text-[11.5px] text-slate-400">
+                  <span className="font-semibold dark:text-slate-300 text-slate-600">29.5h logged</span>
+                  <span>•</span>
+                  <span className="text-emerald-500 font-medium">73% weekly target</span>
+                </div>
               </div>
             </button>
 
             <button
               onClick={() => navigate("/docs")}
-              className="p-3.5 rounded-2xl dark:bg-[#121520] bg-white hover:bg-slate-50 dark:hover:bg-[#161a29] border dark:border-white/[0.08] border-slate-200 hover:border-cyan-500/30 transition-all text-left group shadow-sm flex flex-col justify-between"
+              className="p-3.5 rounded-2xl dark:bg-[#121520] bg-white hover:bg-slate-50 dark:hover:bg-[#161a29] border dark:border-white/[0.08] border-slate-200 hover:border-cyan-500/30 transition-all text-left group shadow-sm flex flex-col justify-between micro-elevate"
             >
               <div className="flex items-center justify-between mb-2">
                 <div className="w-8 h-8 rounded-xl bg-cyan-500/15 text-cyan-500 flex items-center justify-center">
@@ -423,110 +452,156 @@ export default function Dashboard() {
                 <ArrowUpRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-cyan-500 transition-colors" />
               </div>
               <div>
-                <h4 className="text-xs font-bold dark:text-white text-slate-900 group-hover:text-cyan-500 dark:group-hover:text-cyan-300 transition-colors">
+                <h4 className="text-card-title dark:text-white text-slate-900 group-hover:text-cyan-500 dark:group-hover:text-cyan-300 transition-colors">
                   Knowledge Docs
                 </h4>
-                <p className="text-[11px] text-slate-500 mt-0.5">Architecture specs & guides</p>
+                <div className="flex items-center gap-1.5 mt-1 text-[11.5px] text-slate-400">
+                  <span className="font-semibold dark:text-slate-300 text-slate-600">12 active docs</span>
+                  <span>•</span>
+                  <span className="text-cyan-400">2 recently updated</span>
+                </div>
               </div>
             </button>
           </div>
 
-          {/* 3. Metrics Cards Grid */}
+          {/* 3. Metric Cards with Micro-Trends & Miniature Sparkline Traces */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-            <div className="p-4 rounded-2xl dark:bg-[#121520] bg-white border dark:border-white/[0.08] border-slate-200 flex items-center justify-between shadow-sm">
-              <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
-                  Active Tasks
-                </span>
-                <span className="text-3xl font-extrabold dark:text-white text-slate-900 mt-1 block">
-                  {assignedCount}
-                </span>
-                <span className="text-[11px] text-slate-400 mt-0.5 block">Assigned in sprint</span>
+            <div className="p-4 rounded-2xl dark:bg-[#121520] bg-white border dark:border-white/[0.08] border-slate-200 shadow-sm relative overflow-hidden micro-elevate">
+              <div className="flex items-start justify-between">
+                <div>
+                  <span className="text-metric-label text-slate-400 block">
+                    Active Tasks
+                  </span>
+                  <span className="text-metric-val dark:text-white text-slate-900 mt-1 block">
+                    {assignedCount}
+                  </span>
+                  <span className="text-metric-support text-slate-400 mt-0.5 block">Assigned in sprint</span>
+                </div>
+                <div className="w-10 h-10 rounded-xl bg-blue-500/15 text-blue-500 flex items-center justify-center flex-shrink-0">
+                  <Clock className="w-4 h-4" />
+                </div>
               </div>
-              <div className="w-11 h-11 rounded-xl bg-blue-500/15 text-blue-500 flex items-center justify-center">
-                <Clock className="w-5 h-5" />
-              </div>
-            </div>
-
-            <div className="p-4 rounded-2xl dark:bg-[#121520] bg-white border dark:border-white/[0.08] border-slate-200 flex items-center justify-between shadow-sm">
-              <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
-                  Completed
-                </span>
-                <span className="text-3xl font-extrabold text-emerald-500 mt-1 block">
-                  {completedCount}
-                </span>
-                <span className="text-[11px] text-slate-400 mt-0.5 block">Shipped to testing</span>
-              </div>
-              <div className="w-11 h-11 rounded-xl bg-emerald-500/15 text-emerald-500 flex items-center justify-center">
-                <CheckCircle2 className="w-5 h-5" />
+              {/* Micro-sparkline trace */}
+              <div className="mt-3 pt-2 border-t dark:border-white/[0.04] border-slate-100 flex items-center justify-between text-[10px]">
+                <span className="text-slate-500 font-medium">Sprint backlog: 14 SP</span>
+                <svg className="w-16 h-5 stroke-blue-400 fill-none" viewBox="0 0 64 20">
+                  <path d="M 2 15 L 18 11 L 34 14 L 48 7 L 62 4" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
               </div>
             </div>
 
-            <div className="p-4 rounded-2xl dark:bg-[#121520] bg-white border dark:border-white/[0.08] border-slate-200 flex items-center justify-between shadow-sm">
-              <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
-                  Sprint Velocity
-                </span>
-                <span className="text-3xl font-extrabold text-purple-500 mt-1 block">
-                  32 SP
-                </span>
-                <span className="text-[11px] text-emerald-500 mt-0.5 block font-medium">+18% vs last week</span>
+            <div className="p-4 rounded-2xl dark:bg-[#121520] bg-white border dark:border-white/[0.08] border-slate-200 shadow-sm relative overflow-hidden micro-elevate">
+              <div className="flex items-start justify-between">
+                <div>
+                  <span className="text-metric-label text-slate-400 block">
+                    Completed
+                  </span>
+                  <span className="text-metric-val text-emerald-500 mt-1 block">
+                    {completedCount}
+                  </span>
+                  <span className="text-metric-support text-slate-400 mt-0.5 block">Shipped to testing</span>
+                </div>
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/15 text-emerald-500 flex items-center justify-center flex-shrink-0">
+                  <CheckCircle2 className="w-4 h-4" />
+                </div>
               </div>
-              <div className="w-11 h-11 rounded-xl bg-purple-500/15 text-purple-500 flex items-center justify-center">
-                <Flame className="w-5 h-5" />
+              {/* Micro-sparkline trace */}
+              <div className="mt-3 pt-2 border-t dark:border-white/[0.04] border-slate-100 flex items-center justify-between text-[10px]">
+                <span className="text-emerald-500 font-semibold">+3 tasks this week</span>
+                <svg className="w-16 h-5 stroke-emerald-400 fill-none" viewBox="0 0 64 20">
+                  <path d="M 2 16 L 20 14 L 36 9 L 48 6 L 62 2" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
               </div>
             </div>
 
-            <div className="p-4 rounded-2xl dark:bg-[#121520] bg-white border dark:border-white/[0.08] border-slate-200 flex items-center justify-between shadow-sm">
-              <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">
-                  Sprint Health
-                </span>
-                <span className="text-3xl font-extrabold text-pink-500 mt-1 block">
-                  {completionRate > 0 ? `${completionRate}%` : "94%"}
-                </span>
-                <span className="text-[11px] text-slate-400 mt-0.5 block">0 critical blockers</span>
+            <div className="p-4 rounded-2xl dark:bg-[#121520] bg-white border dark:border-white/[0.08] border-slate-200 shadow-sm relative overflow-hidden micro-elevate">
+              <div className="flex items-start justify-between">
+                <div>
+                  <span className="text-metric-label text-slate-400 block">
+                    Sprint Velocity
+                  </span>
+                  <div className="flex items-baseline gap-2 mt-1">
+                    <span className="text-metric-val dark:text-white text-slate-900 block">
+                      32 SP
+                    </span>
+                    <span className="text-[12px] font-bold text-emerald-500">+18%</span>
+                  </div>
+                  <span className="text-metric-support text-slate-400 mt-0.5 block">vs previous cycle</span>
+                </div>
+                <div className="w-10 h-10 rounded-xl bg-purple-500/15 text-purple-500 flex items-center justify-center flex-shrink-0">
+                  <Sparkles className="w-4 h-4" />
+                </div>
               </div>
-              <div className="w-11 h-11 rounded-xl bg-pink-500/15 text-pink-500 flex items-center justify-center">
-                <TrendingUp className="w-5 h-5" />
+              {/* Micro-sparkline trace */}
+              <div className="mt-3 pt-2 border-t dark:border-white/[0.04] border-slate-100 flex items-center justify-between text-[10px]">
+                <span className="text-purple-400 font-medium">Optimal velocity band</span>
+                <svg className="w-16 h-5 stroke-purple-400 fill-none" viewBox="0 0 64 20">
+                  <path d="M 2 14 L 18 10 L 32 12 L 46 6 L 62 3" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </div>
+            </div>
+
+            <div className="p-4 rounded-2xl dark:bg-[#121520] bg-white border dark:border-white/[0.08] border-slate-200 shadow-sm relative overflow-hidden micro-elevate">
+              <div className="flex items-start justify-between">
+                <div>
+                  <span className="text-metric-label text-slate-400 block">
+                    Sprint Health
+                  </span>
+                  <span className="text-metric-val text-pink-500 mt-1 block">
+                    {completionRate > 0 ? `${completionRate}%` : "94%"}
+                  </span>
+                  <span className="text-metric-support text-slate-400 mt-0.5 block">0 critical blockers</span>
+                </div>
+                <div className="w-10 h-10 rounded-xl bg-pink-500/15 text-pink-500 flex items-center justify-center flex-shrink-0">
+                  <TrendingUp className="w-4 h-4" />
+                </div>
+              </div>
+              {/* Micro-sparkline trace */}
+              <div className="mt-3 pt-2 border-t dark:border-white/[0.04] border-slate-100 flex items-center justify-between text-[10px]">
+                <span className="text-pink-400 font-medium">On-track for Friday release</span>
+                <svg className="w-16 h-5 stroke-pink-400 fill-none" viewBox="0 0 64 20">
+                  <path d="M 2 14 L 18 13 L 34 8 L 48 6 L 62 4" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
               </div>
             </div>
           </div>
 
-          {/* 4. Main Two-Column Split: Lineup & Priority Tasks + Recent Activity Stream */}
+          {/* 4. Main Operational Command Center: Sprint Lineup & Event Hierarchy Activity Feed */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
             
             {/* Left Column (2 Cols): Sprint Lineup & Task Work Queue */}
             <div className="lg:col-span-2 rounded-2xl dark:bg-[#121520] bg-white border dark:border-white/[0.08] border-slate-200 flex flex-col overflow-hidden shadow-sm">
               {/* Card Header */}
-              <div className="p-4 border-b dark:border-white/[0.08] border-slate-200 flex items-center justify-between dark:bg-[#151926] bg-slate-50/70">
+              <div className="p-3.5 px-4 border-b dark:border-white/[0.08] border-slate-200 flex items-center justify-between dark:bg-[#151926] bg-slate-50/70">
                 <div className="flex items-center gap-2.5">
                   <span className="w-6 h-6 rounded-lg bg-indigo-500/15 text-indigo-500 flex items-center justify-center">
                     <CheckCircle className="w-3.5 h-3.5" />
                   </span>
-                  <h3 className="text-xs font-bold dark:text-white text-slate-800 uppercase tracking-wider">
+                  <h3 className="text-section-heading dark:text-white text-slate-800">
                     Sprint Lineup & Priority Work ({lineupTasks.length})
                   </h3>
                 </div>
-                <button
-                  onClick={() => navigate("/board")}
-                  className="text-xs font-semibold text-indigo-500 hover:text-indigo-600 dark:text-indigo-400 dark:hover:text-indigo-300 flex items-center gap-1 transition-colors"
-                >
-                  <span>Open Board</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </button>
+                <div className="flex items-center gap-3">
+                  <span className="text-caption-meta text-slate-400 hidden sm:inline">2-sec scan rhythm</span>
+                  <button
+                    onClick={() => navigate("/board")}
+                    className="text-[13px] font-semibold text-indigo-500 hover:text-indigo-600 dark:text-indigo-400 dark:hover:text-indigo-300 flex items-center gap-1 transition-colors"
+                  >
+                    <span>Open Board</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </div>
 
               {/* Quick Add Task Input */}
-              <form onSubmit={handleAddQuickTask} className="p-3 border-b dark:border-white/[0.06] border-slate-200 dark:bg-[#0c0e14]/50 bg-slate-50/50 flex items-center gap-2">
+              <form onSubmit={handleAddQuickTask} className="p-2.5 px-3 border-b dark:border-white/[0.06] border-slate-200 dark:bg-[#0c0e14]/50 bg-slate-50/50 flex items-center gap-2">
                 <Plus className="w-4 h-4 text-slate-400" />
                 <input
                   type="text"
                   placeholder="+ Add quick sprint task... (Press Enter)"
                   value={quickTaskText}
                   onChange={(e) => setQuickTaskText(e.target.value)}
-                  className="flex-1 bg-transparent text-xs dark:text-white text-slate-900 placeholder-slate-400 outline-none"
+                  className="flex-1 bg-transparent text-[13px] dark:text-white text-slate-900 placeholder-slate-400 outline-none"
                 />
                 {quickTaskText.trim() && (
                   <button
@@ -538,120 +613,178 @@ export default function Dashboard() {
                 )}
               </form>
 
-              {/* Task Items List */}
+              {/* Task Items List with Priority Edges and State Awareness */}
               <div className="divide-y dark:divide-white/[0.04] divide-slate-100 overflow-y-auto max-h-[380px]">
-                {lineupTasks.map((t) => (
-                  <div
-                    key={t.id}
-                    onClick={() => toggleTaskCompleted(t.id)}
-                    className="p-3.5 px-4 flex items-center justify-between gap-3 dark:hover:bg-white/[0.03] hover:bg-slate-50 transition-colors cursor-pointer group"
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleTaskCompleted(t.id);
-                        }}
-                        className={`w-4 h-4 rounded-md border flex items-center justify-center transition-all ${
-                          t.completed
-                            ? "bg-emerald-500 border-emerald-500 text-white"
-                            : "dark:border-white/20 border-slate-300 dark:hover:border-white/40 hover:border-slate-400"
-                        }`}
-                      >
-                        {t.completed && <CheckCircle2 className="w-3 h-3" />}
-                      </button>
+                {lineupTasks.map((t) => {
+                  const edgeClass = t.priority === "URGENT"
+                    ? "priority-edge-urgent"
+                    : t.priority === "HIGH"
+                    ? "priority-edge-high"
+                    : t.completed
+                    ? "priority-edge-completed"
+                    : "priority-edge-normal";
 
-                      <span
-                        className={`text-xs font-medium truncate ${
-                          t.completed
-                            ? "line-through text-slate-400"
-                            : "dark:text-slate-200 text-slate-800 dark:group-hover:text-white group-hover:text-slate-900"
-                        }`}
-                      >
-                        {t.title}
-                      </span>
-                    </div>
+                  const isDueToday = t.due.toLowerCase().includes("today");
+                  const isDueTomorrow = t.due.toLowerCase().includes("tomorrow");
 
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <span className="px-1.5 py-0.5 rounded text-[9px] dark:bg-white/5 bg-slate-100 dark:text-slate-400 text-slate-600 border dark:border-white/5 border-slate-200 font-mono">
-                        {t.tag}
-                      </span>
-                      <span
-                        className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider border ${t.priorityColor}`}
-                      >
-                        {t.priority}
-                      </span>
-                      <span className="text-[11px] text-slate-400 font-medium">{t.due}</span>
+                  return (
+                    <div
+                      key={t.id}
+                      onClick={() => toggleTaskCompleted(t.id)}
+                      className={`p-3 px-4 flex items-center justify-between gap-3 dark:hover:bg-white/[0.03] hover:bg-slate-50 transition-colors cursor-pointer group ${edgeClass} ${
+                        t.completed ? "opacity-60" : ""
+                      }`}
+                    >
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleTaskCompleted(t.id);
+                          }}
+                          className={`w-4 h-4 rounded-md border flex items-center justify-center transition-all flex-shrink-0 ${
+                            t.completed
+                              ? "bg-emerald-500 border-emerald-500 text-white"
+                              : "dark:border-white/20 border-slate-300 dark:hover:border-white/40 hover:border-slate-400"
+                          }`}
+                        >
+                          {t.completed && <CheckCircle2 className="w-3 h-3" />}
+                        </button>
+
+                        <div className="min-w-0 flex-1">
+                          <span
+                            className={`text-card-title truncate block ${
+                              t.completed
+                                ? "line-through text-slate-400"
+                                : "dark:text-slate-200 text-slate-800 dark:group-hover:text-white group-hover:text-slate-900"
+                            }`}
+                          >
+                            {t.title}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        {/* Secondary metadata */}
+                        <span className="px-1.5 py-0.5 rounded text-badge-meta dark:bg-white/5 bg-slate-100 dark:text-slate-400 text-slate-600 border dark:border-white/5 border-slate-200 font-mono">
+                          {t.tag}
+                        </span>
+                        <span
+                          className={`px-1.5 py-0.5 rounded text-badge-meta font-bold uppercase tracking-wider border ${t.priorityColor}`}
+                        >
+                          {t.priority}
+                        </span>
+                        
+                        {/* Due status with contextual emphasis */}
+                        <span
+                          className={`text-task-metadata font-medium px-1.5 py-0.5 rounded ${
+                            isDueToday
+                              ? "text-rose-400 font-bold bg-rose-500/10 border border-rose-500/20"
+                              : isDueTomorrow
+                              ? "text-amber-400 font-semibold bg-amber-500/10 border border-amber-500/20"
+                              : "text-slate-400"
+                          }`}
+                        >
+                          {t.due}
+                        </span>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
 
-            {/* Right Column (1 Col): Real-Time Telemetry & Sprint Activity */}
+            {/* Right Column (1 Col): Real-Time Telemetry & Event Hierarchy Activity Feed */}
             <div className="rounded-2xl dark:bg-[#121520] bg-white border dark:border-white/[0.08] border-slate-200 flex flex-col overflow-hidden shadow-sm">
-              <div className="p-4 border-b dark:border-white/[0.08] border-slate-200 flex items-center justify-between dark:bg-[#151926] bg-slate-50/70">
+              <div className="p-3.5 px-4 border-b dark:border-white/[0.08] border-slate-200 flex items-center justify-between dark:bg-[#151926] bg-slate-50/70">
                 <div className="flex items-center gap-2">
                   <Activity className="w-3.5 h-3.5 text-indigo-500" />
-                  <h3 className="text-xs font-bold dark:text-white text-slate-800 uppercase tracking-wider">
+                  <h3 className="text-section-heading dark:text-white text-slate-800">
                     Sprint Activity Feed
                   </h3>
                 </div>
-                <span className="text-[10px] text-slate-400 font-mono font-medium">
-                  Real-time
-                </span>
+                <div className="flex items-center gap-1.5 text-caption-meta text-slate-400 font-mono">
+                  <span className="signal-dot signal-dot-success animate-pulse" />
+                  <span>Live</span>
+                </div>
               </div>
 
-              <div className="p-4 space-y-4 overflow-y-auto max-h-[380px] text-xs divide-y dark:divide-white/[0.04] divide-slate-100">
+              {/* Event Hierarchy: High importance (PRs), Medium (AI), Normal (Timesheets, Tasks) */}
+              <div className="p-3.5 space-y-3 overflow-y-auto max-h-[380px] text-xs divide-y dark:divide-white/[0.04] divide-slate-100">
+                
+                {/* Event 1: High Importance (PR Merged) */}
                 <div className="flex items-start gap-3 pt-1">
-                  <div className="w-6 h-6 rounded-lg bg-blue-500/15 text-blue-500 flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <div className="w-7 h-7 rounded-lg bg-indigo-500/15 text-indigo-400 border border-indigo-500/25 flex items-center justify-center flex-shrink-0 mt-0.5 shadow-sm">
                     <GitPullRequest className="w-3.5 h-3.5" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="dark:text-slate-300 text-slate-600 leading-snug">
-                      <strong className="dark:text-white text-slate-900">Varun S</strong> merged PR #42:{" "}
-                      <span className="text-slate-500 font-mono">ClickUp 3.0 Dark Layout</span>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-badge-meta uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
+                        PR Merged
+                      </span>
+                      <span className="text-caption-meta text-slate-400 font-mono">#42</span>
+                    </div>
+                    <p className="dark:text-slate-300 text-slate-600 leading-snug mt-1 text-[13px]">
+                      <strong className="dark:text-white text-slate-900">Varun S</strong> merged{" "}
+                      <span className="text-indigo-400 font-mono">ClickUp 3.0 Dark Layout</span>
                     </p>
-                    <span className="text-[10px] text-slate-400 mt-0.5 block">10 mins ago</span>
+                    <span className="text-caption-meta text-slate-400 mt-0.5 block">10 mins ago</span>
                   </div>
                 </div>
 
+                {/* Event 2: Medium Importance (AI Summary) */}
                 <div className="flex items-start gap-3 pt-3">
-                  <div className="w-6 h-6 rounded-lg bg-pink-500/15 text-pink-500 flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <div className="w-7 h-7 rounded-lg bg-pink-500/15 text-pink-400 border border-pink-500/25 flex items-center justify-center flex-shrink-0 mt-0.5 shadow-sm">
                     <BrainFlowerIcon className="w-3.5 h-3.5" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="dark:text-slate-300 text-slate-600 leading-snug">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-badge-meta uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-pink-500/20 text-pink-300 border border-pink-500/30">
+                        Nexus² AI
+                      </span>
+                    </div>
+                    <p className="dark:text-slate-300 text-slate-600 leading-snug mt-1 text-[13px]">
                       <strong className="dark:text-white text-slate-900">Nexus² AI</strong> generated sprint summary for{" "}
-                      <span className="text-indigo-500"># Phase 2</span>
+                      <span className="text-pink-400"># Phase 2</span>
                     </p>
-                    <span className="text-[10px] text-slate-400 mt-0.5 block">24 mins ago</span>
+                    <span className="text-caption-meta text-slate-400 mt-0.5 block">24 mins ago</span>
                   </div>
                 </div>
 
+                {/* Event 3: Normal Importance (Timesheet) */}
                 <div className="flex items-start gap-3 pt-3">
-                  <div className="w-6 h-6 rounded-lg bg-amber-500/15 text-amber-500 flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <div className="w-7 h-7 rounded-lg bg-amber-500/15 text-amber-400 border border-amber-500/25 flex items-center justify-center flex-shrink-0 mt-0.5">
                     <Clock className="w-3.5 h-3.5" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="dark:text-slate-300 text-slate-600 leading-snug">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-badge-meta uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                        Timesheet
+                      </span>
+                    </div>
+                    <p className="dark:text-slate-300 text-slate-600 leading-snug mt-1 text-[13px]">
                       <strong className="dark:text-white text-slate-900">Gowtham N</strong> logged 6.5 hours on{" "}
-                      <span className="text-slate-500">Neon query pooler</span>
+                      <span className="text-slate-400">Neon query pooler</span>
                     </p>
-                    <span className="text-[10px] text-slate-400 mt-0.5 block">1 hour ago</span>
+                    <span className="text-caption-meta text-slate-400 mt-0.5 block">1 hour ago</span>
                   </div>
                 </div>
 
+                {/* Event 4: Normal Importance (Completed Task) */}
                 <div className="flex items-start gap-3 pt-3">
-                  <div className="w-6 h-6 rounded-lg bg-emerald-500/15 text-emerald-500 flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <div className="w-7 h-7 rounded-lg bg-emerald-500/15 text-emerald-400 border border-emerald-500/25 flex items-center justify-center flex-shrink-0 mt-0.5">
                     <CheckCircle2 className="w-3.5 h-3.5" />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="dark:text-slate-300 text-slate-600 leading-snug">
-                      <strong className="dark:text-white text-slate-900">Harshaa J</strong> completed task{" "}
-                      <span className="text-slate-500">Timesheets approval workflow</span>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-badge-meta uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                        Task Done
+                      </span>
+                    </div>
+                    <p className="dark:text-slate-300 text-slate-600 leading-snug mt-1 text-[13px]">
+                      <strong className="dark:text-white text-slate-900">Harshaa J</strong> completed{" "}
+                      <span className="text-slate-400">Timesheets approval workflow</span>
                     </p>
-                    <span className="text-[10px] text-slate-400 mt-0.5 block">2 hours ago</span>
+                    <span className="text-caption-meta text-slate-400 mt-0.5 block">2 hours ago</span>
                   </div>
                 </div>
               </div>

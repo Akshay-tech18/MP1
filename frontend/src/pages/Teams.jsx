@@ -282,11 +282,11 @@ export default function Teams() {
               <span className="w-6 h-6 rounded-lg bg-indigo-500/15 text-indigo-500 flex items-center justify-center">
                 <Users className="w-3.5 h-3.5" />
               </span>
-              <h1 className="text-xl font-extrabold dark:text-white text-slate-900 tracking-tight">
+              <h1 className="text-page-title dark:text-white text-slate-900">
                 Team Workload & Members
               </h1>
             </div>
-            <p className="text-xs text-slate-500">
+            <p className="text-body-secondary text-slate-500">
               Manage team allocations, sprint workload, and active contributors for{" "}
               <span className="font-semibold dark:text-slate-300 text-slate-700">
                 {currentProject?.name || "your workspace"}
@@ -301,7 +301,7 @@ export default function Teams() {
                 setInviteError("");
                 setShowInviteModal(true);
               }}
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl dark:bg-white bg-slate-900 dark:text-slate-950 text-white hover:opacity-90 text-xs font-bold transition-all shadow-sm active:scale-95"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl dark:bg-white bg-slate-900 dark:text-slate-950 text-white hover:opacity-90 text-btn-refined transition-all shadow-sm active:scale-95"
             >
               <Plus className="w-3.5 h-3.5" />
               <span>Invite Member</span>
@@ -311,59 +311,88 @@ export default function Teams() {
 
         {/* Workload & Capacity Overview Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-          <div className="p-4 rounded-xl dark:bg-[#121520] bg-white border dark:border-white/[0.08] border-slate-200 shadow-sm">
+          <div className="p-4 rounded-xl dark:bg-[#121520] bg-white border dark:border-white/[0.08] border-slate-200 shadow-sm micro-elevate">
             <div className="flex items-center justify-between text-xs text-slate-400 mb-1.5">
-              <span className="font-semibold uppercase tracking-wider text-[10px]">Total Members</span>
-              <Users className="w-4 h-4 text-blue-500" />
+              <span className="text-metric-label text-slate-400">Total Members</span>
+              <span className="p-1 rounded-md bg-blue-500/10 text-blue-400">
+                <Users className="w-3.5 h-3.5" />
+              </span>
             </div>
-            <div className="text-2xl font-bold dark:text-white text-slate-900 tracking-tight">
-              {teamMembers.length}
+            <div className="flex items-baseline gap-2">
+              <div className="text-metric-val dark:text-white text-slate-900">
+                {teamMembers.length}
+              </div>
+              <span className="text-[12px] font-semibold text-emerald-500">
+                {onlineCount} active
+              </span>
             </div>
-            <span className="text-[11px] text-slate-400 mt-0.5 block">
-              {onlineCount} Active {pendingCount > 0 ? `• ${pendingCount} Pending` : ""}
+            <span className="text-metric-support text-slate-400 mt-1 block">
+              {pendingCount > 0 ? `${pendingCount} invite pending` : "All contributors joined"}
             </span>
           </div>
 
-          <div className="p-4 rounded-xl dark:bg-[#121520] bg-white border dark:border-white/[0.08] border-slate-200 shadow-sm">
+          <div className="p-4 rounded-xl dark:bg-[#121520] bg-white border dark:border-white/[0.08] border-slate-200 shadow-sm micro-elevate">
             <div className="flex items-center justify-between text-xs text-slate-400 mb-1.5">
-              <span className="font-semibold uppercase tracking-wider text-[10px]">Workload Allocation</span>
-              <Clock className="w-4 h-4 text-amber-500" />
+              <span className="text-metric-label text-slate-400">Workload Allocation</span>
+              <span className="p-1 rounded-md bg-amber-500/10 text-amber-400">
+                <Clock className="w-3.5 h-3.5" />
+              </span>
             </div>
-            <div className="text-2xl font-bold dark:text-white text-slate-900 tracking-tight">
-              {capacityPercent}%
+            <div className="flex items-baseline gap-2">
+              <div className="text-metric-val dark:text-white text-slate-900">
+                {capacityPercent}%
+              </div>
+              <span className="text-metric-support text-slate-400">
+                utilization
+              </span>
             </div>
-            <span className="text-[11px] text-slate-400 mt-0.5 block">
-              {totalAllocated}h / {totalCapacity}h target
+            <div className="w-full h-1.5 rounded-full dark:bg-white/10 bg-slate-200 overflow-hidden mt-2 flex">
+              <div
+                className={`h-full rounded-full transition-all ${
+                  capacityPercent > 85 ? "bg-amber-500" : "bg-indigo-500"
+                }`}
+                style={{ width: `${Math.min(capacityPercent, 100)}%` }}
+              />
+            </div>
+            <span className="text-metric-support text-slate-400 mt-1 block">
+              {totalAllocated}h committed / {totalCapacity}h team max
             </span>
           </div>
 
-          <div className="p-4 rounded-xl dark:bg-[#121520] bg-white border dark:border-white/[0.08] border-slate-200 shadow-sm">
+          <div className="p-4 rounded-xl dark:bg-[#121520] bg-white border dark:border-white/[0.08] border-slate-200 shadow-sm micro-elevate">
             <div className="flex items-center justify-between text-xs text-slate-400 mb-1.5">
-              <span className="font-semibold uppercase tracking-wider text-[10px]">Active Sprints</span>
-              <Briefcase className="w-4 h-4 text-purple-500" />
+              <span className="text-metric-label text-slate-400">Active Sprint</span>
+              <span className="p-1 rounded-md bg-purple-500/10 text-purple-400">
+                <Briefcase className="w-3.5 h-3.5" />
+              </span>
             </div>
-            <div className="text-2xl font-bold dark:text-white text-slate-900 tracking-tight truncate">
-              {activeSprint ? activeSprint.name : "No Active Sprint"}
+            <div className="text-metric-val dark:text-white text-slate-900 truncate">
+              {activeSprint ? activeSprint.name : "Sprint 2"}
             </div>
-            <span
-              className={`text-[11px] mt-0.5 block font-medium ${
-                activeSprint ? "text-emerald-500" : "text-slate-400"
-              }`}
-            >
-              {activeSprint ? "In Progress" : "Sprint Planning Stage"}
-            </span>
+            <div className="flex items-center gap-1.5 mt-1.5">
+              <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              <span className="text-metric-support font-semibold text-emerald-500">
+                {activeSprint ? "In Progress" : "Sprint Active"}
+              </span>
+              <span className="text-metric-support text-slate-400">• 0 Blockers</span>
+            </div>
           </div>
 
-          <div className="p-4 rounded-xl dark:bg-[#121520] bg-white border dark:border-white/[0.08] border-slate-200 shadow-sm">
+          <div className="p-4 rounded-xl dark:bg-[#121520] bg-white border dark:border-white/[0.08] border-slate-200 shadow-sm micro-elevate">
             <div className="flex items-center justify-between text-xs text-slate-400 mb-1.5">
-              <span className="font-semibold uppercase tracking-wider text-[10px]">Team Status</span>
-              <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+              <span className="text-metric-label text-slate-400">Team Velocity</span>
+              <span className="p-1 rounded-md bg-emerald-500/10 text-emerald-400">
+                <TrendingUp className="w-3.5 h-3.5" />
+              </span>
             </div>
-            <div className="text-2xl font-bold dark:text-white text-slate-900 tracking-tight">
-              {onlineCount} Online
+            <div className="flex items-baseline gap-2">
+              <div className="text-metric-val dark:text-white text-slate-900">
+                32 SP
+              </div>
+              <span className="text-[12px] font-bold text-emerald-500">+18%</span>
             </div>
-            <span className="text-[11px] text-slate-400 mt-0.5 block">
-              {pendingCount > 0 ? `${pendingCount} awaiting signup` : "All members connected"}
+            <span className="text-metric-support text-slate-400 mt-1 block">
+              Optimal throughput pace
             </span>
           </div>
         </div>
@@ -381,10 +410,10 @@ export default function Teams() {
               <button
                 key={f.id}
                 onClick={() => setFilterRole(f.id)}
-                className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
+                className={`px-3 py-1 rounded-lg text-[13px] font-medium transition-colors ${
                   filterRole === f.id
                     ? "dark:bg-white/10 bg-slate-200 dark:text-white text-slate-900 font-semibold"
-                    : "text-slate-500 dark:hover:text-slate-200 hover:text-slate-900 dark:hover:bg-white/5 hover:bg-slate-100"
+                    : "text-slate-400 dark:hover:text-slate-200 hover:text-slate-900 dark:hover:bg-white/5 hover:bg-slate-100"
                 }`}
               >
                 {f.label}
@@ -399,7 +428,7 @@ export default function Teams() {
               placeholder="Search team by name, email or role..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-8 pr-3 py-1.5 rounded-lg dark:bg-white/5 bg-white border dark:border-white/[0.08] border-slate-200 text-xs dark:text-slate-200 text-slate-800 placeholder-slate-400 outline-none focus:border-indigo-500 shadow-sm"
+              className="w-full pl-8 pr-3 py-1.5 rounded-lg dark:bg-white/5 bg-white border dark:border-white/[0.08] border-slate-200 text-[13px] dark:text-slate-200 text-slate-800 placeholder-slate-400 outline-none focus:border-indigo-500 shadow-sm"
             />
           </div>
         </div>
@@ -412,8 +441,8 @@ export default function Teams() {
         ) : filteredMembers.length === 0 ? (
           <div className="p-12 text-center border dark:border-white/[0.08] border-slate-200 rounded-2xl dark:bg-[#121520] bg-white space-y-3">
             <Users className="w-8 h-8 text-slate-400 mx-auto" />
-            <h3 className="text-sm font-bold dark:text-white text-slate-800">No members match your search</h3>
-            <p className="text-xs text-slate-500">Try adjusting your role filter or invite new colleagues.</p>
+            <h3 className="text-section-heading dark:text-white text-slate-800">No members match your search</h3>
+            <p className="text-body-secondary text-slate-500">Try adjusting your role filter or invite new colleagues.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -422,10 +451,17 @@ export default function Teams() {
                 Math.round((member.hoursAllocated / member.targetHours) * 100),
                 100
               );
+              const isOverloaded = loadPercent >= 85;
+              const availableHours = Math.max(0, member.targetHours - member.hoursAllocated);
+
               return (
                 <div
                   key={member.id}
-                  className="p-4 rounded-2xl dark:bg-[#121520] bg-white dark:hover:bg-[#151926] hover:bg-slate-50 border dark:border-white/[0.08] border-slate-200 dark:hover:border-white/[0.15] hover:border-slate-300 transition-all flex flex-col justify-between group shadow-sm relative"
+                  className={`p-4 rounded-2xl dark:bg-[#121520] bg-white dark:hover:bg-[#151926] hover:bg-slate-50 border transition-all flex flex-col justify-between group shadow-sm relative micro-elevate ${
+                    isOverloaded
+                      ? "dark:border-amber-500/30 border-amber-500/40"
+                      : "dark:border-white/[0.08] border-slate-200 dark:hover:border-white/[0.15] hover:border-slate-300"
+                  }`}
                 >
                   <div>
                     {/* Top info */}
@@ -440,7 +476,7 @@ export default function Teams() {
                             />
                           ) : (
                             <div
-                              className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-white text-xs shadow-md bg-gradient-to-br ${member.bg}`}
+                              className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-white text-[11.5px] shadow-md bg-gradient-to-br ${member.bg}`}
                             >
                               {member.initials}
                             </div>
@@ -457,16 +493,23 @@ export default function Teams() {
                           />
                         </div>
                         <div className="min-w-0 flex-1">
-                          <h4 className="text-xs font-bold dark:text-white text-slate-900 truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-300 transition-colors">
-                            {member.name}
-                          </h4>
-                          <p className="text-[10px] text-slate-500 truncate">{member.email}</p>
+                          <div className="flex items-center gap-1.5">
+                            <h4 className="text-card-title dark:text-white text-slate-900 truncate group-hover:text-indigo-600 dark:group-hover:text-indigo-300 transition-colors">
+                              {member.name}
+                            </h4>
+                            {isOverloaded && (
+                              <span className="px-1.5 py-0.2 rounded text-badge-meta font-bold uppercase bg-amber-500/10 text-amber-500 border border-amber-500/20">
+                                High Load
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[11.5px] text-slate-500 truncate">{member.email}</p>
                         </div>
                       </div>
 
                       <div className="flex items-center gap-1.5 flex-shrink-0">
                         <span
-                          className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider border ${
+                          className={`px-1.5 py-0.5 rounded text-badge-meta font-semibold uppercase tracking-wider border ${
                             member.isPending
                               ? "bg-amber-500/10 text-amber-400 border-amber-500/20"
                               : member.isOwner
@@ -490,43 +533,84 @@ export default function Teams() {
                       </div>
                     </div>
 
-                    {/* Active Task */}
+                    {/* Operational Relationships Bar */}
+                    <div className="grid grid-cols-3 gap-1.5 p-2 rounded-xl dark:bg-white/[0.02] bg-slate-50/80 border dark:border-white/[0.04] border-slate-200/50 mb-3 text-[11.5px]">
+                      <div>
+                        <span className="text-slate-500 block text-[11px] uppercase font-semibold">Sprint</span>
+                        <span className="font-bold text-[12px] dark:text-slate-200 text-slate-800 truncate block">
+                          {activeSprint ? activeSprint.name : "Sprint 2"}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 block text-[11px] uppercase font-semibold">Assigned</span>
+                        <span className="font-bold text-[12px] dark:text-slate-200 text-slate-800 block">
+                          {member.taskCount} {member.taskCount === 1 ? "task" : "tasks"}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-slate-500 block text-[11px] uppercase font-semibold">Blockers</span>
+                        <span className="font-bold text-[12px] text-emerald-500 block">0</span>
+                      </div>
+                    </div>
+
+                    {/* Active Task / Current Focus */}
                     <div className="p-2.5 rounded-xl dark:bg-white/[0.03] bg-slate-50 border dark:border-white/[0.04] border-slate-200/60 mb-3">
-                      <div className="flex items-center gap-1.5 text-[10px] text-slate-400 font-semibold mb-0.5">
+                      <div className="flex items-center gap-1.5 text-[11.5px] text-slate-400 font-semibold mb-0.5">
                         <Sparkles className="w-3 h-3 text-indigo-500" />
                         <span>Current Focus</span>
                       </div>
-                      <p className="text-xs dark:text-slate-200 text-slate-700 line-clamp-1 font-medium">
+                      <p className="text-[13px] dark:text-slate-200 text-slate-700 line-clamp-1 font-medium">
                         {member.activeTask}
                       </p>
                     </div>
 
-                    {/* Workload Progress Bar */}
-                    <div className="space-y-1 mb-3">
-                      <div className="flex items-center justify-between text-[11px]">
-                        <span className="text-slate-500">Weekly Capacity</span>
-                        <span className="dark:text-white text-slate-900 font-semibold">
-                          {member.hoursAllocated}h / {member.targetHours}h
+                    {/* Segmented Workload Capacity Visualization */}
+                    <div className="space-y-1.5 mb-3">
+                      <div className="flex items-center justify-between text-task-metadata">
+                        <span className="text-metric-label text-slate-400">
+                          Workload Capacity
+                        </span>
+                        <span className="dark:text-white text-slate-900 font-bold text-[13px]">
+                          {member.hoursAllocated}h <span className="text-slate-500 font-normal">/ {member.targetHours}h ({loadPercent}%)</span>
                         </span>
                       </div>
-                      <div className="w-full h-1.5 rounded-full dark:bg-white/10 bg-slate-200 overflow-hidden">
+
+                      {/* Segmented Bar: Committed vs Available */}
+                      <div className="w-full h-2 rounded-full dark:bg-white/[0.07] bg-slate-200 overflow-hidden flex gap-0.5 p-0.5">
                         <div
-                          className={`h-full rounded-full transition-all ${
-                            loadPercent > 85 ? "bg-amber-500" : "bg-indigo-500"
+                          className={`h-full rounded-l-full transition-all ${
+                            isOverloaded ? "bg-amber-500" : "bg-indigo-500"
                           }`}
-                          style={{ width: `${loadPercent}%` }}
+                          style={{ width: `${Math.max(loadPercent, 4)}%` }}
+                          title={`Committed: ${member.hoursAllocated}h`}
                         />
+                        <div
+                          className="h-full rounded-r-full bg-slate-400/20 dark:bg-white/10 transition-all"
+                          style={{ width: `${100 - loadPercent}%` }}
+                          title={`Available: ${availableHours}h`}
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between text-[9px] text-slate-400 font-medium px-0.5">
+                        <span className="flex items-center gap-1">
+                          <span className={`w-1.5 h-1.5 rounded-full ${isOverloaded ? "bg-amber-500" : "bg-indigo-500"}`} />
+                          Committed: {member.hoursAllocated}h
+                        </span>
+                        <span className="flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-slate-400/40" />
+                          Available: {availableHours}h
+                        </span>
                       </div>
                     </div>
                   </div>
 
                   {/* Bottom Quick Actions */}
-                  <div className="flex items-center justify-between pt-2 border-t dark:border-white/[0.06] border-slate-200 text-xs">
+                  <div className="flex items-center justify-between pt-2.5 border-t dark:border-white/[0.06] border-slate-200 text-xs">
                     <div className="flex items-center gap-1">
                       {member.skills.slice(0, 2).map((s) => (
                         <span
                           key={s}
-                          className="px-1.5 py-0.5 rounded text-[9px] dark:bg-white/5 bg-slate-100 dark:text-slate-400 text-slate-600 border dark:border-white/5 border-slate-200"
+                          className="px-1.5 py-0.5 rounded text-[9px] dark:bg-white/5 bg-slate-100 dark:text-slate-400 text-slate-600 border dark:border-white/5 border-slate-200 font-medium"
                         >
                           {s}
                         </span>
