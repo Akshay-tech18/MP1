@@ -22,16 +22,26 @@ function initSocketServer(httpServer) {
   // Setup /project namespace
   const projectNamespace = io.of("/project");
 
-  // JWT Handshake Verification Middleware
+  // JWT Handshake Verification Middleware (Supports Auth token & HttpOnly cookie)
   projectNamespace.use((socket, next) => {
-    let token = socket.handshake.auth.token;
+    let token = socket.handshake.auth?.token;
 
     // Remove Bearer prefix if present
     if (token && token.startsWith("Bearer ")) {
       token = token.slice(7);
     }
 
-    if (!token) {
+    // Fallback: extract token from handshake cookies (for httpOnly cookie authentication)
+    if ((!token || token === "undefined" || token === "null") && socket.handshake.headers?.cookie) {
+      const cookies = socket.handshake.headers.cookie.split(";").reduce((acc, cookieStr) => {
+        const [k, ...v] = cookieStr.trim().split("=");
+        if (k) acc[k] = decodeURIComponent(v.join("="));
+        return acc;
+      }, {});
+      token = cookies.accessToken || cookies.access_token;
+    }
+
+    if (!token || token === "undefined" || token === "null") {
       logger.warn("Socket connection rejected: Token missing on handshake");
       return next(new Error("Authentication error: Token missing"));
     }

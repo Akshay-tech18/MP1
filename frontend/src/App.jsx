@@ -35,7 +35,7 @@ initTheme();
  * Route protection wrapper: Redirects to /login if unauthenticated.
  */
 function ProtectedLayout() {
-  const { user, loading } = useAuthStore();
+  const { user, token, loading } = useAuthStore();
   const { connectSocket, disconnectSocket, socket } = useSocketStore();
   const { fetchNotifications, addNotification } = useNotificationStore();
   const [isSidePanelOpen, setIsSidePanelOpen] = useState(true);
@@ -43,19 +43,14 @@ function ProtectedLayout() {
   // Initialise WebSocket connection on auth success
   useEffect(() => {
     if (user) {
-      const accessToken = document.cookie
-        .split("; ")
-        .find((row) => row.startsWith("accessToken="))
-        ?.split("=")[1];
-      
-      connectSocket(accessToken);
+      connectSocket(token);
       fetchNotifications();
     }
     
     return () => {
       disconnectSocket();
     };
-  }, [user]);
+  }, [user, token]);
 
   // Real-time listener for incoming in-app notifications
   useEffect(() => {

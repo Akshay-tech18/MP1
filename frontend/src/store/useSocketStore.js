@@ -14,11 +14,15 @@ const useSocketStore = create((set, get) => ({
     const { socket } = get();
     if (socket) return; // Connection already active
 
+    const authPayload = {};
+    if (accessToken) {
+      authPayload.token = accessToken.startsWith("Bearer ") ? accessToken : `Bearer ${accessToken}`;
+    }
+
     const newSocket = io(SOCKET_URL, {
-      auth: {
-        token: `Bearer ${accessToken}`
-      },
-      transports: ["websocket"]
+      auth: authPayload,
+      withCredentials: true,
+      transports: ["websocket", "polling"]
     });
 
     newSocket.on("connect", () => {

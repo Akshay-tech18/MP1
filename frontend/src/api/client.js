@@ -68,6 +68,10 @@ client.interceptors.response.use(
         client.defaults.headers.common["Authorization"] = `Bearer ${accessToken}`;
         originalRequest.headers["Authorization"] = `Bearer ${accessToken}`;
 
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("token_refreshed", { detail: { token: accessToken } }));
+        }
+
         processQueue(null, accessToken);
         isRefreshing = false;
         

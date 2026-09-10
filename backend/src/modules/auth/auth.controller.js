@@ -142,7 +142,11 @@ const getMe = (req, res) => {
   if (!req.user) {
     return sendError(res, 401, "Not authenticated");
   }
-  return sendSuccess(res, 200, "User profile retrieved", { user: req.user });
+  const token = req.cookies?.accessToken || req.cookies?.access_token || (req.headers.authorization?.startsWith("Bearer ") ? req.headers.authorization.slice(7) : null);
+  return sendSuccess(res, 200, "User profile retrieved", { 
+    user: req.user,
+    accessToken: token
+  });
 };
 
 /**

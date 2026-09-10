@@ -3,9 +3,12 @@ import client from "../api/client";
 
 const useAuthStore = create((set, get) => ({
   user: null,
+  token: null,
   loading: true,
   projects: [],
   currentProject: null,
+
+  setToken: (token) => set({ token }),
 
   /**
    * Load active user profile on app start
@@ -15,14 +18,16 @@ const useAuthStore = create((set, get) => ({
     try {
       const res = await client.get("/auth/me");
       if (res.data.success) {
-        set({ user: res.data.data.user });
+        const user = res.data.data.user;
+        const accessToken = res.data.data.accessToken || null;
+        set({ user, token: accessToken });
         // Set default Authorization header if token returned
-        if (res.data.data.accessToken) {
-          client.defaults.headers.common["Authorization"] = `Bearer ${res.data.data.accessToken}`;
+        if (accessToken) {
+          client.defaults.headers.common["Authorization"] = `Bearer ${accessToken}`;
         }
       }
     } catch (err) {
-      set({ user: null });
+      set({ user: null, token: null });
     } finally {
       set({ loading: false });
     }
@@ -37,7 +42,7 @@ const useAuthStore = create((set, get) => ({
       const res = await client.post("/auth/mock-login", { email });
       if (res.data.success) {
         const { user, accessToken } = res.data.data;
-        set({ user });
+        set({ user, token: accessToken });
         client.defaults.headers.common["Authorization"] = `Bearer ${accessToken}`;
         return { success: true };
       }
@@ -59,7 +64,7 @@ const useAuthStore = create((set, get) => ({
     } catch (err) {
       // Proceed with state clearance regardless of HTTP status
     }
-    set({ user: null, projects: [], currentProject: null });
+    set({ user: null, token: null, projects: [], currentProject: null });
     delete client.defaults.headers.common["Authorization"];
   },
 
@@ -128,6 +133,12 @@ const useAuthStore = create((set, get) => ({
 if (typeof window !== "undefined") {
   window.addEventListener("unauthorized", () => {
     useAuthStore.getState().logout();
+  });
+
+  window.addEventListener("token_refreshed", (e) => {
+    if (e.detail?.token) {
+      useAuthStore.getState().setToken(e.detail.token);
+    }
   });
 }
 
