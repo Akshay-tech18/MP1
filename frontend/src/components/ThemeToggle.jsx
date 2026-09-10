@@ -17,14 +17,25 @@ export default function ThemeToggle() {
     localStorage.setItem("devpilot_theme", theme);
   }, [theme]);
 
+  React.useEffect(() => {
+    const handleSync = () => {
+      const stored = localStorage.getItem("devpilot_theme") || "dark";
+      setTheme(stored);
+    };
+    window.addEventListener("devpilot_theme_change", handleSync);
+    return () => window.removeEventListener("devpilot_theme_change", handleSync);
+  }, []);
+
   const toggleTheme = () => {
-    setTheme((prev) => (prev === "dark" ? "light" : "dark"));
+    const nextTheme = theme === "dark" ? "light" : "dark";
+    setTheme(nextTheme);
+    window.dispatchEvent(new Event("devpilot_theme_change"));
   };
 
   return (
     <button
       onClick={toggleTheme}
-      className="group relative w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-200 magnetic-btn hover:bg-dp-dark-surface-hover dark:hover:bg-dp-dark-surface-hover"
+      className="group relative w-9 h-9 rounded-xl flex items-center justify-center transition-all duration-200 magnetic-btn dark:hover:bg-white/10 hover:bg-slate-200/80 text-slate-400 hover:text-slate-800 dark:hover:text-white"
       title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
     >
       <AnimatePresence mode="wait">

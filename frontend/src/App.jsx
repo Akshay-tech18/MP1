@@ -13,6 +13,10 @@ import Dashboard from "./pages/Dashboard";
 import Board from "./pages/Board";
 import Chat from "./pages/Chat";
 import Analytics from "./pages/Analytics";
+import NexusAi from "./pages/NexusAi";
+import Timesheets from "./pages/Timesheets";
+import Docs from "./pages/Docs";
+import Teams from "./pages/Teams";
 
 import NotificationToast from "./components/NotificationToast";
 import useNotificationStore from "./store/useNotificationStore";
@@ -126,6 +130,11 @@ function AnimatedRoutes() {
         <Route path="/board" element={<Board />} />
         <Route path="/chat" element={<Chat />} />
         <Route path="/analytics" element={<Analytics />} />
+        <Route path="/ai" element={<NexusAi />} />
+        <Route path="/timesheets" element={<Timesheets />} />
+        <Route path="/docs" element={<Docs />} />
+        <Route path="/team" element={<Teams />} />
+        <Route path="/teams" element={<Teams />} />
         {/* Redirect index path to Dashboard */}
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Route>
