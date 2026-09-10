@@ -543,6 +543,9 @@ const triggerSyncCommits = async (req, res) => {
   }
 };
 
+const syncRepositoryCommits = triggerSyncCommits;
+const syncCommitsHelper = syncCommitsForRepository;
+
 module.exports = {
   getGitHubStatus,
   connectGitHubToken,

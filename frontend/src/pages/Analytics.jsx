@@ -9,12 +9,25 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid
 } from "recharts";
 import {
-<<<<<<< HEAD
-  BarChart3, RefreshCw, AlertCircle, FileCode, CheckCircle, Plus, Github, X,
-  GitCommit, GitBranch, ExternalLink, Calendar, Search, Copy, Check
-=======
-  BarChart3, RefreshCw, FileCode, Plus, Github, X, GitCommit, Calendar, Clock, ExternalLink, ChevronDown, ChevronUp, Sparkles, Check
->>>>>>> frontend-phase2
+  BarChart3,
+  RefreshCw,
+  AlertCircle,
+  FileCode,
+  CheckCircle,
+  Plus,
+  Github,
+  X,
+  GitCommit,
+  GitBranch,
+  ExternalLink,
+  Calendar,
+  Clock,
+  Search,
+  Copy,
+  ChevronDown,
+  ChevronUp,
+  Sparkles,
+  Check
 } from "lucide-react";
 import { SocketEvent } from "../config/constants";
 
@@ -88,25 +101,18 @@ export default function Analytics() {
   const [bugRiskList, setBugRiskList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [scanning, setScanning] = useState(false);
-  const [syncingCommits, setSyncingCommits] = useState(false);
-  const [syncSuccessMsg, setSyncSuccessMsg] = useState("");
   const [showLinkModal, setShowLinkModal] = useState(false);
   const [newRepoInput, setNewRepoInput] = useState("");
   const [linkingRepo, setLinkingRepo] = useState(false);
   const [linkError, setLinkError] = useState("");
 
-<<<<<<< HEAD
-  // Commit History & Velocity state
+  // Commit History state
   const [commits, setCommits] = useState([]);
   const [loadingCommits, setLoadingCommits] = useState(false);
   const [commitSearch, setCommitSearch] = useState("");
-  const [velocityRange, setVelocityRange] = useState("active"); // "active" | "30d" | "90d"
   const [copiedSha, setCopiedSha] = useState("");
 
-  const loadAnalytics = async () => {
-=======
   const loadAnalytics = async (customTimeframe = commitTimeframe, customRepoId = selectedRepoId) => {
->>>>>>> frontend-phase2
     if (!currentProject) return;
     try {
       const params = { timeframe: customTimeframe };
@@ -135,14 +141,14 @@ export default function Analytics() {
     }
   };
 
-<<<<<<< HEAD
   const loadCommits = async (repoId) => {
     if (!currentProject) return;
     setLoadingCommits(true);
     try {
-      const url = (!repoId || repoId === "ALL")
+      const target = repoId || selectedRepoId;
+      const url = (!target || target === "ALL")
         ? `/projects/${currentProject.id}/repositories/commits`
-        : `/projects/${currentProject.id}/repositories/${repoId}/commits`;
+        : `/projects/${currentProject.id}/repositories/${target}/commits`;
       const res = await client.get(url);
       if (res.data.success) {
         setCommits(res.data.data.commits || []);
@@ -155,17 +161,8 @@ export default function Analytics() {
   };
 
   useEffect(() => {
-    loadAnalytics();
-  }, [currentProject]);
-
-  useEffect(() => {
-    if (currentProject && (selectedRepoId || repositories.length > 0)) {
-      loadCommits(selectedRepoId || repositories[0]?.id);
-    }
-  }, [selectedRepoId, currentProject, repositories.length]);
-=======
-  useEffect(() => {
     loadAnalytics(commitTimeframe, selectedRepoId);
+    loadCommits(selectedRepoId);
   }, [currentProject]);
 
   const handleTimeframeChange = (newTimeframe) => {
@@ -176,6 +173,7 @@ export default function Analytics() {
   const handleRepoChange = (newRepoId) => {
     setSelectedRepoId(newRepoId);
     loadAnalytics(commitTimeframe, newRepoId);
+    loadCommits(newRepoId);
   };
 
   const handleSyncCommits = async () => {
@@ -191,6 +189,7 @@ export default function Analytics() {
         setSyncSuccessMsg(`Synced ${count} commits from GitHub!`);
         setTimeout(() => setSyncSuccessMsg(""), 4500);
         await loadAnalytics(commitTimeframe, selectedRepoId);
+        await loadCommits(selectedRepoId);
       }
     } catch (err) {
       console.error("Failed to sync commits:", err);
@@ -198,7 +197,6 @@ export default function Analytics() {
       setSyncingCommits(false);
     }
   };
->>>>>>> frontend-phase2
 
   useEffect(() => {
     if (!socket || !currentProject) return;
@@ -220,32 +218,11 @@ export default function Analytics() {
     setScanning(true);
     try {
       await client.post(`/projects/${currentProject.id}/ml/scan/${scanRepoId}`);
-      await loadAnalytics();
+      await loadAnalytics(commitTimeframe, selectedRepoId);
     } catch (err) {
       console.error(err);
     } finally {
       setScanning(false);
-    }
-  };
-
-  const handleSyncCommits = async () => {
-    const targetRepo = selectedRepoId === "ALL" ? repositories[0]?.id : selectedRepoId;
-    if (!targetRepo || syncingCommits) return;
-    setSyncingCommits(true);
-    setSyncSuccessMsg("");
-    try {
-      const res = await client.post(`/projects/${currentProject.id}/repositories/${targetRepo}/sync`);
-      if (res.data.success) {
-        setSyncSuccessMsg(res.data.message || "Commits synced successfully!");
-        await loadAnalytics();
-        await loadCommits(selectedRepoId);
-        setTimeout(() => setSyncSuccessMsg(""), 5000);
-      }
-    } catch (err) {
-      console.error("Sync commits failed:", err);
-      alert(err.response?.data?.message || "Failed to sync commits from GitHub");
-    } finally {
-      setSyncingCommits(false);
     }
   };
 
@@ -281,74 +258,6 @@ export default function Analytics() {
     setTimeout(() => setCopiedSha(""), 2000);
   };
 
-  // Group commits for velocity chart accurately in client local timezone
-  const barData = useMemo(() => {
-    if (!commits || commits.length === 0) return [];
-
-    if (velocityRange === "active") {
-      // Group by user's local calendar day
-      const map = {};
-      const sorted = [...commits].sort((a, b) => new Date(a.committedAt) - new Date(b.committedAt));
-
-      sorted.forEach(c => {
-        const d = new Date(c.committedAt);
-        const year = d.getFullYear();
-        const month = String(d.getMonth() + 1).padStart(2, "0");
-        const day = String(d.getDate()).padStart(2, "0");
-        const key = `${year}-${month}-${day}`;
-
-        const label = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-        const fullDate = d.toLocaleDateString("en-US", {
-          weekday: "short",
-          month: "short",
-          day: "numeric",
-          year: "numeric"
-        });
-
-        if (!map[key]) {
-          map[key] = { day: key, label, fullDate, count: 0 };
-        }
-        map[key].count++;
-      });
-
-      return Object.values(map);
-    }
-
-    // Sequential 30-day or 90-day window ending today
-    const days = velocityRange === "90d" ? 90 : 30;
-    const now = new Date();
-    const map = {};
-
-    for (let i = days - 1; i >= 0; i--) {
-      const d = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
-      const year = d.getFullYear();
-      const month = String(d.getMonth() + 1).padStart(2, "0");
-      const day = String(d.getDate()).padStart(2, "0");
-      const key = `${year}-${month}-${day}`;
-      const label = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-      const fullDate = d.toLocaleDateString("en-US", {
-        weekday: "short",
-        month: "short",
-        day: "numeric",
-        year: "numeric"
-      });
-      map[key] = { day: key, label, fullDate, count: 0 };
-    }
-
-    commits.forEach(c => {
-      const d = new Date(c.committedAt);
-      const year = d.getFullYear();
-      const month = String(d.getMonth() + 1).padStart(2, "0");
-      const day = String(d.getDate()).padStart(2, "0");
-      const key = `${year}-${month}-${day}`;
-      if (map[key]) {
-        map[key].count++;
-      }
-    });
-
-    return Object.values(map);
-  }, [commits, velocityRange]);
-
   // Filter commits for search box
   const filteredCommits = useMemo(() => {
     if (!commitSearch.trim()) return commits;
@@ -383,8 +292,6 @@ export default function Analytics() {
       })).filter(item => item.value > 0)
     : [];
 
-<<<<<<< HEAD
-=======
   const barData = dashboardMetrics ? (dashboardMetrics.commitTrend || []) : [];
   const commitsList = dashboardMetrics ? (dashboardMetrics.commits || []) : [];
   const totalCommitsInPeriod = dashboardMetrics ? (dashboardMetrics.totalCommitsInPeriod ?? commitsList.length) : 0;
@@ -404,20 +311,7 @@ export default function Analytics() {
     return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
   };
 
-  const formatFullDate = (dateStr) => {
-    if (!dateStr) return "";
-    const d = new Date(dateStr);
-    return d.toLocaleString("en-US", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit"
-    });
-  };
-
   // Detect theme for chart text
->>>>>>> frontend-phase2
   const isDark = document.documentElement.classList.contains("dark");
   const chartTextColor = isDark ? "#94a3b8" : "#64748b";
   const chartGridColor = isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.06)";
@@ -444,45 +338,19 @@ export default function Analytics() {
           </div>
 
           {repositories.length > 0 && (
-<<<<<<< HEAD
-            <div className="flex items-center gap-2">
-              <select
-                value={selectedRepoId}
-                onChange={(e) => setSelectedRepoId(e.target.value)}
-                className="glass-select text-xs"
-=======
             <div className="flex items-center gap-2 flex-wrap">
               <select
                 value={selectedRepoId || "ALL"}
                 onChange={(e) => handleRepoChange(e.target.value)}
                 className="glass-select text-xs font-semibold"
                 title="Filter metrics by repository"
->>>>>>> frontend-phase2
               >
                 <option value="ALL">All Repositories ({repositories.length})</option>
                 {repositories.map(repo => (
                   <option key={repo.id} value={repo.id}>{repo.name}</option>
                 ))}
               </select>
-<<<<<<< HEAD
 
-              <button
-                onClick={handleSyncCommits}
-                disabled={syncingCommits}
-                className="btn-ghost flex items-center gap-2 py-2 px-3 text-[13px] magnetic-btn border dark:border-dp-dark-border-light border-dp-light-border dark:bg-dp-dark-surface/80 bg-white"
-                title="Fetch latest commits from GitHub"
-              >
-                <RefreshCw className={`w-3.5 h-3.5 ${syncingCommits ? "animate-spin text-dp-primary" : ""}`} />
-                {syncingCommits ? "Syncing..." : "Sync Commits"}
-              </button>
-
-              <button
-                onClick={handleTriggerScan}
-                disabled={scanning}
-                className="btn-primary flex items-center gap-2 py-2 text-[13px] magnetic-btn"
-              >
-                <BarChart3 className="w-4 h-4" />
-=======
               <button
                 onClick={handleSyncCommits}
                 disabled={syncingCommits}
@@ -492,11 +360,13 @@ export default function Analytics() {
                 <RefreshCw className={`w-3.5 h-3.5 ${syncingCommits ? "animate-spin text-indigo-400" : ""}`} />
                 <span>{syncingCommits ? "Syncing..." : "Sync Commits"}</span>
               </button>
-              <button onClick={handleTriggerScan} disabled={scanning}
-                className="btn-primary flex items-center gap-2 py-2 text-[13px] magnetic-btn">
-                <RefreshCw className={`w-4 h-4 ${scanning ? "animate-spin" : ""}`} />
->>>>>>> frontend-phase2
-                {scanning ? "Scanning..." : "Run AI Scan"}
+              <button
+                onClick={handleTriggerScan}
+                disabled={scanning}
+                className="btn-primary flex items-center gap-2 py-2 text-[13px] magnetic-btn"
+              >
+                <Sparkles className={`w-4 h-4 ${scanning ? "animate-spin" : ""}`} />
+                <span>{scanning ? "Scanning..." : "Run AI Scan"}</span>
               </button>
 
               <button
@@ -510,18 +380,16 @@ export default function Analytics() {
           )}
         </motion.div>
 
-<<<<<<< HEAD
         {syncSuccessMsg && (
           <div className="p-3.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-xl text-xs flex items-center gap-2 font-medium">
             <CheckCircle className="w-4 h-4 flex-shrink-0" />
             <span>{syncSuccessMsg}</span>
           </div>
         )}
-=======
+
         {/* Ambient Neon Background Glows */}
         <div className="absolute top-0 right-1/4 w-[500px] h-[300px] bg-gradient-to-b from-indigo-600/10 via-purple-600/5 to-transparent blur-3xl pointer-events-none" />
         <div className="absolute bottom-10 left-10 w-[400px] h-[400px] bg-cyan-600/5 blur-3xl pointer-events-none" />
->>>>>>> frontend-phase2
 
         {repositories.length === 0 && (
           <motion.div
@@ -538,11 +406,6 @@ export default function Analytics() {
                 <Github className="w-5 h-5" />
               </div>
               <div>
-<<<<<<< HEAD
-                <span>No repository linked to this space.</span>
-                <p className="text-[12px] dark:text-dp-text-muted text-dp-text-light-muted mt-1">
-                  Link a GitHub repository to track commits, pull requests, and calculate AI bug defect risks.
-=======
                 <div className="flex items-center gap-2">
                   <span className="font-bold text-sm text-white">Connect GitHub Codebase Telemetry</span>
                   <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
@@ -551,7 +414,6 @@ export default function Analytics() {
                 </div>
                 <p className="text-xs text-slate-400 mt-1 leading-relaxed">
                   Link a GitHub repository to track commits, pull requests, and calculate XGBoost + Random Forest code defect risks.
->>>>>>> frontend-phase2
                 </p>
               </div>
             </div>
@@ -574,13 +436,6 @@ export default function Analytics() {
             animate="animate"
             className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start"
           >
-<<<<<<< HEAD
-            {/* Pie Chart: Task Status */}
-            <motion.div variants={staggerItem} className="glass-card glossy-card p-4 flex flex-col h-80">
-              <h3 className="text-[13px] font-display font-bold dark:text-dp-text-primary text-dp-text-light-primary uppercase tracking-wider mb-3">
-                Task Status Distribution
-              </h3>
-=======
             {/* Pie Chart */}
             <motion.div variants={staggerItem} className="glass-card glossy-card p-5 flex flex-col min-h-[380px] rounded-2xl border dark:border-white/[0.08] border-slate-200">
               <div className="flex items-center justify-between mb-3">
@@ -588,7 +443,6 @@ export default function Analytics() {
                   Task Status Distribution
                 </h3>
               </div>
->>>>>>> frontend-phase2
               {pieData.length === 0 ? (
                 <div className="flex-1 flex items-center justify-center text-xs dark:text-dp-text-muted text-dp-text-light-muted">
                   No tasks logged
@@ -619,52 +473,6 @@ export default function Analytics() {
               )}
             </motion.div>
 
-<<<<<<< HEAD
-            {/* Bar Chart: Commit Velocity with Accurate Dates & Range Filters */}
-            <motion.div variants={staggerItem} className="glass-card glossy-card p-4 flex flex-col h-80">
-              <div className="flex items-center justify-between mb-2">
-                <div>
-                  <h3 className="text-[13px] font-display font-bold dark:text-dp-text-primary text-dp-text-light-primary uppercase tracking-wider">
-                    Commit Velocity
-                  </h3>
-                  <span className="text-[11px] dark:text-dp-text-muted text-dp-text-light-muted">
-                    {velocityRange === "active" ? "Active Commit Days" : velocityRange === "30d" ? "Last 30 Days" : "Last 90 Days"} ({barData.reduce((acc, b) => acc + b.count, 0)} commits)
-                  </span>
-                </div>
-                <div className="flex items-center gap-1 bg-black/10 dark:bg-white/5 p-0.5 rounded-lg border dark:border-dp-dark-border-light/40 border-dp-light-border/60">
-                  <button
-                    type="button"
-                    onClick={() => setVelocityRange("active")}
-                    className={`px-2 py-1 text-[10px] font-medium rounded-md transition-all ${
-                      velocityRange === "active"
-                        ? "bg-dp-primary text-white shadow-sm"
-                        : "dark:text-dp-text-muted text-dp-text-light-muted hover:text-white"
-                    }`}
-                  >
-                    Active Days
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setVelocityRange("30d")}
-                    className={`px-2 py-1 text-[10px] font-medium rounded-md transition-all ${
-                      velocityRange === "30d"
-                        ? "bg-dp-primary text-white shadow-sm"
-                        : "dark:text-dp-text-muted text-dp-text-light-muted hover:text-white"
-                    }`}
-                  >
-                    30 Days
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setVelocityRange("90d")}
-                    className={`px-2 py-1 text-[10px] font-medium rounded-md transition-all ${
-                      velocityRange === "90d"
-                        ? "bg-dp-primary text-white shadow-sm"
-                        : "dark:text-dp-text-muted text-dp-text-light-muted hover:text-white"
-                    }`}
-                  >
-                    90 Days
-=======
             {/* Bar Chart: Commit Velocity with Timeframe controls & Commit History */}
             <motion.div
               variants={staggerItem}
@@ -733,71 +541,16 @@ export default function Analytics() {
                     className="p-1.5 rounded-lg dark:bg-white/5 bg-slate-100 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-400 hover:text-indigo-400 transition-colors border dark:border-white/[0.08] border-slate-200"
                   >
                     <RefreshCw className={`w-3.5 h-3.5 ${syncingCommits ? "animate-spin text-indigo-400" : ""}`} />
->>>>>>> frontend-phase2
                   </button>
                 </div>
               </div>
 
-<<<<<<< HEAD
-              {barData.length === 0 ? (
-                <div className="flex-1 flex flex-col items-center justify-center text-xs dark:text-dp-text-muted text-dp-text-light-muted gap-2">
-                  <GitCommit className="w-6 h-6 opacity-30" />
-                  <span>No commits in selected timeframe</span>
-                </div>
-              ) : (
-                <ResponsiveContainer width="100%" height="85%">
-                  <BarChart data={barData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={chartGridColor} />
-                    <XAxis
-                      dataKey="label"
-                      tick={{ fontSize: 9, fill: chartTextColor }}
-                      interval={velocityRange === "active" ? 0 : "preserveStartEnd"}
-                    />
-                    <YAxis tick={{ fontSize: 9, fill: chartTextColor }} allowDecimals={false} />
-                    <Tooltip
-                      content={({ active, payload }) => {
-                        if (active && payload && payload.length) {
-                          const data = payload[0].payload;
-                          return (
-                            <div
-                              style={{
-                                background: isDark ? "rgba(17,24,39,0.95)" : "rgba(255,255,255,0.98)",
-                                border: isDark ? "1px solid rgba(255,255,255,0.1)" : "1px solid rgba(226,232,240,0.8)",
-                                borderRadius: "8px",
-                                padding: "8px 12px",
-                                boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.3)",
-                                fontSize: "11px",
-                                color: isDark ? "#f8fafc" : "#0f172a",
-                              }}
-                            >
-                              <p className="font-semibold text-dp-primary">{data.fullDate || data.day}</p>
-                              <p className="mt-1 flex items-center gap-1 font-medium">
-                                <span className="w-2 h-2 rounded-full bg-pink-500 inline-block"></span>
-                                {data.count} {data.count === 1 ? "Commit" : "Commits"} pushed
-                              </p>
-                            </div>
-                          );
-                        }
-                        return null;
-                      }}
-                    />
-                    <Bar dataKey="count" fill="url(#barGradient)" radius={[4, 4, 0, 0]} maxBarSize={45} />
-                    <defs>
-                      <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="#7c3aed" />
-                        <stop offset="100%" stopColor="#ec4899" />
-                      </linearGradient>
-                    </defs>
-                  </BarChart>
-                </ResponsiveContainer>
-=======
               {/* Sync Success Toast */}
               {syncSuccessMsg && (
                 <div className="mb-3 px-3 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs flex items-center gap-2">
                   <Check className="w-3.5 h-3.5" />
                   <span>{syncSuccessMsg}</span>
                 </div>
->>>>>>> frontend-phase2
               )}
 
               {/* Bar Chart Container */}

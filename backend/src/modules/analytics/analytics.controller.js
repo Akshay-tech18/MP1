@@ -167,6 +167,7 @@ const getDashboardMetrics = async (req, res) => {
       }
     });
 
+    const commits = commitsInWindow;
     const mapByKey = new Map(trendMap.map(t => [t.key, t]));
     commits.forEach(commit => {
       let key;

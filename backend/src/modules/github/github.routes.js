@@ -69,12 +69,6 @@ repositoryRouter.get(
   getAllProjectCommits
 );
 
-repositoryRouter.post(
-  "/:repoId/sync",
-  checkProjectRole("MANAGER", "DEVELOPER"),
-  syncRepositoryCommits
-);
-
 repositoryRouter.get(
   "/:repoId/commits",
   checkProjectRole("MANAGER", "DEVELOPER", "QA_TESTER", "VIEWER"),
