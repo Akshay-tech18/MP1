@@ -12,6 +12,7 @@ import {
   X,
   Send,
 } from "lucide-react";
+import Avatar from "../components/Avatar";
 import { TaskStatus, TaskPriority, SocketEvent } from "../config/constants";
 
 const COLUMNS = ["TODO", "IN_PROGRESS", "IN_REVIEW", "COMPLETED", "BLOCKED"];
@@ -163,24 +164,39 @@ export default function Board() {
     if (source.droppableId === destination.droppableId && source.index === destination.index) return;
 
     const destCol = destination.droppableId;
-    const destTasks = tasks.filter(t => t.status === destCol).sort((a, b) => a.orderIndex - b.orderIndex);
+    // Extract other tasks in destination column (excluding the dragged item)
+    const otherTasksInDest = tasks
+      .filter(t => t.status === destCol && t.id !== draggableId)
+      .sort((a, b) => a.orderIndex - b.orderIndex);
 
     let newOrderIndex = 1000.0;
-    if (destTasks.length === 0) newOrderIndex = 1000.0;
-    else if (destination.index === 0) newOrderIndex = destTasks[0].orderIndex / 2;
-    else if (destination.index >= destTasks.length) newOrderIndex = destTasks[destTasks.length - 1].orderIndex + 1000.0;
-    else newOrderIndex = (destTasks[destination.index - 1].orderIndex + destTasks[destination.index].orderIndex) / 2;
+    if (otherTasksInDest.length === 0) {
+      newOrderIndex = 1000.0;
+    } else if (destination.index === 0) {
+      newOrderIndex = otherTasksInDest[0].orderIndex / 2;
+    } else if (destination.index >= otherTasksInDest.length) {
+      newOrderIndex = otherTasksInDest[otherTasksInDest.length - 1].orderIndex + 1000.0;
+    } else {
+      const prev = otherTasksInDest[destination.index - 1].orderIndex;
+      const next = otherTasksInDest[destination.index].orderIndex;
+      newOrderIndex = (prev + next) / 2;
+    }
 
     const originalTasks = [...tasks];
-    setTasks(tasks.map(t => t.id === draggableId ? { ...t, status: destCol, orderIndex: newOrderIndex } : t)
-      .sort((a, b) => a.orderIndex - b.orderIndex));
+    // Immediate state update so cards and column count headers update in real-time
+    setTasks(prev =>
+      prev.map(t => (t.id === draggableId ? { ...t, status: destCol, orderIndex: newOrderIndex } : t))
+        .sort((a, b) => a.orderIndex - b.orderIndex)
+    );
 
     try {
       const res = await client.patch(`/projects/${currentProject.id}/tasks/reorder`, {
         updates: [{ id: draggableId, orderIndex: newOrderIndex, status: destCol }]
       });
       if (!res.data.success) throw new Error();
-    } catch (e) { setTasks(originalTasks); }
+    } catch (e) {
+      setTasks(originalTasks);
+    }
   };
 
   const handleCreateTask = async (e) => {
@@ -272,20 +288,40 @@ export default function Board() {
                     {/* Droppable Column */}
                     <Droppable droppableId={colName}>
                       {(provided, snapshot) => (
-                        <div ref={provided.innerRef} {...provided.droppableProps}
-                          className={`flex-1 overflow-y-auto px-2 pb-2 space-y-2 kanban-column-drop transition-colors duration-200 ${
-                            snapshot.isDraggingOver ? "dark:bg-dp-primary/5 bg-dp-primary/5" : ""
-                          }`}>
+                        <div
+                          ref={provided.innerRef}
+                          {...provided.droppableProps}
+                          className={`flex-1 overflow-y-auto px-2 pb-2 space-y-2 min-h-[140px] rounded-lg transition-colors duration-150 ${
+                            snapshot.isDraggingOver
+                              ? "dark:bg-indigo-500/[0.05] bg-indigo-500/[0.04] ring-1 ring-indigo-500/20"
+                              : ""
+                          }`}
+                        >
+                          {colTasks.length === 0 && (
+                            <div className="h-20 rounded-lg border border-dashed dark:border-white/5 border-slate-300/60 flex flex-col items-center justify-center text-center p-2 select-none my-1">
+                              <span className="text-[11px] font-medium dark:text-dp-text-muted/60 text-slate-400">
+                                No tasks
+                              </span>
+                              <span className="text-[10px] dark:text-dp-text-muted/40 text-slate-400/80">
+                                Drag cards here
+                              </span>
+                            </div>
+                          )}
+
                           {colTasks.map((taskItem, index) => (
                             <Draggable key={taskItem.id} draggableId={taskItem.id} index={index}>
                               {(dp, ds) => (
-                                <div ref={dp.innerRef} {...dp.draggableProps} {...dp.dragHandleProps}
+                                <div
+                                  ref={dp.innerRef}
+                                  {...dp.draggableProps}
+                                  {...dp.dragHandleProps}
                                   onClick={() => setSelectedTaskId(taskItem.id)}
-                                  className={`p-3 rounded-lg cursor-grab active:cursor-grabbing transition-all duration-150 select-none flex flex-col gap-2 border glow-border ${
+                                  className={`p-3 rounded-xl cursor-grab active:cursor-grabbing transition-all duration-150 select-none flex flex-col gap-2 border ${
                                     ds.isDragging
-                                      ? "dragging-card dark:bg-dp-dark-surface bg-white dark:border-dp-primary/40 border-dp-primary/30"
-                                      : "dark:bg-dp-dark-surface/80 bg-white dark:border-dp-dark-border-light/30 border-dp-light-border/60 dark:hover:bg-dp-dark-surface hover:bg-dp-light-surface-hover"
-                                  }`}>
+                                      ? "shadow-xl scale-[1.02] dark:bg-dp-dark-surface bg-white dark:border-indigo-500/50 border-indigo-500/40 z-50 ring-1 ring-indigo-500/30"
+                                      : "dark:bg-dp-dark-surface/80 bg-white dark:border-white/5 border-slate-200/80 dark:hover:border-white/15 hover:border-slate-300 shadow-sm"
+                                  }`}
+                                >
                                   <h4 className="text-[12px] font-semibold dark:text-dp-text-primary text-dp-text-light-primary leading-normal line-clamp-2">
                                     {taskItem.title}
                                   </h4>
@@ -298,13 +334,22 @@ export default function Board() {
                                     </div>
                                     <div className="flex items-center gap-2">
                                       {taskItem._count?.comments > 0 && (
-                                        <span className="flex items-center gap-0.5"><MessageSquare className="w-2.5 h-2.5" />{taskItem._count.comments}</span>
+                                        <span className="flex items-center gap-0.5">
+                                          <MessageSquare className="w-2.5 h-2.5" />
+                                          {taskItem._count.comments}
+                                        </span>
                                       )}
                                       {taskItem.assignee ? (
-                                        <img src={taskItem.assignee.avatar} alt={taskItem.assignee.name}
-                                          className="w-5 h-5 rounded-full border dark:border-dp-dark-border-light border-dp-light-border" title={`Assignee: ${taskItem.assignee.name}`} />
+                                        <Avatar
+                                          src={taskItem.assignee.avatar}
+                                          name={taskItem.assignee.name}
+                                          size="xs"
+                                        />
                                       ) : (
-                                        <div className="w-5 h-5 rounded-full dark:bg-dp-dark-elevated bg-dp-light-bg-secondary dark:text-dp-text-muted text-dp-text-light-muted border border-dashed dark:border-dp-dark-border-light border-dp-light-border flex items-center justify-center" title="Unassigned">
+                                        <div
+                                          className="w-5 h-5 rounded-full dark:bg-dp-dark-elevated bg-dp-light-bg-secondary dark:text-dp-text-muted text-dp-text-light-muted border border-dashed dark:border-dp-dark-border-light border-dp-light-border flex items-center justify-center"
+                                          title="Unassigned"
+                                        >
                                           <User className="w-2.5 h-2.5" />
                                         </div>
                                       )}
@@ -410,7 +455,7 @@ export default function Board() {
                     ) : (
                       comments.map(comment => (
                         <div key={comment.id} className="flex gap-2 text-xs items-start p-2.5 rounded-lg dark:bg-dp-dark-surface/40 bg-dp-light-bg-secondary border dark:border-dp-dark-border-light/20 border-dp-light-border/40">
-                          <img src={comment.user.avatar} alt="" className="w-6 h-6 rounded-full flex-shrink-0" />
+                          <Avatar src={comment.user.avatar} name={comment.user.name} size="sm" />
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between">
                               <span className="font-bold dark:text-dp-text-primary text-dp-text-light-primary">{comment.user.name}</span>

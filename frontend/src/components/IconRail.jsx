@@ -1,5 +1,6 @@
-import React from "react";
+import React, { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
+import { AnimatePresence } from "framer-motion";
 import {
   LayoutDashboard,
   KanbanSquare,
@@ -10,6 +11,8 @@ import {
   Zap,
 } from "lucide-react";
 import ThemeToggle from "./ThemeToggle";
+import Avatar from "./Avatar";
+import ProfilePopover from "./ProfilePopover";
 import useAuthStore from "../store/useAuthStore";
 
 const NAV_ITEMS = [
@@ -22,6 +25,7 @@ const NAV_ITEMS = [
 export default function IconRail({ isSidePanelOpen, onToggleSidePanel }) {
   const location = useLocation();
   const { user, logout } = useAuthStore();
+  const [isProfileOpen, setIsProfileOpen] = useState(false);
 
   const isActive = (path) => location.pathname === path;
 
@@ -100,23 +104,36 @@ export default function IconRail({ isSidePanelOpen, onToggleSidePanel }) {
         {/* Theme Toggle */}
         <ThemeToggle />
 
-        {/* User Avatar */}
+        {/* User Profile Avatar & Popover Trigger */}
         {user && (
-          <button
-            onClick={logout}
-            className="group relative"
-            title="Log Out"
-          >
-            <img
-              src={user.avatar}
-              alt={user.name}
-              className="w-9 h-9 rounded-full border-2 border-transparent group-hover:border-dp-primary transition-all duration-200 object-cover"
-            />
-            <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-dp-success border-2 dark:border-dp-dark-sidebar border-dp-light-sidebar" />
-            <span className="tooltip-text">
-              Log out • {user.name}
-            </span>
-          </button>
+          <div className="relative">
+            <button
+              onClick={() => setIsProfileOpen((prev) => !prev)}
+              className="group relative flex items-center justify-center p-0.5 rounded-full transition-all duration-150
+                         hover:ring-2 hover:ring-indigo-500/50"
+              title={user.name}
+            >
+              <Avatar
+                src={user.avatar}
+                name={user.name}
+                size="lg"
+                className="transition-transform duration-150 group-hover:scale-105"
+              />
+              <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 dark:border-dp-dark-bg border-white" />
+            </button>
+
+            {/* Profile Details Popover */}
+            <AnimatePresence>
+              {isProfileOpen && (
+                <ProfilePopover
+                  user={user}
+                  isOpen={isProfileOpen}
+                  onClose={() => setIsProfileOpen(false)}
+                  onLogout={logout}
+                />
+              )}
+            </AnimatePresence>
+          </div>
         )}
       </div>
     </div>

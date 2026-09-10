@@ -4,6 +4,7 @@ import useAuthStore from "../store/useAuthStore";
 import useSocketStore from "../store/useSocketStore";
 import client from "../api/client";
 import PageTransition from "../components/PageTransition";
+import Avatar from "../components/Avatar";
 import { Send, Hash, MessageSquare } from "lucide-react";
 import { SocketEvent } from "../config/constants";
 
@@ -182,7 +183,7 @@ export default function Chat() {
                           : "dark:text-dp-text-secondary text-dp-text-light-secondary dark:hover:bg-dp-dark-surface-hover hover:bg-dp-light-bg-secondary"
                       }`}
                     >
-                      <img src={member.user.avatar} alt="" className="w-5 h-5 rounded-full border dark:border-dp-dark-border-light border-dp-light-border flex-shrink-0" />
+                      <Avatar src={member.user.avatar} name={member.user.name} size="xs" />
                       <span className="truncate">{member.user.name}</span>
                     </button>
                   ))
@@ -201,7 +202,7 @@ export default function Chat() {
               {activeChannel.isGroup ? (
                 <><Hash className="w-5 h-5 dark:text-dp-text-muted text-dp-text-light-muted" />general-chat</>
               ) : (
-                <><img src={activeChannel.targetUser?.avatar} alt="" className="w-6 h-6 rounded-full border dark:border-dp-dark-border-light border-dp-light-border" />{activeChannel.targetUser?.name}</>
+                <><Avatar src={activeChannel.targetUser?.avatar} name={activeChannel.targetUser?.name} size="sm" />{activeChannel.targetUser?.name}</>
               )}
             </div>
           </div>
@@ -237,7 +238,7 @@ export default function Chat() {
                     transition={{ duration: 0.15, ease: "easeOut" }}
                     className="flex gap-3 text-sm items-start"
                   >
-                    <img src={msg.sender.avatar} alt="" className="w-8 h-8 rounded-full border dark:border-dp-dark-border-light border-dp-light-border flex-shrink-0" />
+                    <Avatar src={msg.sender.avatar} name={msg.sender.name} size="md" />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2.5">
                         <span className="font-bold dark:text-dp-text-primary text-dp-text-light-primary text-[14px]">{msg.sender.name}</span>

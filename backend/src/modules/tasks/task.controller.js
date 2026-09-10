@@ -296,9 +296,41 @@ const reorderTasks = async (req, res) => {
   const { updates } = req.body;
 
   try {
-    // Perform reorder in a transaction
-    await prisma.$transaction(
-      updates.map((item) =>
+    const taskIds = updates.map((u) => u.id);
+    const existingTasks = await prisma.task.findMany({
+      where: { id: { in: taskIds }, projectId },
+      select: { id: true, status: true, title: true }
+    });
+    const taskMap = new Map(existingTasks.map((t) => [t.id, t]));
+
+    const activityCreates = [];
+    for (const item of updates) {
+      if (item.status) {
+        const existing = taskMap.get(item.id);
+        if (existing && existing.status !== item.status) {
+          activityCreates.push(
+            prisma.activityLog.create({
+              data: {
+                actionType: ActivityType.TASK_STATUS_CHANGED,
+                entityType: "TASK",
+                entityId: item.id,
+                metadata: {
+                  oldStatus: existing.status,
+                  newStatus: item.status,
+                  title: existing.title
+                },
+                projectId,
+                userId: req.user.id
+              }
+            })
+          );
+        }
+      }
+    }
+
+    // Perform reorder and activity creation in a transaction
+    await prisma.$transaction([
+      ...updates.map((item) =>
         prisma.task.update({
           where: { id: item.id, projectId },
           data: {
@@ -306,8 +338,9 @@ const reorderTasks = async (req, res) => {
             status: item.status || undefined
           }
         })
-      )
-    );
+      ),
+      ...activityCreates
+    ]);
 
     // Emit event
     emitToProject(req, projectId, SocketEvent.TASK_REORDERED, { updates });

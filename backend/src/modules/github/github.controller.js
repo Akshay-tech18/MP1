@@ -41,7 +41,10 @@ const getAvailableRepos = async (req, res) => {
         updatedAt: repo.updated_at
       }));
 
-    return sendSuccess(res, 200, "Available repositories retrieved", { repositories: availableRepos });
+    return sendSuccess(res, 200, "Available repositories retrieved", {
+      repositories: availableRepos,
+      repos: availableRepos
+    });
   } catch (error) {
     logger.error("Get available repos error: %o", error);
     return sendError(res, 500, "Failed to retrieve repositories from GitHub");

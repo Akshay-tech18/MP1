@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import useAuthStore from "../store/useAuthStore";
+import useSocketStore from "../store/useSocketStore";
 import client from "../api/client";
 import PageTransition, { staggerContainer, staggerItem } from "../components/PageTransition";
+import Avatar from "../components/Avatar";
 import {
   CheckCircle,
   Clock,
@@ -10,71 +12,95 @@ import {
   TrendingUp,
   FolderDot,
   Activity,
+  Inbox,
 } from "lucide-react";
+import { SocketEvent } from "../config/constants";
 
 export default function Dashboard() {
   const { user, currentProject } = useAuthStore();
+  const { socket } = useSocketStore();
   const [personalStats, setPersonalStats] = useState(null);
   const [dashboardMetrics, setDashboardMetrics] = useState(null);
   const [myTasks, setMyTasks] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    async function loadDashboardData() {
-      if (!currentProject) {
-        setLoading(false);
-        return;
-      }
-
-      setLoading(true);
-      try {
-        // 1. Fetch User Personal Stats
-        const personalStatsRes = await client.get("/users/me/stats");
-        if (personalStatsRes.data.success) {
-          setPersonalStats(personalStatsRes.data.data.stats);
-        }
-
-        // 2. Fetch Project Dashboard Metrics (recent activity, status counters)
-        const metricsRes = await client.get(`/projects/${currentProject.id}/analytics/dashboard`);
-        if (metricsRes.data.success) {
-          setDashboardMetrics(metricsRes.data.data);
-        }
-
-        // 3. Fetch Tasks assigned to user
-        const tasksRes = await client.get(`/projects/${currentProject.id}/tasks`, {
-          params: { assigneeId: user.id }
-        });
-        if (tasksRes.data.success) {
-          setMyTasks(tasksRes.data.data.tasks);
-        }
-      } catch (err) {
-        console.error("Error loading dashboard data:", err);
-      } finally {
-        setLoading(false);
-      }
+  const loadDashboardData = useCallback(async () => {
+    if (!currentProject) {
+      setLoading(false);
+      return;
     }
 
-    loadDashboardData();
+    try {
+      // 1. Fetch User Personal Stats for comment counts and overall activity
+      const personalStatsRes = await client.get("/users/me/stats");
+      if (personalStatsRes.data.success) {
+        setPersonalStats(personalStatsRes.data.data.stats);
+      }
+
+      // 2. Fetch Project Dashboard Metrics (recent activity, status counters)
+      const metricsRes = await client.get(`/projects/${currentProject.id}/analytics/dashboard`);
+      if (metricsRes.data.success) {
+        setDashboardMetrics(metricsRes.data.data);
+      }
+
+      // 3. Fetch Tasks assigned to user in this space
+      const tasksRes = await client.get(`/projects/${currentProject.id}/tasks`, {
+        params: { assigneeId: user.id }
+      });
+      if (tasksRes.data.success) {
+        setMyTasks(tasksRes.data.data.tasks);
+      }
+    } catch (err) {
+      console.error("Error loading dashboard data:", err);
+    } finally {
+      setLoading(false);
+    }
   }, [currentProject, user]);
 
-  // Empty state
+  useEffect(() => {
+    setLoading(true);
+    loadDashboardData();
+  }, [loadDashboardData]);
+
+  // Real-time synchronization with Kanban board task changes
+  useEffect(() => {
+    if (!socket || !currentProject) return;
+
+    const handleBoardUpdate = () => {
+      loadDashboardData();
+    };
+
+    socket.on(SocketEvent.TASK_CREATED, handleBoardUpdate);
+    socket.on(SocketEvent.TASK_UPDATED, handleBoardUpdate);
+    socket.on(SocketEvent.TASK_DELETED, handleBoardUpdate);
+    socket.on(SocketEvent.TASK_REORDERED, handleBoardUpdate);
+
+    return () => {
+      socket.off(SocketEvent.TASK_CREATED, handleBoardUpdate);
+      socket.off(SocketEvent.TASK_UPDATED, handleBoardUpdate);
+      socket.off(SocketEvent.TASK_DELETED, handleBoardUpdate);
+      socket.off(SocketEvent.TASK_REORDERED, handleBoardUpdate);
+    };
+  }, [socket, currentProject, loadDashboardData]);
+
+  // Empty workspace state
   if (!currentProject) {
     return (
       <PageTransition>
         <div className="flex-1 p-12 flex flex-col items-center justify-center text-center select-none">
           <motion.div
-            initial={{ scale: 0.8, opacity: 0 }}
+            initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+            transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
           >
-            <div className="w-20 h-20 rounded-2xl bg-dp-primary/10 text-dp-primary flex items-center justify-center mb-5 mx-auto">
-              <FolderDot className="w-10 h-10" />
+            <div className="w-16 h-16 rounded-2xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center mb-4 mx-auto border border-indigo-500/20">
+              <FolderDot className="w-8 h-8" />
             </div>
-            <h2 className="font-display text-2xl font-bold dark:text-dp-text-primary text-dp-text-light-primary">
-              Welcome to DevPilot!
+            <h2 className="font-display text-xl font-bold dark:text-dp-text-primary text-dp-text-light-primary">
+              Welcome to DevPilot
             </h2>
-            <p className="dark:text-dp-text-muted text-dp-text-light-muted text-[15px] mt-3 max-w-md leading-relaxed">
-              Create a new space or select an existing project space in the sidebar to view metrics, plan boards, and join discussions.
+            <p className="dark:text-dp-text-muted text-dp-text-light-muted text-sm mt-2 max-w-sm leading-relaxed">
+              Select an existing workspace from the sidebar or create a new space to view real-time metrics and boards.
             </p>
           </motion.div>
         </div>
@@ -82,14 +108,14 @@ export default function Dashboard() {
     );
   }
 
-  // Loading
+  // Loading state
   if (loading) {
     return (
       <PageTransition>
         <div className="flex-1 p-10 flex items-center justify-center">
-          <div className="flex flex-col items-center gap-4">
+          <div className="flex flex-col items-center gap-3">
             <div className="spinner-gradient" />
-            <span className="text-sm font-medium dark:text-dp-text-muted text-dp-text-light-muted">
+            <span className="text-xs font-medium dark:text-dp-text-muted text-dp-text-light-muted">
               Loading Space Dashboard...
             </span>
           </div>
@@ -98,10 +124,16 @@ export default function Dashboard() {
     );
   }
 
+  // Consistent stats derived directly from active workspace tasks
+  const assignedCount = myTasks.length;
+  const completedCount = myTasks.filter((t) => t.status === "COMPLETED").length;
+  const completionRate = assignedCount > 0 ? Math.round((completedCount / assignedCount) * 100) : 0;
+  const commentsCount = personalStats?.commentsPosted ?? 0;
+
   const statCards = [
     {
       title: "Tasks Assigned",
-      value: personalStats?.totalTasksAssigned ?? 0,
+      value: assignedCount,
       icon: Clock,
       color: "text-blue-400",
       bgColor: "dark:bg-blue-500/10 bg-blue-50",
@@ -109,7 +141,7 @@ export default function Dashboard() {
     },
     {
       title: "Completed",
-      value: personalStats?.tasksCompleted ?? 0,
+      value: completedCount,
       icon: CheckCircle,
       color: "text-emerald-400",
       bgColor: "dark:bg-emerald-500/10 bg-emerald-50",
@@ -117,7 +149,7 @@ export default function Dashboard() {
     },
     {
       title: "Comments",
-      value: personalStats?.commentsPosted ?? 0,
+      value: commentsCount,
       icon: MessageSquare,
       color: "text-purple-400",
       bgColor: "dark:bg-purple-500/10 bg-purple-50",
@@ -125,7 +157,7 @@ export default function Dashboard() {
     },
     {
       title: "Completion %",
-      value: `${personalStats?.completionRate ?? 0}%`,
+      value: `${completionRate}%`,
       icon: TrendingUp,
       color: "text-pink-400",
       bgColor: "dark:bg-pink-500/10 bg-pink-50",
@@ -202,8 +234,16 @@ export default function Dashboard() {
             
             <div className="p-4 overflow-y-auto max-h-96">
               {myTasks.length === 0 ? (
-                <div className="py-14 text-center text-sm dark:text-dp-text-muted text-dp-text-light-muted font-medium">
-                  No tasks assigned to you in this space.
+                <div className="py-14 px-4 flex flex-col items-center justify-center text-center select-none">
+                  <div className="w-12 h-12 rounded-2xl dark:bg-dp-dark-surface/80 bg-slate-100 flex items-center justify-center mb-3 text-slate-400 dark:text-dp-text-muted border dark:border-white/5 border-slate-200/80">
+                    <CheckCircle className="w-5 h-5 stroke-[1.75]" />
+                  </div>
+                  <h4 className="text-sm font-semibold dark:text-dp-text-primary text-dp-text-light-primary">
+                    All caught up!
+                  </h4>
+                  <p className="text-xs dark:text-dp-text-muted text-dp-text-light-muted mt-1 max-w-xs leading-relaxed">
+                    No tasks are currently assigned to you in this space. Check the Kanban board to pick up open items.
+                  </p>
                 </div>
               ) : (
                 <div className="space-y-1">
@@ -263,37 +303,46 @@ export default function Dashboard() {
             
             <div className="p-4 overflow-y-auto max-h-96 space-y-4">
               {(!dashboardMetrics || !dashboardMetrics.recentActivity || dashboardMetrics.recentActivity.length === 0) ? (
-                <div className="py-14 text-center text-sm dark:text-dp-text-muted text-dp-text-light-muted font-medium">
-                  No activity logged in this space yet.
+                <div className="py-14 px-4 flex flex-col items-center justify-center text-center select-none">
+                  <div className="w-12 h-12 rounded-2xl dark:bg-dp-dark-surface/80 bg-slate-100 flex items-center justify-center mb-3 text-slate-400 dark:text-dp-text-muted border dark:border-white/5 border-slate-200/80">
+                    <Activity className="w-5 h-5 stroke-[1.75]" />
+                  </div>
+                  <h4 className="text-sm font-semibold dark:text-dp-text-primary text-dp-text-light-primary">
+                    No activity yet
+                  </h4>
+                  <p className="text-xs dark:text-dp-text-muted text-dp-text-light-muted mt-1 max-w-xs leading-relaxed">
+                    Activity will appear here as tasks, sprints, and code commits are updated in this space.
+                  </p>
                 </div>
               ) : (
                 dashboardMetrics.recentActivity.map((log) => {
                   const date = new Date(log.createdAt);
                   const formattedTime = date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+                  const metaTitle = log.metadata?.title || log.metadata?.name || log.metadata?.taskTitle;
                   return (
                     <div key={log.id} className="flex gap-3 text-sm items-start">
-                      <img
-                        src={log.user.avatar}
-                        alt=""
-                        className="w-7 h-7 rounded-full dark:bg-dp-dark-surface bg-dp-light-bg-secondary flex-shrink-0"
-                      />
+                      <Avatar src={log.user.avatar} name={log.user.name} size="sm" />
                       <div className="flex-1 min-w-0">
                         <p className="dark:text-dp-text-secondary text-dp-text-light-secondary leading-normal text-[13px]">
                           <strong className="dark:text-dp-text-primary text-dp-text-light-primary font-semibold">
                             {log.user.name}
                           </strong>{" "}
                           {log.actionType === "TASK_CREATED" && "created a task"}
-                          {log.actionType === "TASK_STATUS_CHANGED" && `moved a task to ${log.metadata.newStatus}`}
-                          {log.actionType === "TASK_ASSIGNEE_CHANGED" && `reassigned a task to ${log.metadata.newAssignee}`}
+                          {log.actionType === "TASK_STATUS_CHANGED" && `moved a task to ${log.metadata?.newStatus?.replace("_", " ") || "updated status"}`}
+                          {log.actionType === "TASK_ASSIGNEE_CHANGED" && `reassigned a task to ${log.metadata?.newAssignee || "assignee"}`}
                           {log.actionType === "COMMIT_LINKED" && "pushed a commit referencing a task"}
-                          {log.actionType === "MEMBER_ADDED" && `added ${log.metadata.name} to the space`}
-                          {log.actionType === "SPRINT_COMPLETED" && `completed sprint "${log.metadata.name}"`}
-                          {" — "}
-                          <span className="dark:text-dp-text-muted text-dp-text-light-muted font-medium">
-                            "{log.metadata.title || log.metadata.name || ""}"
-                          </span>
+                          {log.actionType === "MEMBER_ADDED" && `added ${log.metadata?.name || "a member"} to the space`}
+                          {log.actionType === "SPRINT_COMPLETED" && `completed sprint "${log.metadata?.name || ""}"`}
+                          {metaTitle && (
+                            <>
+                              {" — "}
+                              <span className="dark:text-dp-text-muted text-dp-text-light-muted font-medium">
+                                "{metaTitle}"
+                              </span>
+                            </>
+                          )}
                         </p>
-                        <span className="text-[12px] dark:text-dp-text-muted text-dp-text-light-muted mt-1 block font-medium">
+                        <span className="text-[11px] dark:text-dp-text-muted text-dp-text-light-muted mt-0.5 block font-mono">
                           {formattedTime}
                         </span>
                       </div>

@@ -25,7 +25,10 @@ if (googleClientId && googleClientSecret && googleClientId !== "dummy_google_id"
             return done(new Error("No email found in Google profile"), null);
           }
 
-          const avatar = profile.photos && profile.photos[0] ? profile.photos[0].value : `https://api.dicebear.com/7.x/adventurer/svg?seed=${profile.displayName}`;
+          const avatar =
+            (profile.photos && profile.photos[0] ? profile.photos[0].value : null) ||
+            profile._json?.picture ||
+            null;
 
           let user = await prisma.user.findUnique({ where: { email } });
           if (user) {
@@ -96,7 +99,10 @@ if (githubClientId && githubClientSecret && githubClientId !== "dummy_github_id"
               });
             }
 
-            const avatar = profile.photos && profile.photos[0] ? profile.photos[0].value : `https://api.dicebear.com/7.x/adventurer/svg?seed=${username}`;
+            const avatar =
+              (profile.photos && profile.photos[0] ? profile.photos[0].value : null) ||
+              profile._json?.avatar_url ||
+              null;
             const encryptedToken = encrypt(accessToken);
 
             if (user) {
@@ -124,7 +130,10 @@ if (githubClientId && githubClientSecret && githubClientId !== "dummy_github_id"
             return done(null, user);
           }
 
-          const avatar = profile.photos && profile.photos[0] ? profile.photos[0].value : `https://api.dicebear.com/7.x/adventurer/svg?seed=${profile.displayName}`;
+          const avatar =
+            (profile.photos && profile.photos[0] ? profile.photos[0].value : null) ||
+            profile._json?.avatar_url ||
+            null;
           const encryptedToken = encrypt(accessToken);
 
           let userWithEmail = await prisma.user.findUnique({ where: { email } });

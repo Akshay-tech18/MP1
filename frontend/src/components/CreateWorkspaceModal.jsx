@@ -60,8 +60,9 @@ export default function CreateWorkspaceModal({ isOpen, onClose }) {
       setGithubError("");
       try {
         const res = await client.get("/github/repos");
-        if (res.data.success && Array.isArray(res.data.data.repos)) {
-          setRepos(res.data.data.repos);
+        const repoList = res.data?.data?.repositories || res.data?.data?.repos;
+        if (res.data?.success && Array.isArray(repoList)) {
+          setRepos(repoList);
         }
       } catch (err) {
         const msg = err.response?.data?.message || "Connect your GitHub account to link repositories.";
