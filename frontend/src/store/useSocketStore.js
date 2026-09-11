@@ -6,6 +6,7 @@ const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:5001/pro
 const useSocketStore = create((set, get) => ({
   socket: null,
   connected: false,
+  activeProjectId: null,
 
   /**
    * Initialize socket connection to /project namespace
@@ -29,10 +30,11 @@ const useSocketStore = create((set, get) => ({
       set({ connected: true });
       console.log("WebSocket connected to /project namespace");
       
-      // Auto-join project room if there is an active project
-      const activeProjId = localStorage.getItem("devpilot_active_project_id");
+      // Auto-join project room if activeProjectId is set or from localStorage
+      const activeProjId = get().activeProjectId || localStorage.getItem("devpilot_active_project_id");
       if (activeProjId) {
         newSocket.emit("join_project", { projectId: activeProjId });
+        set({ activeProjectId: activeProjId });
       }
     });
 
@@ -49,14 +51,40 @@ const useSocketStore = create((set, get) => ({
   },
 
   /**
+   * Switch active project room dynamically
+   */
+  switchProjectRoom: (newProjectId) => {
+    const { socket, activeProjectId, connected } = get();
+    if (!socket || !connected) {
+      set({ activeProjectId: newProjectId || null });
+      return;
+    }
+
+    if (activeProjectId && activeProjectId !== newProjectId) {
+      socket.emit("leave_project", { projectId: activeProjectId });
+      console.log(`Left project room: ${activeProjectId}`);
+    }
+
+    if (newProjectId && newProjectId !== activeProjectId) {
+      socket.emit("join_project", { projectId: newProjectId });
+      console.log(`Joined project room: ${newProjectId}`);
+    }
+
+    set({ activeProjectId: newProjectId || null });
+  },
+
+  /**
    * Terminate socket connection
    */
   disconnectSocket: () => {
-    const { socket } = get();
+    const { socket, activeProjectId } = get();
     if (socket) {
+      if (activeProjectId) {
+        socket.emit("leave_project", { projectId: activeProjectId });
+      }
       socket.disconnect();
     }
-    set({ socket: null, connected: false });
+    set({ socket: null, connected: false, activeProjectId: null });
   }
 }));
 

@@ -75,13 +75,23 @@ const useAuthStore = create((set, get) => ({
     try {
       const res = await client.get("/projects");
       if (res.data.success) {
-        const projectsList = res.data.data.projects;
+        const projectsList = res.data.data.projects || [];
         set({ projects: projectsList });
         
-        // Auto-select first project if none is active
+        // Restore saved workspace from localStorage or refresh active workspace
+        const savedId = localStorage.getItem("devpilot_active_project_id");
         const { currentProject } = get();
-        if (projectsList.length > 0 && !currentProject) {
-          get().setCurrentProject(projectsList[0]);
+
+        if (projectsList.length === 0) {
+          get().setCurrentProject(null);
+        } else {
+          const targetId = currentProject?.id || savedId;
+          const matched = projectsList.find((p) => p.id === targetId);
+          if (matched) {
+            get().setCurrentProject(matched);
+          } else {
+            get().setCurrentProject(projectsList[0]);
+          }
         }
       }
     } catch (err) {

@@ -55,7 +55,7 @@ if (googleClientId && googleClientSecret && googleClientId !== "dummy_google_id"
           return done(null, user);
         } catch (error) {
           logger.error("Error in Google OAuth verification: %o", error);
-          return done(error, null);
+          return done(null, false, { message: error.message });
         }
       }
     )
@@ -164,7 +164,7 @@ if (githubClientId && githubClientSecret && githubClientId !== "dummy_github_id"
           }
         } catch (error) {
           logger.error("Error in GitHub OAuth verification: %o", error);
-          return done(error, null);
+          return done(null, false, { message: error.message });
         }
       }
     )

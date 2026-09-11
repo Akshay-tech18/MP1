@@ -12,6 +12,8 @@ const {
 
 const router = express.Router();
 
+const CLIENT_LOGIN_ERROR = `${process.env.CORS_ORIGIN || "http://localhost:3000"}/login?error=auth_failed`;
+
 // Google OAuth
 router.get(
   "/google",
@@ -20,7 +22,7 @@ router.get(
 
 router.get(
   "/google/callback",
-  passport.authenticate("google", { session: false, failureRedirect: "/login?error=auth_failed" }),
+  passport.authenticate("google", { session: false, failureRedirect: CLIENT_LOGIN_ERROR }),
   googleCallback
 );
 
@@ -36,7 +38,7 @@ router.get("/github", (req, res, next) => {
 
 router.get(
   "/github/callback",
-  passport.authenticate("github", { session: false, failureRedirect: "/login?error=auth_failed" }),
+  passport.authenticate("github", { session: false, failureRedirect: CLIENT_LOGIN_ERROR }),
   githubCallback
 );
 

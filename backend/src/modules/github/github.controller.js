@@ -192,15 +192,40 @@ const getAvailableRepos = async (req, res) => {
 };
 
 /**
+ * Clean and parse user repo input which may be full URL, SSH format, or owner/repo
+ */
+function parseGitHubRepoInput(input) {
+  if (!input || typeof input !== "string") return { owner: "", repo: "", fullName: "" };
+  let clean = input.trim();
+  clean = clean.replace(/^git@github\.com:/i, "");
+  clean = clean.replace(/^https?:\/\/(www\.)?github\.com\//i, "");
+  clean = clean.replace(/\.git$/i, "");
+  clean = clean.replace(/^\/+|\/+$/g, "");
+
+  if (clean.includes("/")) {
+    const parts = clean.split("/");
+    const owner = parts[0].trim();
+    const repo = parts[1].trim();
+    return { owner, repo, fullName: `${owner}/${repo}` };
+  }
+
+  return { owner: "", repo: clean, fullName: clean };
+}
+
+/**
  * Link a GitHub repository to a project, register webhook
  */
 const linkRepository = async (req, res) => {
   const projectId = req.params.id;
   const { repoName } = req.body || {};
-  let targetRepoName = repoName ? String(repoName).trim() : "";
-  if (!targetRepoName) {
+  if (!repoName || !String(repoName).trim()) {
     return sendError(res, 400, "Repository name is required");
   }
+
+  const parsed = parseGitHubRepoInput(repoName);
+  let targetRepoName = parsed.fullName;
+  let owner = parsed.owner;
+  let repo = parsed.repo;
 
   try {
     // 1. Fetch user's encrypted GitHub token
@@ -214,13 +239,14 @@ const linkRepository = async (req, res) => {
       if (process.env.NODE_ENV !== "production") {
         logger.warn("No GitHub token found for user. Creating a mock repository in development mode.");
         const mockRepoId = Math.floor(Math.random() * 100000000);
-        const [owner, repo] = targetRepoName.includes("/") ? targetRepoName.split("/") : ["dev", targetRepoName];
+        const mockOwner = owner || "dev";
+        const mockRepo = repo || targetRepoName;
         
         const dbRepo = await prisma.repository.create({
           data: {
             githubRepoId: String(mockRepoId),
-            name: targetRepoName,
-            owner,
+            name: `${mockOwner}/${mockRepo}`,
+            owner: mockOwner,
             webhookSecret: crypto.randomBytes(32).toString("hex"),
             projectId
           }
@@ -236,19 +262,14 @@ const linkRepository = async (req, res) => {
     const octokit = new Octokit({ auth: decryptedToken });
 
     // Auto-resolve owner if not present in targetRepoName
-    let owner = "";
-    let repo = "";
-    if (!targetRepoName.includes("/")) {
+    if (!owner) {
       try {
         const { data: ghUser } = await octokit.users.getAuthenticated();
         owner = ghUser.login;
-        repo = targetRepoName;
         targetRepoName = `${owner}/${repo}`;
       } catch (e) {
         return sendError(res, 400, "Could not determine repository owner. Format must be 'owner/repo'");
       }
-    } else {
-      [owner, repo] = targetRepoName.split("/");
     }
     let repoDetails;
 
@@ -306,6 +327,7 @@ const linkRepository = async (req, res) => {
 
     let dbRepo;
     if (existingRepo) {
+      const isMoved = existingRepo.projectId !== projectId;
       dbRepo = await prisma.repository.update({
         where: { id: existingRepo.id },
         data: {
@@ -315,6 +337,15 @@ const linkRepository = async (req, res) => {
           webhookSecret
         }
       });
+
+      // If repository was moved between workspaces, disassociate old project's tasks from commits
+      if (isMoved) {
+        await prisma.commit.updateMany({
+          where: { repoId: existingRepo.id },
+          data: { taskId: null }
+        });
+        logger.info(`Disassociated tasks from commits for moved repository ${existingRepo.name} to workspace ${projectId}`);
+      }
     } else {
       dbRepo = await prisma.repository.create({
         data: {
@@ -547,6 +578,7 @@ const syncRepositoryCommits = triggerSyncCommits;
 const syncCommitsHelper = syncCommitsForRepository;
 
 module.exports = {
+  parseGitHubRepoInput,
   getGitHubStatus,
   connectGitHubToken,
   disconnectGitHub,

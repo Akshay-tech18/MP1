@@ -39,8 +39,8 @@ initTheme();
  * Route protection wrapper: Redirects to /login if unauthenticated.
  */
 function ProtectedLayout() {
-  const { user, token, loading } = useAuthStore();
-  const { connectSocket, disconnectSocket, socket } = useSocketStore();
+  const { user, token, loading, currentProject } = useAuthStore();
+  const { connectSocket, disconnectSocket, switchProjectRoom, socket } = useSocketStore();
   const { fetchNotifications, addNotification } = useNotificationStore();
   const [isSidePanelOpen, setIsSidePanelOpen] = useState(true);
 
@@ -55,6 +55,13 @@ function ProtectedLayout() {
       disconnectSocket();
     };
   }, [user, token]);
+
+  // Synchronize WebSocket project room whenever current workspace changes
+  useEffect(() => {
+    if (user && currentProject?.id) {
+      switchProjectRoom(currentProject.id);
+    }
+  }, [user, currentProject?.id, switchProjectRoom]);
 
   // Real-time listener for incoming in-app notifications
   useEffect(() => {

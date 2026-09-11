@@ -1,24 +1,39 @@
 const { z } = require("zod");
 const { TaskPriority, TaskStatus } = require("../../config/constants");
 
+const nullableUuid = z.preprocess(
+  (val) => (val === "" || val === undefined ? null : val),
+  z.string().uuid("Invalid UUID format").nullable().optional()
+);
+
+const nullableDateTime = z.preprocess(
+  (val) => (val === "" || val === undefined ? null : val),
+  z.string().datetime().nullable().optional()
+);
+
+const nullableString = z.preprocess(
+  (val) => (val === "" || val === undefined ? null : val),
+  z.string().max(2000).nullable().optional()
+);
+
 const createTaskSchema = z.object({
-  title: z.string().min(2, "Task title must be at least 2 characters").max(150),
-  description: z.string().max(2000).optional().nullable(),
+  title: z.string().min(1, "Task title cannot be empty").max(150),
+  description: nullableString,
   priority: z.nativeEnum(TaskPriority).optional(),
   status: z.nativeEnum(TaskStatus).optional(),
-  assigneeId: z.string().uuid("Invalid assignee ID").optional().nullable(),
-  sprintId: z.string().uuid("Invalid sprint ID").optional().nullable(),
-  dueDate: z.string().datetime().optional().nullable(),
+  assigneeId: nullableUuid,
+  sprintId: nullableUuid,
+  dueDate: nullableDateTime,
 });
 
 const updateTaskSchema = z.object({
-  title: z.string().min(2).max(150).optional(),
-  description: z.string().max(2000).optional().nullable(),
+  title: z.string().min(1).max(150).optional(),
+  description: nullableString,
   priority: z.nativeEnum(TaskPriority).optional(),
   status: z.nativeEnum(TaskStatus).optional(),
-  assigneeId: z.string().uuid().optional().nullable(),
-  sprintId: z.string().uuid().optional().nullable(),
-  dueDate: z.string().datetime().optional().nullable(),
+  assigneeId: nullableUuid,
+  sprintId: nullableUuid,
+  dueDate: nullableDateTime,
 });
 
 const reorderTasksSchema = z.object({

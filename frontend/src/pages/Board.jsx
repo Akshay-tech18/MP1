@@ -11,6 +11,8 @@ import {
   User,
   X,
   Send,
+  AlertCircle,
+  Loader2,
 } from "lucide-react";
 import Avatar from "../components/Avatar";
 import { TaskStatus, TaskPriority, SocketEvent } from "../config/constants";
@@ -53,6 +55,8 @@ export default function Board() {
   const [newTaskPriority, setNewTaskPriority] = useState("MEDIUM");
   const [newTaskAssignee, setNewTaskAssignee] = useState("");
   const [newTaskSprint, setNewTaskSprint] = useState("");
+  const [createTaskLoading, setCreateTaskLoading] = useState(false);
+  const [createTaskError, setCreateTaskError] = useState(null);
 
   const [loading, setLoading] = useState(true);
 
@@ -105,7 +109,10 @@ export default function Board() {
     if (!socket || !currentProject) return;
 
     socket.on(SocketEvent.TASK_CREATED, (newTask) => {
-      setTasks((prev) => [...prev, newTask].sort((a, b) => a.orderIndex - b.orderIndex));
+      setTasks((prev) => {
+        if (prev.some((t) => t.id === newTask.id)) return prev;
+        return [...prev, newTask].sort((a, b) => a.orderIndex - b.orderIndex);
+      });
     });
     socket.on(SocketEvent.TASK_UPDATED, (updatedTask) => {
       setTasks((prev) =>
@@ -201,16 +208,51 @@ export default function Board() {
 
   const handleCreateTask = async (e) => {
     e.preventDefault();
-    if (!newTaskTitle.trim()) return;
+    if (!newTaskTitle.trim() || !currentProject) return;
+    setCreateTaskLoading(true);
+    setCreateTaskError(null);
     try {
-      const res = await client.post(`/projects/${currentProject.id}/tasks`, {
-        title: newTaskTitle, description: newTaskDesc, priority: newTaskPriority,
-        status: createColumnTarget, assigneeId: newTaskAssignee || null, sprintId: newTaskSprint || null
-      });
-      if (res.data.success) {
-        setNewTaskTitle(""); setNewTaskDesc(""); setNewTaskAssignee(""); setNewTaskSprint(""); setShowCreateModal(false);
+      let sprintToAssign = newTaskSprint || null;
+      if (!sprintToAssign && selectedSprintId !== "all" && selectedSprintId !== "backlog") {
+        sprintToAssign = selectedSprintId;
       }
-    } catch (err) { console.error(err); }
+
+      const res = await client.post(`/projects/${currentProject.id}/tasks`, {
+        title: newTaskTitle.trim(),
+        description: newTaskDesc.trim() || null,
+        priority: newTaskPriority,
+        status: createColumnTarget,
+        assigneeId: newTaskAssignee || null,
+        sprintId: sprintToAssign
+      });
+
+      if (res.data.success) {
+        const createdTask = res.data.data?.task;
+        if (createdTask) {
+          // Immediately place task into local board state so it appears in the column right away
+          setTasks((prev) => {
+            if (prev.some((t) => t.id === createdTask.id)) return prev;
+            return [...prev, createdTask].sort((a, b) => a.orderIndex - b.orderIndex);
+          });
+        }
+        setNewTaskTitle("");
+        setNewTaskDesc("");
+        setNewTaskAssignee("");
+        setNewTaskSprint("");
+        setCreateTaskError(null);
+        setShowCreateModal(false);
+        fetchTasks();
+      } else {
+        setCreateTaskError(res.data.message || "Failed to create task");
+      }
+    } catch (err) {
+      console.error("Create task error:", err);
+      setCreateTaskError(
+        err.response?.data?.message || err.response?.data?.errors?.[0]?.message || "Failed to create task"
+      );
+    } finally {
+      setCreateTaskLoading(false);
+    }
   };
 
   const handleAddComment = async (e) => {
@@ -257,7 +299,7 @@ export default function Board() {
               ))}
             </select>
           </div>
-          <button onClick={() => { setCreateColumnTarget("TODO"); setShowCreateModal(true); }} className="btn-primary flex items-center gap-1.5 py-1.5 text-btn-refined">
+          <button onClick={() => { setCreateColumnTarget("TODO"); setCreateTaskError(null); setShowCreateModal(true); }} className="btn-primary flex items-center gap-1.5 py-1.5 text-btn-refined">
             <Plus className="w-3.5 h-3.5" /> Add Task
           </button>
         </div>
@@ -292,7 +334,7 @@ export default function Board() {
                           </span>
                         )}
                       </div>
-                      <button onClick={() => { setCreateColumnTarget(colName); setShowCreateModal(true); }}
+                      <button onClick={() => { setCreateColumnTarget(colName); setCreateTaskError(null); setShowCreateModal(true); }}
                         className="w-6 h-6 rounded-md flex items-center justify-center dark:text-dp-text-muted text-dp-text-light-muted dark:hover:bg-dp-dark-surface-hover hover:bg-dp-light-surface-hover hover:text-dp-primary transition-colors"
                         title="Add task to column"
                       >
@@ -321,7 +363,7 @@ export default function Board() {
                                 Drag a task into this stage or add one
                               </span>
                               <button
-                                onClick={() => { setCreateColumnTarget(colName); setShowCreateModal(true); }}
+                                onClick={() => { setCreateColumnTarget(colName); setCreateTaskError(null); setShowCreateModal(true); }}
                                 className="mt-1 px-2.5 py-1 rounded-lg text-[11.5px] font-semibold dark:bg-white/5 bg-slate-100 hover:bg-slate-200 dark:hover:bg-white/10 border dark:border-white/10 border-slate-200 text-slate-400 hover:text-indigo-400 transition-colors flex items-center gap-1"
                               >
                                 <Plus className="w-3 h-3" />
@@ -518,34 +560,49 @@ export default function Board() {
           {showCreateModal && (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               className="fixed inset-0 modal-overlay flex items-center justify-center z-50"
-              onClick={() => setShowCreateModal(false)}>
+              onClick={() => { setShowCreateModal(false); setCreateTaskError(null); }}>
               <motion.div
                 initial={{ scale: 0.95, opacity: 0, y: 10 }}
                 animate={{ scale: 1, opacity: 1, y: 0 }}
                 exit={{ scale: 0.95, opacity: 0, y: 10 }}
                 transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-                className="glass-card w-[480px] max-w-[95vw] p-6 relative z-10"
+                className="glass-card w-[500px] max-w-[95vw] p-6 relative z-10"
                 onClick={(e) => e.stopPropagation()}>
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-section-heading dark:text-dp-text-primary text-dp-text-light-primary flex items-center gap-2">
                     <Plus className="w-4 h-4 text-dp-primary" />
-                    Create Task in "{COLUMN_CONFIG[createColumnTarget]?.label}"
+                    Create Task
                   </h3>
-                  <button onClick={() => setShowCreateModal(false)} className="w-7 h-7 rounded-lg flex items-center justify-center dark:hover:bg-dp-dark-surface-hover hover:bg-dp-light-bg-secondary dark:text-dp-text-muted text-dp-text-light-muted transition-colors">
+                  <button onClick={() => { setShowCreateModal(false); setCreateTaskError(null); }} className="w-7 h-7 rounded-lg flex items-center justify-center dark:hover:bg-dp-dark-surface-hover hover:bg-dp-light-bg-secondary dark:text-dp-text-muted text-dp-text-light-muted transition-colors">
                     <X className="w-4 h-4" />
                   </button>
                 </div>
                 
+                {createTaskError && (
+                  <div className="mb-3 p-2.5 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400 text-[12px] flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4 flex-shrink-0" />
+                    <span>{createTaskError}</span>
+                  </div>
+                )}
+
                 <form onSubmit={handleCreateTask} className="space-y-3">
                   <div>
-                    <label className="block text-metric-label dark:text-dp-text-muted text-dp-text-light-muted mb-1">Title</label>
+                    <label className="block text-metric-label dark:text-dp-text-muted text-dp-text-light-muted mb-1">Title *</label>
                     <input type="text" placeholder="What needs to be done?" value={newTaskTitle} onChange={(e) => setNewTaskTitle(e.target.value)} className="glass-input w-full text-[13px]" required autoFocus />
                   </div>
                   <div>
                     <label className="block text-metric-label dark:text-dp-text-muted text-dp-text-light-muted mb-1">Description</label>
                     <textarea rows="3" placeholder="Add details..." value={newTaskDesc} onChange={(e) => setNewTaskDesc(e.target.value)} className="glass-input w-full text-[13px] resize-none" />
                   </div>
-                  <div className="grid grid-cols-3 gap-2.5">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                    <div>
+                      <label className="block text-metric-label dark:text-dp-text-muted text-dp-text-light-muted mb-1">Status / Column</label>
+                      <select value={createColumnTarget} onChange={(e) => setCreateColumnTarget(e.target.value)} className="glass-select w-full text-[13px]">
+                        {COLUMNS.map((col) => (
+                          <option key={col} value={col}>{COLUMN_CONFIG[col]?.label || col}</option>
+                        ))}
+                      </select>
+                    </div>
                     <div>
                       <label className="block text-metric-label dark:text-dp-text-muted text-dp-text-light-muted mb-1">Priority</label>
                       <select value={newTaskPriority} onChange={(e) => setNewTaskPriority(e.target.value)} className="glass-select w-full text-[13px]">
@@ -567,9 +624,12 @@ export default function Board() {
                       </select>
                     </div>
                   </div>
-                  <div className="flex justify-end gap-2 pt-1">
-                    <button type="button" onClick={() => { setShowCreateModal(false); setNewTaskTitle(""); setNewTaskDesc(""); setNewTaskAssignee(""); setNewTaskSprint(""); }} className="btn-ghost text-btn-refined">Cancel</button>
-                    <button type="submit" className="btn-primary text-btn-refined">Add Task</button>
+                  <div className="flex justify-end gap-2 pt-2">
+                    <button type="button" onClick={() => { setShowCreateModal(false); setNewTaskTitle(""); setNewTaskDesc(""); setNewTaskAssignee(""); setNewTaskSprint(""); setCreateTaskError(null); }} className="btn-ghost text-btn-refined">Cancel</button>
+                    <button type="submit" disabled={createTaskLoading || !newTaskTitle.trim()} className="btn-primary text-btn-refined flex items-center gap-1.5 disabled:opacity-50">
+                      {createTaskLoading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                      <span>{createTaskLoading ? "Adding..." : "Add Task"}</span>
+                    </button>
                   </div>
                 </form>
               </motion.div>

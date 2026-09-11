@@ -43,7 +43,8 @@ const createTask = async (req, res) => {
       },
       include: {
         assignee: { select: { id: true, name: true, avatar: true } },
-        reporter: { select: { id: true, name: true, avatar: true } }
+        reporter: { select: { id: true, name: true, avatar: true } },
+        _count: { select: { comments: true, commits: true } }
       }
     });
 
@@ -78,7 +79,7 @@ const listTasks = async (req, res) => {
 
   try {
     const filter = { projectId };
-    
+
     // Explicit null/backlog check or specific sprintId filtering
     if (sprintId === "null" || sprintId === "") {
       filter.sprintId = null;
@@ -295,16 +296,30 @@ const reorderTasks = async (req, res) => {
   const projectId = req.params.id;
   const { updates } = req.body;
 
+  if (!updates || !Array.isArray(updates) || updates.length === 0) {
+    return sendError(res, 400, "Updates array is required and cannot be empty");
+  }
+
   try {
-    const taskIds = updates.map((u) => u.id);
+    const taskIds = updates.filter((u) => u && u.id).map((u) => u.id);
+    if (taskIds.length === 0) {
+      return sendError(res, 400, "No valid task IDs provided in updates");
+    }
+
     const existingTasks = await prisma.task.findMany({
       where: { id: { in: taskIds }, projectId },
       select: { id: true, status: true, title: true }
     });
     const taskMap = new Map(existingTasks.map((t) => [t.id, t]));
 
+    // Only process updates for tasks that actually exist in this project
+    const validUpdates = updates.filter((u) => u && u.id && taskMap.has(u.id));
+    if (validUpdates.length === 0) {
+      return sendError(res, 404, "None of the specified tasks exist in this project");
+    }
+
     const activityCreates = [];
-    for (const item of updates) {
+    for (const item of validUpdates) {
       if (item.status) {
         const existing = taskMap.get(item.id);
         if (existing && existing.status !== item.status) {
@@ -330,11 +345,11 @@ const reorderTasks = async (req, res) => {
 
     // Perform reorder and activity creation in a transaction
     await prisma.$transaction([
-      ...updates.map((item) =>
+      ...validUpdates.map((item) =>
         prisma.task.update({
-          where: { id: item.id, projectId },
+          where: { id: item.id },
           data: {
-            orderIndex: item.orderIndex,
+            orderIndex: typeof item.orderIndex === "number" ? item.orderIndex : undefined,
             status: item.status || undefined
           }
         })
@@ -343,12 +358,12 @@ const reorderTasks = async (req, res) => {
     ]);
 
     // Emit event
-    emitToProject(req, projectId, SocketEvent.TASK_REORDERED, { updates });
+    emitToProject(req, projectId, SocketEvent.TASK_REORDERED, { updates: validUpdates });
 
-    return sendSuccess(res, 200, "Kanban board reordered successfully");
+    return sendSuccess(res, 200, "Kanban board reordered successfully", { updatedCount: validUpdates.length });
   } catch (error) {
     logger.error("Kanban reorder error: %o", error);
-    return sendError(res, 500, "Failed to reorder tasks");
+    return sendError(res, 500, "Failed to reorder tasks: " + error.message);
   }
 };
 

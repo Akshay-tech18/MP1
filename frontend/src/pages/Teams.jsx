@@ -272,6 +272,26 @@ export default function Teams() {
     }
   };
 
+  if (!currentProject) {
+    return (
+      <PageTransition>
+        <div className="flex-1 p-8 flex items-center justify-center select-none">
+          <div className="max-w-md w-full text-center p-8 rounded-2xl dark:bg-white/[0.03] bg-white border dark:border-white/10 border-slate-200 shadow-xl">
+            <div className="w-12 h-12 mx-auto rounded-2xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center mb-4">
+              <Users className="w-6 h-6" />
+            </div>
+            <h3 className="text-major-heading font-bold dark:text-white text-slate-900 mb-1">
+              No Active Workspace
+            </h3>
+            <p className="text-body-secondary dark:text-slate-400 text-slate-500 leading-relaxed">
+              Create or select a workspace from the workspace dropdown in the header to view team members and manage workloads.
+            </p>
+          </div>
+        </div>
+      </PageTransition>
+    );
+  }
+
   return (
     <PageTransition>
       <div className="flex-1 flex flex-col h-full overflow-y-auto dark:bg-[#0c0e14] bg-[#f8fafc] dark:text-white text-slate-900 select-none p-6 lg:p-8 space-y-6 transition-colors duration-200">

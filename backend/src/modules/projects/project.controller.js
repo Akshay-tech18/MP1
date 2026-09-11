@@ -6,6 +6,7 @@ const { sendSuccess, sendError } = require("../../utils/response.utils");
 const { TaskPriorityWeight, SocketEvent, ActivityType } = require("../../config/constants");
 const logger = require("../../utils/logger");
 const { syncCommitsForRepository } = require("../github/github.service");
+const { parseGitHubRepoInput } = require("../github/github.controller");
 
 /**
  * Helper to emit socket events
@@ -109,27 +110,25 @@ const createProject = async (req, res) => {
 
     // 4. Handle Repo Linking (Outside transaction to avoid blocking DB on network calls)
     if (repoName) {
-      let fullRepoName = repoName.trim();
-      let repoOwner = "";
-      let repo = "";
+      const parsedRepo = parseGitHubRepoInput(repoName);
+      let fullRepoName = parsedRepo.fullName;
+      let repoOwner = parsedRepo.owner;
+      let repo = parsedRepo.repo;
 
       if (ownerDetails && ownerDetails.githubToken) {
         try {
           const decryptedToken = decrypt(ownerDetails.githubToken);
           const octokit = new Octokit({ auth: decryptedToken });
 
-          // If no slash, resolve owner from the authenticated GitHub user
-          if (!fullRepoName.includes("/")) {
+          // If no owner resolved yet, resolve owner from the authenticated GitHub user
+          if (!repoOwner) {
             try {
               const { data: ghUser } = await octokit.users.getAuthenticated();
               repoOwner = ghUser.login;
-              repo = fullRepoName;
               fullRepoName = `${repoOwner}/${repo}`;
             } catch (e) {
               logger.warn("Could not fetch authenticated user login for repo %s: %s", fullRepoName, e.message);
             }
-          } else {
-            [repoOwner, repo] = fullRepoName.split("/");
           }
 
           if (repoOwner && repo) {

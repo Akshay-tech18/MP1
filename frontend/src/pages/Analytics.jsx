@@ -113,7 +113,10 @@ export default function Analytics() {
   const [copiedSha, setCopiedSha] = useState("");
 
   const loadAnalytics = async (customTimeframe = commitTimeframe, customRepoId = selectedRepoId) => {
-    if (!currentProject) return;
+    if (!currentProject) {
+      setLoading(false);
+      return;
+    }
     try {
       const params = { timeframe: customTimeframe };
       if (customRepoId && customRepoId !== "ALL") {
@@ -142,7 +145,10 @@ export default function Analytics() {
   };
 
   const loadCommits = async (repoId) => {
-    if (!currentProject) return;
+    if (!currentProject) {
+      setLoadingCommits(false);
+      return;
+    }
     setLoadingCommits(true);
     try {
       const target = repoId || selectedRepoId;
@@ -279,6 +285,26 @@ export default function Analytics() {
             <span className="text-sm font-medium dark:text-dp-text-muted text-dp-text-light-muted">
               Compiling Analytics & Bug Predictions...
             </span>
+          </div>
+        </div>
+      </PageTransition>
+    );
+  }
+
+  if (!currentProject) {
+    return (
+      <PageTransition>
+        <div className="flex-1 p-8 flex items-center justify-center select-none">
+          <div className="max-w-md w-full text-center p-8 rounded-2xl dark:bg-white/[0.03] bg-white border dark:border-white/10 border-slate-200 shadow-xl">
+            <div className="w-12 h-12 mx-auto rounded-2xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center mb-4">
+              <BarChart3 className="w-6 h-6" />
+            </div>
+            <h3 className="text-major-heading font-bold dark:text-white text-slate-900 mb-1">
+              No Active Workspace
+            </h3>
+            <p className="text-body-secondary dark:text-slate-400 text-slate-500 leading-relaxed">
+              Create or select a workspace from the workspace dropdown in the header to inspect velocity, commit trends, and bug risk predictions.
+            </p>
           </div>
         </div>
       </PageTransition>

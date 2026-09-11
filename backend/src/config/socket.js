@@ -76,9 +76,15 @@ function initSocketServer(httpServer) {
         });
 
         if (!member) {
-          logger.warn(`Unauthorized attempt by user ${socket.user.id} to join project ${projectId}`);
-          socket.emit("error", { message: "Unauthorized to join this project room." });
-          return;
+          const project = await prisma.project.findUnique({
+            where: { id: projectId },
+            select: { ownerId: true }
+          });
+          if (!project || project.ownerId !== socket.user.id) {
+            logger.warn(`Unauthorized attempt by user ${socket.user.id} to join project ${projectId}`);
+            socket.emit("error", { message: "Unauthorized to join this project room." });
+            return;
+          }
         }
 
         socket.join(projectId);
@@ -100,18 +106,21 @@ function initSocketServer(httpServer) {
     // Register Chat & Collaboration Event Listeners
     registerChatEvents(projectNamespace, socket);
 
-    // Disconnect
-    socket.on("disconnect", () => {
-      logger.info(`User disconnected from /project namespace: ${socket.user.email}`);
-      
-      // Let other members in rooms know this user went offline
-      // We broadcast user:offline to all rooms this socket belonged to
+    // Disconnecting - socket.rooms is still populated
+    socket.on("disconnecting", () => {
+      logger.info(`User disconnecting from /project namespace: ${socket.user.email}`);
+
+      // Broadcast USER_OFFLINE to all project rooms this socket was in
       const rooms = Array.from(socket.rooms);
       rooms.forEach((roomId) => {
         if (roomId !== socket.id && !roomId.startsWith("user:")) {
           socket.to(roomId).emit(SocketEvent.USER_OFFLINE, { userId: socket.user.id });
         }
       });
+    });
+
+    socket.on("disconnect", () => {
+      logger.info(`User disconnected from /project namespace: ${socket.user.email}`);
     });
   });
 
