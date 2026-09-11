@@ -70,19 +70,23 @@ const taskRouter = require("./src/modules/tasks/task.routes");
 const analyticsRouter = require("./src/modules/analytics/analytics.routes");
 const mlRouter = require("./src/modules/ml/ml.routes");
 const messageRouter = require("./src/modules/communication/message.routes");
+const documentRouter = require("./src/modules/documents/document.routes");
+const nexusRouter = require("./src/modules/nexus/nexus.routes");
 
-// 9. Mount Routers
+// --- API Routes ---
 app.use("/api/auth", authRouter);
 app.use("/api/users", userRouter);
 app.use("/api/projects", projectRouter);
 
-// Nested resource subrouters under /api/projects/:id/...
+// Nested project routes
 projectRouter.use("/:id/sprints", sprintRouter);
 projectRouter.use("/:id/tasks", taskRouter);
 projectRouter.use("/:id/repositories", repositoryRouter);
 projectRouter.use("/:id/analytics", analyticsRouter);
 projectRouter.use("/:id/ml", mlRouter);
 projectRouter.use("/:id/messages", messageRouter);
+projectRouter.use("/:projectId/documents", documentRouter);
+projectRouter.use("/:projectId/nexus", nexusRouter);
 
 // 10. Route Not Found (404) Handler
 app.use((req, res) => {

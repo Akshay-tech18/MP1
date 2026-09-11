@@ -1,11 +1,13 @@
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  directUrl  = env("DIRECT_URL")
+  extensions = [vector]
 }
 
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
 }
 
 enum SystemRole {
@@ -100,6 +102,7 @@ model User {
   receivedMessages   Message[]       @relation("Receiver")
   activityLogs       ActivityLog[]
   notifications      Notification[]
+  documents          Document[]      @relation("Author")
 
   @@index([email])
   @@index([githubId])
@@ -127,6 +130,7 @@ model Project {
   messages       Message[]
   activityLogs   ActivityLog[]
   pendingInvites PendingInvite[]
+  documents      Document[]
 
   @@index([ownerId])
   @@index([status])
@@ -352,14 +356,14 @@ model Notification {
 }
 
 model PendingInvite {
-  id        String      @id @default(uuid())
+  id        String       @id @default(uuid())
   email     String
   projectId String
-  project   Project     @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  role      ProjectRole @default(VIEWER)
-  token     String      @unique
+  project   Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  role      ProjectRole  @default(VIEWER)
+  token     String       @unique
   status    InviteStatus @default(PENDING) // PENDING, ACCEPTED, EXPIRED
-  createdAt DateTime    @default(now())
+  createdAt DateTime     @default(now())
   expiresAt DateTime
 
   @@index([email])
@@ -372,4 +376,45 @@ enum InviteStatus {
   PENDING
   ACCEPTED
   EXPIRED
+}
+
+model Document {
+  id       String   @id @default(uuid())
+  title    String
+  content  String   @db.Text
+  readTime Int      @default(0)
+  tags     String[]
+
+  // Relations
+  authorId  String
+  author    User    @relation("Author", fields: [authorId], references: [id])
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  // Hierarchy
+  parentId String?
+  parent   Document?  @relation("DocumentHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children Document[] @relation("DocumentHierarchy")
+
+  // RAG Chunks
+  chunks    DocumentChunk[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([projectId])
+  @@index([authorId])
+  @@map("documents")
+}
+
+model DocumentChunk {
+  id         String   @id @default(uuid())
+  documentId String
+  document   Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  content    String   @db.Text
+  chunkIndex Int
+  embedding  Unsupported("vector(384)")?
+
+  @@index([documentId])
+  @@map("document_chunks")
 }
