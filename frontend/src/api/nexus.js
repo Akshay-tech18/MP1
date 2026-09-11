@@ -1,7 +1,10 @@
 import client from "./client";
 
 /**
- * Send chat message to Nexus AI assistant (supports RAG and LangGraph agent)
+ * Send chat message to Nexus AI assistant (supports RAG and LangGraph agent) 
+ * 
+ * 
+ * hbsdshgdvc
  */
 export const chatWithNexus = async (projectId, { message, useAgent = true, threadId = null }) => {
   const response = await client.post(`/projects/${projectId}/nexus/chat`, {
