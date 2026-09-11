@@ -14,8 +14,8 @@ const emitToProject = (req, projectId, event, data) => {
  * Create a new task in project
  */
 const createTask = async (req, res) => {
-  const projectId = req.params.id;
-  const { title, description, priority, status, assigneeId, sprintId, dueDate } = req.body;
+  const { id: projectId } = req.params;
+  const { title, description, priority, status, assigneeId, sprintId, dueDate, estimatedTime, timeSpent } = req.body;
   const reporterId = req.user.id;
 
   const taskStatus = status || "TODO";
@@ -27,7 +27,7 @@ const createTask = async (req, res) => {
     });
     const orderIndex = (taskCount + 1) * 1000.0;
 
-    // 2. Create task
+    // 2. Create the task
     const task = await prisma.task.create({
       data: {
         title,
@@ -36,6 +36,8 @@ const createTask = async (req, res) => {
         status: taskStatus,
         orderIndex,
         dueDate: dueDate ? new Date(dueDate) : null,
+        estimatedTime: estimatedTime || 0,
+        timeSpent: timeSpent || 0,
         projectId,
         sprintId: sprintId || null,
         reporterId,
@@ -160,7 +162,7 @@ const getTask = async (req, res) => {
  */
 const updateTask = async (req, res) => {
   const { id: projectId, taskId } = req.params;
-  const { title, description, priority, status, assigneeId, sprintId, dueDate } = req.body;
+  const { title, description, priority, status, assigneeId, sprintId, dueDate, estimatedTime, timeSpent } = req.body;
 
   try {
     // 1. Fetch current task state
@@ -181,6 +183,8 @@ const updateTask = async (req, res) => {
     if (priority !== undefined) updates.priority = priority;
     if (dueDate !== undefined) updates.dueDate = dueDate ? new Date(dueDate) : null;
     if (sprintId !== undefined) updates.sprintId = sprintId || null;
+    if (estimatedTime !== undefined) updates.estimatedTime = estimatedTime;
+    if (timeSpent !== undefined) updates.timeSpent = timeSpent;
 
     // Handle status change tracking
     if (status !== undefined && status !== currentTask.status) {

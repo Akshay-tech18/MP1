@@ -5,8 +5,10 @@ const logger = require("../../utils/logger");
 
 const COOKIE_OPTIONS = {
   httpOnly: true,
+  // If production (e.g. Render), use none + secure for cross-origin cookies.
+  // If local development, use lax + false to allow HTTP access.
   secure: process.env.NODE_ENV === "production",
-  sameSite: "lax",
+  sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
 };
 
 // Set token cookies and respond

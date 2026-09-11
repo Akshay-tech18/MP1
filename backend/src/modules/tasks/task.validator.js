@@ -24,6 +24,8 @@ const createTaskSchema = z.object({
   assigneeId: nullableUuid,
   sprintId: nullableUuid,
   dueDate: nullableDateTime,
+  estimatedTime: z.number().int().min(0).optional(),
+  timeSpent: z.number().int().min(0).optional(),
 });
 
 const updateTaskSchema = z.object({
@@ -34,6 +36,8 @@ const updateTaskSchema = z.object({
   assigneeId: nullableUuid,
   sprintId: nullableUuid,
   dueDate: nullableDateTime,
+  estimatedTime: z.number().int().min(0).optional(),
+  timeSpent: z.number().int().min(0).optional(),
 });
 
 const reorderTasksSchema = z.object({

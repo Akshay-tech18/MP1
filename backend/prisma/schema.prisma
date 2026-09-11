@@ -183,6 +183,8 @@ model Task {
   status      TaskStatus   @default(TODO)
   orderIndex  Float
   dueDate     DateTime?
+  estimatedTime Int        @default(0) // Time in minutes
+  timeSpent     Int        @default(0) // Time in minutes
   projectId   String
   project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
   sprintId    String?
