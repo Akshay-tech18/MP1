@@ -471,17 +471,27 @@
   color: inherit;
 }
 
-/* Tooltip for icon rail */
+/* Tooltip styling - default bottom placement to avoid horizontal collisions */
 .tooltip-text {
-  @apply absolute left-full ml-3 px-3 py-1.5 text-xs font-semibold rounded-lg whitespace-nowrap z-[100] pointer-events-none;
+  @apply absolute top-full mt-2.5 left-1/2 px-2.5 py-1 text-xs font-semibold rounded-lg whitespace-nowrap z-[100] pointer-events-none;
   opacity: 0;
-  transform: translateX(-4px);
+  transform: translate(-50%, -4px);
   transition: all 0.15s var(--ease-smooth);
 }
 
+.tooltip-text.tooltip-right {
+  @apply top-1/2 left-full ml-3 mt-0;
+  transform: translate(0, -50%) translateX(-4px);
+}
+
+.group:hover .tooltip-text.tooltip-right {
+  opacity: 1;
+  transform: translate(0, -50%) translateX(0);
+}
+
 .dark .tooltip-text {
-  @apply bg-white text-slate-900;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.1);
+  @apply bg-slate-800 text-slate-100 border border-white/10;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.05);
 }
 
 .light .tooltip-text {
@@ -491,7 +501,7 @@
 
 .group:hover .tooltip-text {
   opacity: 1;
-  transform: translateX(0);
+  transform: translate(-50%, 0);
 }
 
 /* ═══════════════════════════════════════════════════════════════

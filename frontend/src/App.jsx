@@ -39,10 +39,9 @@ initTheme();
  * Route protection wrapper: Redirects to /login if unauthenticated.
  */
 function ProtectedLayout() {
-  const { user, token, loading, currentProject } = useAuthStore();
+  const { user, token, loading, currentProject, isSidePanelOpen, toggleSidePanel, fetchProjects } = useAuthStore();
   const { connectSocket, disconnectSocket, switchProjectRoom, socket } = useSocketStore();
   const { fetchNotifications, addNotification } = useNotificationStore();
-  const [isSidePanelOpen, setIsSidePanelOpen] = useState(true);
 
   // Initialise WebSocket connection on auth success
   useEffect(() => {
@@ -63,20 +62,29 @@ function ProtectedLayout() {
     }
   }, [user, currentProject?.id, switchProjectRoom]);
 
-  // Real-time listener for incoming in-app notifications
+  // Real-time listener for incoming in-app notifications & immediate workspace invitation updates
   useEffect(() => {
     if (!socket) return;
 
     const handleNewNotification = (data) => {
       addNotification(data);
+      if (data?.title === "Added to Workspace" || data?.projectId) {
+        fetchProjects();
+      }
+    };
+
+    const handleWorkspaceInvited = () => {
+      fetchProjects();
     };
 
     socket.on("notification:new", handleNewNotification);
+    socket.on("workspace:invited", handleWorkspaceInvited);
 
     return () => {
       socket.off("notification:new", handleNewNotification);
+      socket.off("workspace:invited", handleWorkspaceInvited);
     };
-  }, [socket, addNotification]);
+  }, [socket, addNotification, fetchProjects]);
 
   if (loading) {
     return (
@@ -101,10 +109,10 @@ function ProtectedLayout() {
       {/* 1. Icon Rail (Always visible) */}
       <IconRail
         isSidePanelOpen={isSidePanelOpen}
-        onToggleSidePanel={() => setIsSidePanelOpen(!isSidePanelOpen)}
+        onToggleSidePanel={toggleSidePanel}
       />
 
-      {/* 2. Side Panel (Collapsible) */}
+      {/* 2. Side Panel (Collapsible - closed by default on login) */}
       <Sidebar isOpen={isSidePanelOpen} />
 
       {/* 3. Main Content Area */}
@@ -127,7 +135,7 @@ function AnimatedRoutes() {
   const location = useLocation();
 
   return (
-    <Routes location={location} key={location.pathname}>
+    <Routes location={location}>
       {/* Public Route */}
       <Route path="/login" element={<Login />} />
 

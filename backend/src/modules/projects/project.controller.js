@@ -246,8 +246,17 @@ const createProject = async (req, res) => {
         if (targetUser && io) {
           // Emit real-time notification
           io.of("/project").to(`user:${targetUser.id}`).emit("notification:new", {
+            id: `notif-${Date.now()}`,
             title: "Added to Workspace",
-            message: `${ownerDetails.name} added you to '${name}'.`
+            message: `${ownerDetails?.name || "A workspace manager"} added you to the workspace '${name}'.`,
+            link: `/dashboard`,
+            createdAt: new Date().toISOString(),
+            projectId: project.id
+          });
+          io.of("/project").to(`user:${targetUser.id}`).emit("workspace:invited", {
+            projectId: project.id,
+            projectName: name,
+            role: "DEVELOPER"
           });
         } else if (!targetUser) {
           // TODO: Send email using Nodemailer (with Reply-To: ownerDetails.email)
@@ -293,11 +302,20 @@ const listProjects = async (req, res) => {
   const userId = req.user.id;
 
   try {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, email: true }
+    });
+    const cleanEmail = user?.email?.trim().toLowerCase();
+
     const projects = await prisma.project.findMany({
       where: {
         OR: [
           { ownerId: userId },
-          { members: { some: { userId } } }
+          { members: { some: { userId } } },
+          ...(cleanEmail
+            ? [{ members: { some: { user: { email: { equals: cleanEmail, mode: "insensitive" } } } } }]
+            : [])
         ]
       },
       include: {
@@ -506,12 +524,20 @@ const addMember = async (req, res) => {
       }
     });
 
+    // Fetch project details for workspace name
+    const project = await prisma.project.findUnique({
+      where: { id: projectId },
+      select: { id: true, name: true }
+    });
+
+    const notifMessage = `${req.user.name} added you to the workspace '${project?.name || "Workspace"}' as ${role}.`;
+
     // Create in-app notification
-    await prisma.notification.create({
+    const notification = await prisma.notification.create({
       data: {
         userId: targetUser.id,
         title: "Added to Workspace",
-        message: `${req.user.name} added you to the workspace as ${role}.`,
+        message: notifMessage,
         link: `/dashboard`
       }
     });
@@ -528,8 +554,26 @@ const addMember = async (req, res) => {
       }
     });
 
-    // Broadcast change
+    // Broadcast change to project room
     emitToProject(req, projectId, SocketEvent.MEMBER_ADDED, member);
+
+    // Emit real-time notification to the invited user immediately
+    const io = req.app.get("io");
+    if (io) {
+      io.of("/project").to(`user:${targetUser.id}`).emit("notification:new", {
+        id: notification.id,
+        title: notification.title,
+        message: notification.message,
+        link: notification.link,
+        createdAt: notification.createdAt,
+        projectId
+      });
+      io.of("/project").to(`user:${targetUser.id}`).emit("workspace:invited", {
+        projectId,
+        projectName: project?.name,
+        role
+      });
+    }
 
     return sendSuccess(res, 200, `${targetUser.name} added to project as ${role}`, { member });
   } catch (error) {

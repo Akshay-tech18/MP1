@@ -261,7 +261,7 @@ export default function Navbar() {
         </button>
 
         {/* Sun / Moon Direct Theme Switcher Button */}
-        <ThemeToggle />
+        <ThemeToggle tooltipPlacement="bottom" />
 
         {/* User Profile Avatar & Details Popover (Directly to the right of Dark/Light theme button) */}
         <div className="relative">

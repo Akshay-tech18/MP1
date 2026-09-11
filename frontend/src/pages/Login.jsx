@@ -111,7 +111,7 @@ export default function Login() {
       {/* Floating Theme Toggle on Top-Right */}
       <div className="absolute top-5 right-6 z-50">
         <div className="p-1 rounded-2xl dark:bg-white/[0.04] bg-white border dark:border-white/[0.08] border-slate-200 shadow-sm">
-          <ThemeToggle />
+          <ThemeToggle tooltipPlacement="bottom-right" />
         </div>
       </div>
 

@@ -20,22 +20,32 @@ if (googleClientId && googleClientSecret && googleClientId !== "dummy_google_id"
       },
       async (req, accessToken, refreshToken, profile, done) => {
         try {
-          const email = profile.emails && profile.emails[0] ? profile.emails[0].value : null;
-          if (!email) {
+          const rawEmail = profile.emails && profile.emails[0] ? profile.emails[0].value : null;
+          if (!rawEmail) {
             return done(new Error("No email found in Google profile"), null);
           }
+          const email = rawEmail.trim().toLowerCase();
 
           const avatar =
             (profile.photos && profile.photos[0] ? profile.photos[0].value : null) ||
             profile._json?.picture ||
             null;
 
-          let user = await prisma.user.findUnique({ where: { email } });
+          let user = await prisma.user.findFirst({
+            where: {
+              OR: [
+                { googleId: profile.id },
+                { email: { equals: email, mode: "insensitive" } }
+              ]
+            }
+          });
+
           if (user) {
             user = await prisma.user.update({
               where: { id: user.id },
               data: {
                 googleId: profile.id,
+                email, // Ensure stored lowercase canonical
                 name: profile.displayName || user.name,
                 avatar: avatar || user.avatar,
               },
@@ -79,88 +89,52 @@ if (githubClientId && githubClientSecret && githubClientId !== "dummy_github_id"
       },
       async (accessToken, refreshToken, profile, done) => {
         try {
-          const email = profile.emails && profile.emails[0] ? profile.emails[0].value : null;
-          
-          if (!email) {
-            // Fallback for Github profiles with private email
-            // Use github_username@users.noreply.github.com
-            const username = profile.username || `github_user_${profile.id}`;
-            const fallbackEmail = `${username}@users.noreply.github.com`;
-            
-            // Check if user exists with githubId
-            let user = await prisma.user.findUnique({
-              where: { githubId: profile.id }
-            });
-
-            if (!user) {
-              // Try finding by fallback email
-              user = await prisma.user.findUnique({
-                where: { email: fallbackEmail }
-              });
-            }
-
-            const avatar =
-              (profile.photos && profile.photos[0] ? profile.photos[0].value : null) ||
-              profile._json?.avatar_url ||
-              null;
-            const encryptedToken = encrypt(accessToken);
-
-            if (user) {
-              user = await prisma.user.update({
-                where: { id: user.id },
-                data: {
-                  githubId: profile.id,
-                  githubToken: encryptedToken,
-                  name: profile.displayName || user.name,
-                  avatar: avatar || user.avatar,
-                }
-              });
-            } else {
-              user = await prisma.user.create({
-                data: {
-                  email: fallbackEmail,
-                  name: profile.displayName || username,
-                  avatar,
-                  role: "DEVELOPER",
-                  githubId: profile.id,
-                  githubToken: encryptedToken,
-                }
-              });
-            }
-            return done(null, user);
-          }
-
+          const rawEmail = profile.emails && profile.emails[0] ? profile.emails[0].value : null;
+          const email = rawEmail ? rawEmail.trim().toLowerCase() : null;
+          const encryptedToken = encrypt(accessToken);
           const avatar =
             (profile.photos && profile.photos[0] ? profile.photos[0].value : null) ||
             profile._json?.avatar_url ||
             null;
-          const encryptedToken = encrypt(accessToken);
 
-          let userWithEmail = await prisma.user.findUnique({ where: { email } });
-          
-          if (userWithEmail) {
-            userWithEmail = await prisma.user.update({
-              where: { id: userWithEmail.id },
+          const username = profile.username || `github_user_${profile.id}`;
+          const fallbackEmail = `${username}@users.noreply.github.com`.toLowerCase();
+          const targetEmail = email || fallbackEmail;
+
+          // Check if user exists with githubId OR with matching email (case-insensitive)
+          let user = await prisma.user.findFirst({
+            where: {
+              OR: [
+                { githubId: profile.id },
+                { email: { equals: targetEmail, mode: "insensitive" } }
+              ]
+            }
+          });
+
+          if (user) {
+            user = await prisma.user.update({
+              where: { id: user.id },
               data: {
                 githubId: profile.id,
                 githubToken: encryptedToken,
-                name: profile.displayName || userWithEmail.name,
-                avatar: avatar || userWithEmail.avatar,
-              },
+                email: email || user.email.toLowerCase(),
+                name: profile.displayName || user.name,
+                avatar: avatar || user.avatar,
+              }
             });
-            return done(null, userWithEmail);
+            return done(null, user);
           } else {
-            const newUser = await prisma.user.create({
+            user = await prisma.user.create({
               data: {
-                email,
-                name: profile.displayName || "GitHub User",
+                email: targetEmail,
+                name: profile.displayName || username,
                 avatar,
                 role: "DEVELOPER",
                 githubId: profile.id,
                 githubToken: encryptedToken,
-              },
+              }
             });
-            return done(null, newUser);
+            return done(null, user);
           }
         } catch (error) {
           logger.error("Error in GitHub OAuth verification: %o", error);

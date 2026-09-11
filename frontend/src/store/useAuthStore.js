@@ -7,6 +7,10 @@ const useAuthStore = create((set, get) => ({
   loading: true,
   projects: [],
   currentProject: null,
+  isSidePanelOpen: false, // Default closed whenever user logs in
+
+  toggleSidePanel: () => set((state) => ({ isSidePanelOpen: !state.isSidePanelOpen })),
+  setSidePanelOpen: (isOpen) => set({ isSidePanelOpen: isOpen }),
 
   setToken: (token) => set({ token }),
 
@@ -42,7 +46,7 @@ const useAuthStore = create((set, get) => ({
       const res = await client.post("/auth/mock-login", { email });
       if (res.data.success) {
         const { user, accessToken } = res.data.data;
-        set({ user, token: accessToken });
+        set({ user, token: accessToken, isSidePanelOpen: false });
         client.defaults.headers.common["Authorization"] = `Bearer ${accessToken}`;
         return { success: true };
       }
@@ -64,7 +68,7 @@ const useAuthStore = create((set, get) => ({
     } catch (err) {
       // Proceed with state clearance regardless of HTTP status
     }
-    set({ user: null, token: null, projects: [], currentProject: null });
+    set({ user: null, token: null, projects: [], currentProject: null, isSidePanelOpen: false });
     delete client.defaults.headers.common["Authorization"];
   },
 
