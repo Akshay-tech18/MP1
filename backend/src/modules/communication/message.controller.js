@@ -8,7 +8,7 @@ const logger = require("../../utils/logger");
  */
 const sendMessage = async (req, res) => {
   const projectId = req.params.id;
-  const { content, isGroup, receiverId, fileUrl } = req.body;
+  const { content, isGroup, receiverId, fileUrl, channelId } = req.body;
   const senderId = req.user.id;
 
   try {
@@ -46,11 +46,14 @@ const sendMessage = async (req, res) => {
       }
     }
 
+    const targetChannelId = isGroup !== false ? (channelId || "general") : null;
+
     // 3. Create message in database
     const message = await prisma.message.create({
       data: {
         content,
         isGroup: isGroup !== undefined ? isGroup : true,
+        channelId: targetChannelId,
         projectId,
         senderId,
         receiverId: isGroup === false ? receiverId : null,
@@ -86,7 +89,7 @@ const sendMessage = async (req, res) => {
  */
 const getMessages = async (req, res) => {
   const projectId = req.params.id;
-  const { cursor, limit = 50, isGroup = "true", otherUserId } = req.query;
+  const { cursor, limit = 50, isGroup = "true", otherUserId, channelId } = req.query;
   const userId = req.user.id;
 
   const parsedLimit = parseInt(limit, 10);
@@ -101,6 +104,16 @@ const getMessages = async (req, res) => {
     if (parsedIsGroup) {
       // Group messages filter
       filter.receiverId = null;
+      const targetChannel = channelId || "general";
+      if (targetChannel === "general") {
+        // Legacy messages without channelId or general
+        filter.OR = [
+          { channelId: "general" },
+          { channelId: null }
+        ];
+      } else {
+        filter.channelId = targetChannel;
+      }
     } else {
       // DM messages filter (conversation between req.user.id and otherUserId)
       if (!otherUserId) {
@@ -110,8 +123,6 @@ const getMessages = async (req, res) => {
         { senderId: userId, receiverId: otherUserId },
         { senderId: otherUserId, receiverId: userId }
       ];
-      // remove global projectId sender/receiver scope in case it interferes, 
-      // but keeping projectId ensures it is scoped to the project workspace.
     }
 
     // Cursor pagination setup
@@ -147,7 +158,35 @@ const getMessages = async (req, res) => {
   }
 };
 
+/**
+ * Delete all messages in a channel (called when a channel is deleted)
+ */
+const deleteChannelMessages = async (req, res) => {
+  const projectId = req.params.id;
+  const { channelId } = req.params;
+
+  try {
+    if (!channelId || channelId === "general") {
+      return sendError(res, 400, "Cannot delete default general channel messages");
+    }
+
+    await prisma.message.deleteMany({
+      where: {
+        projectId,
+        isGroup: true,
+        channelId
+      }
+    });
+
+    return sendSuccess(res, 200, "Channel messages deleted successfully");
+  } catch (error) {
+    logger.error("Delete channel messages error: %o", error);
+    return sendError(res, 500, "Failed to delete channel messages");
+  }
+};
+
 module.exports = {
   sendMessage,
-  getMessages
+  getMessages,
+  deleteChannelMessages
 };

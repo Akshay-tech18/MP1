@@ -278,6 +278,7 @@ model Message {
   id         String   @id @default(uuid())
   content    String
   isGroup    Boolean  @default(true)
+  channelId  String?  @default("general")
   projectId  String
   project    Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
   senderId   String
@@ -288,6 +289,7 @@ model Message {
   createdAt  DateTime @default(now())
 
   @@index([projectId, isGroup])
+  @@index([projectId, channelId])
   @@index([senderId])
   @@index([projectId])
   @@map("messages")

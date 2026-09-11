@@ -1,7 +1,7 @@
 const express = require("express");
 const { protect } = require("../../middleware/auth.middleware");
 const { checkProjectRole } = require("../../middleware/rbac.middleware");
-const { sendMessage, getMessages } = require("./message.controller");
+const { sendMessage, getMessages, deleteChannelMessages } = require("./message.controller");
 
 const { sendMessageSchema } = require("./message.validator");
 const { validateBody } = require("../../middleware/validate.middleware");
@@ -16,5 +16,6 @@ router.use(checkProjectRole("MANAGER", "DEVELOPER", "QA_TESTER", "VIEWER"));
 
 router.post("/", validateBody(sendMessageSchema), sendMessage);
 router.get("/", getMessages);
+router.delete("/channels/:channelId", deleteChannelMessages);
 
 module.exports = router;
