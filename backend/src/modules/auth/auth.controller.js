@@ -1,4 +1,4 @@
-const { signAccessToken, signRefreshToken, verifyAccessToken, verifyRefreshToken } = require("../../utils/jwt.utils");
+const { signAccessToken, verifyAccessToken } = require("../../utils/jwt.utils");
 const prisma = require("../../config/db");
 const { sendSuccess, sendError } = require("../../utils/response.utils");
 const logger = require("../../utils/logger");
@@ -12,17 +12,11 @@ const COOKIE_OPTIONS = {
 // Set token cookies and respond
 const handleAuthSuccess = (res, user, message = "Authentication successful") => {
   const accessToken = signAccessToken(user);
-  const refreshToken = signRefreshToken(user);
 
   // Set cookies
   res.cookie("accessToken", accessToken, {
     ...COOKIE_OPTIONS,
-    maxAge: 15 * 60 * 1000, // 15 mins
-  });
-
-  res.cookie("refreshToken", refreshToken, {
-    ...COOKIE_OPTIONS,
-    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    maxAge: 24 * 60 * 60 * 1000, // 24 hours
   });
 
   return sendSuccess(res, 200, message, {
@@ -49,16 +43,10 @@ const googleCallback = (req, res) => {
   
   // For OAuth redirect flow, set the cookies and redirect to frontend dashboard
   const accessToken = signAccessToken(req.user);
-  const refreshToken = signRefreshToken(req.user);
 
   res.cookie("accessToken", accessToken, {
     ...COOKIE_OPTIONS,
-    maxAge: 15 * 60 * 1000,
-  });
-
-  res.cookie("refreshToken", refreshToken, {
-    ...COOKIE_OPTIONS,
-    maxAge: 7 * 24 * 60 * 60 * 1000,
+    maxAge: 24 * 60 * 60 * 1000,
   });
 
   res.redirect(`${process.env.CORS_ORIGIN || "http://localhost:3000"}/dashboard?auth=success`);
@@ -87,16 +75,10 @@ const githubCallback = async (req, res) => {
         });
 
         const accessToken = signAccessToken(updatedUser);
-        const refreshToken = signRefreshToken(updatedUser);
 
         res.cookie("accessToken", accessToken, {
           ...COOKIE_OPTIONS,
-          maxAge: 15 * 60 * 1000,
-        });
-
-        res.cookie("refreshToken", refreshToken, {
-          ...COOKIE_OPTIONS,
-          maxAge: 7 * 24 * 60 * 60 * 1000,
+          maxAge: 24 * 60 * 60 * 1000,
         });
 
         return res.redirect(`${process.env.CORS_ORIGIN || "http://localhost:3000"}/dashboard?github=connected`);
@@ -107,57 +89,13 @@ const githubCallback = async (req, res) => {
   }
 
   const accessToken = signAccessToken(req.user);
-  const refreshToken = signRefreshToken(req.user);
 
   res.cookie("accessToken", accessToken, {
     ...COOKIE_OPTIONS,
-    maxAge: 15 * 60 * 1000,
-  });
-
-  res.cookie("refreshToken", refreshToken, {
-    ...COOKIE_OPTIONS,
-    maxAge: 7 * 24 * 60 * 60 * 1000,
+    maxAge: 24 * 60 * 60 * 1000,
   });
 
   res.redirect(`${process.env.CORS_ORIGIN || "http://localhost:3000"}/dashboard?github=connected`);
-};
-
-/**
- * Refresh expired access token
- */
-const refresh = async (req, res) => {
-  const refreshToken = req.cookies.refreshToken || req.body.refreshToken;
-
-  if (!refreshToken) {
-    return sendError(res, 401, "Refresh token missing");
-  }
-
-  try {
-    const decoded = verifyRefreshToken(refreshToken);
-    
-    // Check user in DB
-    const user = await prisma.user.findUnique({
-      where: { id: decoded.id },
-      select: { id: true, email: true, role: true, name: true, avatar: true }
-    });
-
-    if (!user) {
-      return sendError(res, 401, "User not found");
-    }
-
-    // Issue new access token
-    const newAccessToken = signAccessToken(user);
-    
-    res.cookie("accessToken", newAccessToken, {
-      ...COOKIE_OPTIONS,
-      maxAge: 15 * 60 * 1000,
-    });
-
-    return sendSuccess(res, 200, "Access token refreshed", { accessToken: newAccessToken });
-  } catch (error) {
-    logger.error("Refresh token error: %o", error);
-    return sendError(res, 401, "Invalid or expired refresh token");
-  }
 };
 
 /**
@@ -165,7 +103,6 @@ const refresh = async (req, res) => {
  */
 const logout = (req, res) => {
   res.clearCookie("accessToken", COOKIE_OPTIONS);
-  res.clearCookie("refreshToken", COOKIE_OPTIONS);
   return sendSuccess(res, 200, "Logged out successfully");
 };
 
@@ -212,7 +149,6 @@ const mockLogin = async (req, res) => {
 module.exports = {
   googleCallback,
   githubCallback,
-  refresh,
   logout,
   getMe,
   mockLogin,

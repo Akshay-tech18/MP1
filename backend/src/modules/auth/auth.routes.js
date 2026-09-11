@@ -4,7 +4,6 @@ const { protect } = require("../../middleware/auth.middleware");
 const {
   googleCallback,
   githubCallback,
-  refresh,
   logout,
   getMe,
   mockLogin
@@ -43,7 +42,6 @@ router.get(
 );
 
 // Session Management & Tokens
-router.post("/refresh", refresh);
 router.post("/logout", logout);
 router.get("/me", protect, getMe);
 

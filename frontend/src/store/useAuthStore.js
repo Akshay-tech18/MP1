@@ -197,16 +197,10 @@ const useAuthStore = create((set, get) => ({
   }
 }));
 
-// Global event listener to log out user if a 401 fails to refresh
+// Global event listener to log out user if a 401 occurs (token expired)
 if (typeof window !== "undefined") {
   window.addEventListener("unauthorized", () => {
     useAuthStore.getState().logout();
-  });
-
-  window.addEventListener("token_refreshed", (e) => {
-    if (e.detail?.token) {
-      useAuthStore.getState().setToken(e.detail.token);
-    }
   });
 }
 

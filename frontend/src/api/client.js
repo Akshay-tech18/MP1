@@ -11,79 +11,23 @@ const client = axios.create({
   }
 });
 
-let isRefreshing = false;
-let failedQueue = [];
-
-const processQueue = (error, token = null) => {
-  failedQueue.forEach(prom => {
-    if (error) {
-      prom.reject(error);
-    } else {
-      prom.resolve(token);
-    }
-  });
-  failedQueue = [];
-};
-
-// Response Interceptor to intercept 401 Unauthorized errors and refresh tokens
+// Response Interceptor to intercept 401 Unauthorized errors and gracefully logout
 client.interceptors.response.use(
   (response) => response,
-  async (error) => {
+  (error) => {
     const originalRequest = error.config;
 
-    // Check if error is 401 and hasn't been retried yet
-    if (error.response?.status === 401 && !originalRequest._retry) {
-      // Exclude auth routes themselves to prevent loops
-      if (
-        originalRequest.url.includes("/auth/mock-login") ||
-        originalRequest.url.includes("/auth/refresh") ||
-        originalRequest.url.includes("/auth/me")
-      ) {
+    // Check if error is 401
+    if (error.response?.status === 401) {
+      // Ignore 401s from the mock login itself to avoid false triggers
+      if (originalRequest.url.includes("/auth/mock-login")) {
         return Promise.reject(error);
       }
 
-      if (isRefreshing) {
-        return new Promise((resolve, reject) => {
-          failedQueue.push({ resolve, reject });
-        })
-          .then((token) => {
-            originalRequest.headers["Authorization"] = `Bearer ${token}`;
-            return client(originalRequest);
-          })
-          .catch((err) => Promise.reject(err));
-      }
-
-      originalRequest._retry = true;
-      isRefreshing = true;
-
-      try {
-        const refreshRes = await axios.post(
-          `${API_URL}/auth/refresh`,
-          {},
-          { withCredentials: true }
-        );
-        
-        const { accessToken } = refreshRes.data.data;
-        
-        // Update client default headers and original request headers
-        client.defaults.headers.common["Authorization"] = `Bearer ${accessToken}`;
-        originalRequest.headers["Authorization"] = `Bearer ${accessToken}`;
-
-        if (typeof window !== "undefined") {
-          window.dispatchEvent(new CustomEvent("token_refreshed", { detail: { token: accessToken } }));
-        }
-
-        processQueue(null, accessToken);
-        isRefreshing = false;
-        
-        return client(originalRequest);
-      } catch (refreshErr) {
-        processQueue(refreshErr, null);
-        isRefreshing = false;
-        
-        // Refresh failed (refresh token expired/invalid) - trigger logout event
+      // If we get a 401 anywhere else, our 24-hour token is truly expired.
+      // Dispatch unauthorized event to log the user out on the frontend.
+      if (typeof window !== "undefined") {
         window.dispatchEvent(new Event("unauthorized"));
-        return Promise.reject(refreshErr);
       }
     }
 
