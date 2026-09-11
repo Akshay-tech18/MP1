@@ -9,7 +9,7 @@ const hf = new HfInference(process.env.HUGGINGFACE_API_KEY);
 
 const chatGroq = new ChatGroq({
   apiKey: process.env.GROQ_API_KEY,
-  modelName: "llama3-70b-8192", 
+  model: process.env.GROQ_MODEL || "openai/gpt-oss-120b", 
   temperature: 0.1
 });
 

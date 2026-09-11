@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Sparkles,
@@ -18,9 +18,15 @@ import {
   Check,
   Copy,
   RotateCcw,
+  Shield,
+  CheckCircle2,
+  XCircle,
+  Loader2,
+  AlertTriangle,
 } from "lucide-react";
 import PageTransition from "../components/PageTransition";
 import useAuthStore from "../store/useAuthStore";
+import { chatWithNexus, approveAgentAction } from "../api/nexus";
 
 // ClickUp Brain flower emblem SVG
 function NexusFlowerIcon({ className = "w-7 h-7" }) {
@@ -60,110 +66,153 @@ const PRESET_CARDS = [
     title: "Doc Summary",
     desc: "Summarize schema changes and API contracts",
     icon: FileText,
-    prompt: "Summarize the latest database schema updates, Prisma migration logs, and API contract changes for the Fleet Management Space.",
-    response: `### Nexus² Doc Summary: Schema & API Contracts
-
-**1. Database Schema Migrations (Prisma + PostgreSQL)**
-- Added \`isStarred\` and \`tags\` array column to \`WorkspaceDoc\` model.
-- Refactored relations on \`TimeEntry\` to support weekly roll-up calculations by project member.
-- Introduced \`RepositorySync\` status enum: \`PENDING\`, \`SYNCING\`, \`COMPLETED\`.
-
-**2. API Contract Revisions**
-- \`GET /api/timesheets/summary\` — Returns cached 7-day matrix aggregations with billable tags.
-- \`POST /api/workspaces/sync-github\` — Implemented non-blocking background queue with retry logic.
-- \`WS /socket.io\` — Added real-time channel broadcasting for collaborative doc edits.
-
-*All migrations successfully applied on main dev branch.*`,
+    prompt: "Summarize the database schema, Prisma models, and API contract changes available in the workspace documents.",
   },
   {
-    id: "project-update",
-    title: "Project Update",
-    desc: "Sync team status across active sprints",
+    id: "create-task",
+    title: "Create Task",
+    desc: "Ask Nexus to draft a new sprint task",
     icon: Layers,
-    prompt: "Generate an executive team status update for Fleet Management Phase 2 sprint.",
-    response: `### Nexus² Sprint Health Update: Phase 2
-
-- **Sprint Velocity**: 86% on-track (32/38 story points completed)
-- **Active Milestones**:
-  - [Completed] **GitHub App Integration**: Live & syncing repositories with automated webhook hooks.
-  - [In Review] **Real-Time Timesheets**: Frontend matrix completed; pending final PR review.
-  - [In Review] **Nexus² AI Assistant**: Core contextual ask engine active with workspace document grounding.
-- **Blockers & Risks**: No critical blockers reported. Electron packaging builds verified locally.`,
+    prompt: "Create a task with title 'Deploy Backend to Production' and description 'Setup AWS ECS and SSL certificate'.",
   },
   {
     id: "draft-update",
     title: "Draft Update",
-    desc: "Draft communication message for stakeholders",
+    desc: "Draft announcement for team workspace",
     icon: Sparkles,
-    prompt: "Draft a concise release announcement for the engineering team on Slack and Docs.",
-    response: `### Team Announcement Draft
-
-Hello team,
-
-We have deployed updates to the workspace:
-1. **Nexus² AI**: Instant contextual answers grounded in your repo, docs, and tasks.
-2. **Interactive Timesheets**: Log and monitor team allocations across weekly sprints.
-3. **Workspace Documents**: Centralized markdown repository with live sync and tagging.
-
-Review the changes in the dashboard and share feedback in **# General**.`,
+    prompt: "Draft a concise release announcement for the engineering team regarding Nexus AI and Workspace Documents.",
   },
   {
     id: "search-docs",
     title: "Search Docs",
     desc: "Search database documents and architecture notes",
     icon: Search,
-    prompt: "Find all documentation related to Neon PostgreSQL and Electron app setup.",
-    response: `### Nexus² Document Search Results (2 matches)
-
-1. **Working with Neon and Prisma**
-   - *Location*: \`Team Space > Phase 2\`
-   - *Excerpt*: Direct connection pooling via Neon serverless endpoints; SSL requirement flags (\`sslmode=require\`).
-   - *Updated*: Dec 19, 2025
-
-2. **README for electron setup**
-   - *Location*: \`Team Space > Phase 2\`
-   - *Excerpt*: Scripts to start the electron desktop wrapper using Vite dev-server hot-reload on \`localhost:5173\`.
-   - *Updated*: Jan 15, 2026`,
+    prompt: "What does our documentation say about PostgreSQL pgvector and Neon database configuration?",
   },
 ];
 
 export default function NexusAi() {
-  const { user } = useAuthStore();
+  const { user, currentProject, projects } = useAuthStore();
+  const projectId = currentProject?.id || (projects[0] ? projects[0].id : null);
+
   const [activeTab, setActiveTab] = useState("ask"); // "ask" | "agents"
   const [promptText, setPromptText] = useState("");
-  const [isMuted, setIsMuted] = useState(false);
-  const [selectedModel, setSelectedModel] = useState("Max");
+  const [selectedModel, setSelectedModel] = useState("GPT-OSS 120B");
   const [showModelPicker, setShowModelPicker] = useState(false);
   const [conversation, setConversation] = useState([]);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [activeThreadId, setActiveThreadId] = useState(null);
+  const [approvingThreadId, setApprovingThreadId] = useState(null);
   const [copiedId, setCopiedId] = useState(null);
 
-  const handleSendPrompt = (textToSend) => {
+  const messagesEndRef = useRef(null);
+
+  // Smooth auto-scroll to the bottom of the conversation
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [conversation, isGenerating]);
+
+  const handleSendPrompt = async (textToSend) => {
     const query = textToSend || promptText;
-    if (!query.trim()) return;
+    if (!query.trim() || !projectId) return;
 
     const userMessage = { id: Date.now(), role: "user", text: query };
     setConversation((prev) => [...prev, userMessage]);
     setPromptText("");
     setIsGenerating(true);
 
-    // Find if it matches a preset card
-    const preset = PRESET_CARDS.find((p) => p.prompt === query || p.title.toLowerCase() === query.toLowerCase());
+    try {
+      const res = await chatWithNexus(projectId, {
+        message: query,
+        useAgent: activeTab === "agents" || query.toLowerCase().includes("task") || query.toLowerCase().includes("create"),
+        threadId: activeThreadId,
+      });
 
-    setTimeout(() => {
-      const responseText = preset
-        ? preset.response
-        : `### 🌸 Nexus² Intelligence Response\n\nI processed your request regarding: **"${query}"**.\n\nHere are the recommended action items and synthesized knowledge:\n- Workspace context verified against active space **Fleet management system**.\n- 0 security policy violations found.\n- Suggested follow-up: link this insight directly to a sprint task on the Board.`;
+      if (res.success && res.data) {
+        if (res.data.threadId) {
+          setActiveThreadId(res.data.threadId);
+        }
+
+        if (res.data.status === "approval_required") {
+          const aiMessage = {
+            id: Date.now() + 1,
+            role: "assistant",
+            status: "approval_required",
+            threadId: res.data.threadId,
+            toolCalls: res.data.toolCalls || [],
+            text: "I have prepared an automated action for your workspace. Please review and confirm below before execution:",
+            time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          };
+          setConversation((prev) => [...prev, aiMessage]);
+        } else {
+          const aiMessage = {
+            id: Date.now() + 1,
+            role: "assistant",
+            status: "completed",
+            threadId: res.data.threadId,
+            text: res.data.answer || "I processed your request.",
+            sources: res.data.sources || [],
+            time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          };
+          setConversation((prev) => [...prev, aiMessage]);
+        }
+      }
+    } catch (err) {
+      console.error("Nexus chat error:", err);
+      const errMsg =
+        err.response?.data?.message ||
+        err.message ||
+        "Failed to reach Nexus AI backend.";
 
       const aiMessage = {
         id: Date.now() + 1,
         role: "assistant",
-        text: responseText,
+        status: "error",
+        text: `⚠️ **Nexus AI Notice**: ${errMsg}`,
         time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
       };
       setConversation((prev) => [...prev, aiMessage]);
+    } finally {
       setIsGenerating(false);
-    }, 600);
+    }
+  };
+
+  const handleApproveAction = async (threadId, approved) => {
+    if (!projectId || !threadId) return;
+    setApprovingThreadId(threadId);
+
+    try {
+      const res = await approveAgentAction(projectId, {
+        threadId,
+        approved,
+      });
+
+      if (res.success && res.data) {
+        setConversation((prev) =>
+          prev.map((msg) => {
+            if (msg.threadId === threadId && msg.status === "approval_required") {
+              return {
+                ...msg,
+                status: approved ? "approved" : "rejected",
+                resultText: approved
+                  ? (res.data.answer || "Action successfully executed!")
+                  : "Action cancelled by user.",
+              };
+            }
+            return msg;
+          })
+        );
+      }
+    } catch (err) {
+      console.error("Failed to approve action:", err);
+      alert("Failed to process action approval. Check backend logs.");
+    } finally {
+      setApprovingThreadId(null);
+    }
   };
 
   const handleCardClick = (card) => {
@@ -178,288 +227,141 @@ export default function NexusAi() {
 
   return (
     <PageTransition>
-      <div className="flex-1 flex flex-col h-full overflow-y-auto dark:bg-[#0c0e14] bg-[#f8fafc] dark:text-white text-slate-900 select-none relative transition-colors duration-200">
+      <div className="flex-1 flex flex-col h-full overflow-hidden dark:bg-[#080808] bg-[#f8fafc] dark:text-white text-slate-900 select-none relative transition-colors duration-200">
         
         {/* Top subtle ambient glow */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[700px] h-[260px] bg-gradient-to-b from-indigo-900/15 via-purple-900/10 to-transparent blur-3xl pointer-events-none" />
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[700px] h-[220px] bg-gradient-to-b from-indigo-900/15 via-purple-900/10 to-transparent blur-3xl pointer-events-none" />
 
-        {/* Top Right Memory indicator (Clean, NO green pulse dot) */}
-        <div className="absolute top-4 right-6 flex items-center gap-1.5 px-3 py-1 rounded-lg dark:bg-white/[0.04] bg-white border dark:border-white/[0.08] border-slate-200 text-[11px] font-medium dark:text-slate-300 text-slate-700 shadow-sm">
-          <Zap className="w-3 h-3 text-indigo-400" />
-          <span>Memory Active</span>
-        </div>
+        {/* ══════ 1. FIXED TOP HEADER BAR ══════ */}
+        <header className="h-14 px-6 border-b dark:border-white/[0.06] border-slate-200 flex items-center justify-between dark:bg-[#080808]/90 bg-white/90 backdrop-blur z-20 flex-shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-xl dark:bg-[#121214] bg-slate-100 border dark:border-white/10 border-slate-200 flex items-center justify-center shadow-xs">
+              <NexusFlowerIcon className="w-4 h-4" />
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="font-bold text-sm tracking-tight dark:text-white text-slate-900">
+                Nexus²
+              </span>
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-gradient-to-r from-cyan-500/20 via-purple-500/20 to-pink-500/20 dark:text-cyan-300 text-indigo-600 border dark:border-cyan-400/30 border-indigo-200 font-semibold uppercase tracking-wider">
+                AI Agent
+              </span>
+            </div>
+          </div>
 
-        {/* Main Center Stage */}
-        <div className="max-w-3xl mx-auto w-full px-6 pt-12 pb-16 flex flex-col items-center flex-1 justify-center min-h-[620px]">
-          
-          {/* 1. Header: Flower Emblem + Nexus² Title with Aesthetic Intro Sequence */}
-          <div className="relative flex flex-col items-center mb-7">
-            {/* Concentric ambient bloom shockwaves */}
-            <motion.div
-              initial={{ scale: 0.4, opacity: 0.8 }}
-              animate={{ scale: [0.4, 1.8, 2.4], opacity: [0.8, 0.3, 0] }}
-              transition={{ duration: 1.8, ease: "easeOut" }}
-              className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-28 h-28 rounded-full border border-cyan-400/40 pointer-events-none"
-            />
-            <motion.div
-              initial={{ scale: 0.3, opacity: 0.9 }}
-              animate={{ scale: [0.3, 2.2, 3.0], opacity: [0.9, 0.25, 0] }}
-              transition={{ duration: 2.2, delay: 0.15, ease: "easeOut" }}
-              className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-28 h-28 rounded-full border border-fuchsia-500/30 pointer-events-none"
-            />
+          <div className="flex items-center gap-2.5">
+            {currentProject && (
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg dark:bg-white/[0.04] bg-slate-100 border dark:border-white/[0.08] border-slate-200 text-[11px] font-medium dark:text-slate-300 text-slate-700 shadow-xs">
+                <span className="w-2 h-2 rounded-full bg-emerald-400" />
+                <span>{currentProject.name}</span>
+              </div>
+            )}
+            <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-lg dark:bg-white/[0.04] bg-slate-100 border dark:border-white/[0.08] border-slate-200 text-[11px] font-medium dark:text-slate-300 text-slate-700 shadow-xs">
+              <Zap className="w-3 h-3 text-indigo-400" />
+              <span>LangGraph HITL Active</span>
+            </div>
 
-            {/* Glowing radial backdrop */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: [0, 0.7, 0.5], scale: [0.8, 1.2, 1] }}
-              transition={{ duration: 1.2, ease: "easeOut" }}
-              className="absolute -top-12 w-96 h-40 bg-gradient-to-r from-cyan-500/20 via-purple-600/25 to-pink-500/20 blur-3xl rounded-full pointer-events-none"
-            />
-
-            <motion.div
-              initial={{ opacity: 0, y: -16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-              className="flex items-center gap-3 relative z-10"
-            >
-              {/* Spinning Bloom Nexus Flower Emblem */}
-              <motion.div
-                initial={{ scale: 0.2, rotate: -270, opacity: 0, filter: "blur(12px)" }}
-                animate={{
-                  scale: [0.2, 1.28, 0.95, 1],
-                  rotate: [-270, 15, -5, 0],
-                  opacity: 1,
-                  filter: "blur(0px)",
+            {conversation.length > 0 && (
+              <button
+                onClick={() => {
+                  setConversation([]);
+                  setActiveThreadId(null);
                 }}
-                transition={{ duration: 0.9, ease: [0.16, 1, 0.3, 1] }}
-                whileHover={{ scale: 1.12, rotate: 180, transition: { duration: 0.5 } }}
-                whileTap={{ scale: 0.95 }}
-                className="relative group cursor-pointer"
+                className="flex items-center gap-1 text-[11.5px] px-2.5 py-1 rounded-lg dark:bg-white/5 bg-slate-100 hover:bg-slate-200 dark:hover:bg-white/10 border dark:border-white/10 border-slate-200 dark:text-slate-300 text-slate-700 transition-colors font-medium shadow-xs"
+                title="Start a fresh chat"
               >
-                {/* Continuous subtle neon pulse */}
-                <motion.div
-                  animate={{
-                    scale: [1, 1.25, 1],
-                    opacity: [0.35, 0.7, 0.35],
-                  }}
-                  transition={{ duration: 3.5, repeat: Infinity, ease: "easeInOut" }}
-                  className="absolute -inset-2 rounded-2xl bg-gradient-to-tr from-cyan-400 via-fuchsia-500 to-amber-400 blur-md opacity-60"
-                />
-
-                <div className="relative w-11 h-11 rounded-2xl dark:bg-[#0e121d]/90 bg-white border dark:border-white/20 border-slate-200 flex items-center justify-center shadow-[0_0_25px_rgba(168,85,247,0.4),inset_0_1px_1px_rgba(255,255,255,0.25)] backdrop-blur-xl transition-transform group-hover:scale-105">
-                  <NexusFlowerIcon className="w-6 h-6" />
-                </div>
-              </motion.div>
-
-              {/* Shimmering Title */}
-              <motion.h1
-                initial={{ opacity: 0, x: -12, filter: "blur(4px)" }}
-                animate={{ opacity: 1, x: 0, filter: "blur(0px)" }}
-                transition={{ duration: 0.7, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
-                className="text-3xl sm:text-4xl font-extrabold tracking-tight dark:text-white text-slate-900 flex items-start select-none"
-              >
-                <span className="bg-gradient-to-b dark:from-white dark:via-slate-100 dark:to-slate-300 from-slate-900 via-slate-800 to-slate-700 bg-clip-text text-transparent">
-                  Nexus
-                </span>
-                <motion.span
-                  initial={{ scale: 0, opacity: 0, rotate: -40 }}
-                  animate={{ scale: [0, 1.4, 1], opacity: 1, rotate: [-40, 10, 0] }}
-                  transition={{ duration: 0.6, delay: 0.35, ease: [0.34, 1.56, 0.64, 1] }}
-                  className="text-lg font-black text-transparent bg-clip-text bg-gradient-to-r from-pink-400 via-fuchsia-400 to-purple-400 ml-0.5 drop-shadow-[0_0_10px_rgba(236,72,153,0.8)]"
-                >
-                  ²
-                </motion.span>
-              </motion.h1>
-            </motion.div>
-          </div>
-
-          {/* 2. Attached Tabs (Directly on top of prompt box) */}
-          <div className="w-full flex justify-start pl-6">
-            <div className="inline-flex items-center gap-1 dark:bg-[#121520] bg-white border-t border-x dark:border-white/[0.1] border-slate-200 rounded-t-xl px-2 pt-1.5 pb-2 text-xs font-semibold shadow-sm">
-              <button
-                onClick={() => setActiveTab("ask")}
-                className={`flex items-center gap-1.5 px-3 py-1 rounded-lg transition-all ${
-                  activeTab === "ask"
-                    ? "dark:bg-white/10 bg-slate-100 dark:text-white text-slate-900 shadow-sm"
-                    : "dark:text-slate-400 text-slate-500 hover:text-slate-900 dark:hover:text-slate-200"
-                }`}
-              >
-                <NexusFlowerIcon className="w-3.5 h-3.5" />
-                <span>Ask</span>
+                <RotateCcw className="w-3.5 h-3.5" />
+                <span>New Chat</span>
               </button>
-              <button
-                onClick={() => setActiveTab("agents")}
-                className={`flex items-center gap-1.5 px-3 py-1 rounded-lg transition-all ${
-                  activeTab === "agents"
-                    ? "dark:bg-white/10 bg-slate-100 dark:text-white text-slate-900 shadow-sm"
-                    : "dark:text-slate-400 text-slate-500 hover:text-slate-900 dark:hover:text-slate-200"
-                }`}
-              >
-                <Bot className="w-3.5 h-3.5 text-indigo-400" />
-                <span>Agents</span>
-              </button>
-            </div>
+            )}
           </div>
+        </header>
 
-          {/* 3. Prompt Container with Glowing Multi-color Gradient Halo */}
-          <div className="w-full relative group">
-            {/* Outer radiant neon gradient border halo */}
-            <div className="absolute -inset-[1.5px] rounded-2xl bg-gradient-to-r from-[#38bdf8] via-[#a855f7] via-[#ec4899] to-[#f59e0b] opacity-80 blur-[1px] group-hover:opacity-100 transition-opacity duration-300" />
+        {/* ══════ 2. SCROLLABLE MIDDLE CHAT STAGE ══════ */}
+        <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-6 min-h-0 flex flex-col">
+          <div className="max-w-3xl mx-auto w-full flex-1 flex flex-col">
             
-            {/* Ambient bloom behind box */}
-            <div className="absolute -inset-2 rounded-2xl bg-gradient-to-r from-[#38bdf8] via-[#a855f7] to-[#ec4899] opacity-25 blur-xl group-hover:opacity-40 transition-opacity" />
-
-            {/* Inner Surface Container */}
-            <div className="relative rounded-2xl dark:bg-[#10131c] bg-white border dark:border-white/[0.1] border-slate-200 overflow-hidden shadow-2xl flex flex-col">
-              
-              {/* Text Input Area */}
-              <div className="p-4 pb-2">
-                <textarea
-                  rows={2}
-                  value={promptText}
-                  onChange={(e) => setPromptText(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      handleSendPrompt();
-                    }
-                  }}
-                  placeholder="Turn ideas into action. Create tasks, documents, or anything else with a prompt."
-                  className="w-full bg-transparent text-sm dark:text-slate-100 text-slate-900 placeholder-slate-400 resize-none outline-none leading-relaxed"
-                />
-              </div>
-
-              {/* Inside Toolbar */}
-              <div className="px-4 py-2.5 dark:bg-[#0e111a]/80 bg-slate-50/90 border-t dark:border-white/[0.05] border-slate-200 flex items-center justify-between text-xs dark:text-slate-400 text-slate-600">
-                {/* Left controls */}
-                <div className="flex items-center gap-2">
-                  <button
-                    title="Attach Context or File"
-                    className="w-7 h-7 rounded-lg flex items-center justify-center dark:hover:bg-white/10 hover:bg-slate-200/70 dark:text-slate-400 text-slate-500 dark:hover:text-white hover:text-slate-900 transition-colors"
-                  >
-                    <Plus className="w-4 h-4" />
-                  </button>
-
-                  <button
-                    title="Skill Plugins"
-                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg dark:bg-white/5 bg-slate-200/50 dark:hover:bg-white/10 hover:bg-slate-200 dark:text-slate-300 text-slate-700 dark:hover:text-white hover:text-slate-900 border dark:border-white/5 border-slate-200 transition-colors font-medium"
-                  >
-                    <Zap className="w-3.5 h-3.5 text-amber-500" />
-                    <span>Skills</span>
-                  </button>
-                </div>
-
-                {/* Center Audio / Mute controls */}
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setIsMuted(!isMuted)}
-                    className="w-7 h-7 rounded-lg flex items-center justify-center dark:hover:bg-white/10 hover:bg-slate-200/70 dark:text-slate-400 text-slate-500 dark:hover:text-slate-200 hover:text-slate-900 transition-colors"
-                  >
-                    {isMuted ? <VolumeX className="w-4 h-4 text-rose-400" /> : <Volume2 className="w-4 h-4" />}
-                  </button>
-                  <button className="w-7 h-7 rounded-lg flex items-center justify-center dark:hover:bg-white/10 hover:bg-slate-200/70 dark:text-slate-400 text-slate-500 dark:hover:text-slate-200 hover:text-slate-900 transition-colors">
-                    <MoreVertical className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-
-                {/* Right Model & Action controls */}
-                <div className="flex items-center gap-2 relative">
-                  {/* Model Selector Pill */}
-                  <div className="relative">
-                    <button
-                      onClick={() => setShowModelPicker(!showModelPicker)}
-                      className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg dark:bg-white/5 bg-slate-200/50 dark:hover:bg-white/10 hover:bg-slate-200 dark:text-slate-300 text-slate-700 dark:hover:text-white hover:text-slate-900 border dark:border-white/5 border-slate-200 transition-colors font-medium"
-                    >
-                      <NexusFlowerIcon className="w-3.5 h-3.5" />
-                      <span>{selectedModel}</span>
-                      <ChevronDown className="w-3 h-3 text-slate-400" />
-                    </button>
-
-                    {/* Model Picker Flyout */}
-                    {showModelPicker && (
-                      <div className="absolute right-0 bottom-full mb-2 w-44 rounded-xl dark:bg-[#151924] bg-white border dark:border-white/10 border-slate-200 shadow-2xl p-1.5 z-40 space-y-0.5">
-                        {["Max", "Pro", "Flash"].map((model) => (
-                          <button
-                            key={model}
-                            onClick={() => {
-                              setSelectedModel(model);
-                              setShowModelPicker(false);
-                            }}
-                            className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
-                              selectedModel === model
-                                ? "dark:bg-indigo-600/30 bg-indigo-50 text-indigo-600 dark:text-indigo-300 font-semibold"
-                                : "dark:text-slate-300 text-slate-700 dark:hover:bg-white/5 hover:bg-slate-100"
-                            }`}
-                          >
-                            <span>Nexus {model}</span>
-                            {selectedModel === model && <Check className="w-3 h-3 text-indigo-500" />}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Mic / Voice trigger */}
-                  <button
-                    title="Voice dictation"
-                    className="w-7 h-7 rounded-lg flex items-center justify-center dark:hover:bg-white/10 hover:bg-slate-200/70 dark:text-slate-400 text-slate-500 dark:hover:text-white hover:text-slate-900 transition-colors"
-                  >
-                    <Mic className="w-4 h-4" />
-                  </button>
-
-                  {/* Submit button */}
-                  <button
-                    onClick={() => handleSendPrompt()}
-                    disabled={!promptText.trim() || isGenerating}
-                    className="w-7 h-7 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 disabled:hover:bg-indigo-600 text-white flex items-center justify-center transition-all shadow-sm"
-                  >
-                    <Send className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* 4. Quick Action Cards */}
-          <div className="w-full grid grid-cols-2 md:grid-cols-4 gap-2.5 mt-4">
-            {PRESET_CARDS.map((card) => {
-              const Icon = card.icon;
-              return (
-                <button
-                  key={card.id}
-                  onClick={() => handleCardClick(card)}
-                  className="text-left p-3 rounded-xl dark:bg-[#121520] bg-white dark:hover:bg-[#181c2b] hover:bg-slate-50 border dark:border-white/[0.06] border-slate-200 dark:hover:border-white/[0.15] hover:border-slate-300 transition-all group flex flex-col justify-between shadow-sm hover:shadow"
+            {/* Empty State: Welcome Hero Stage */}
+            {conversation.length === 0 ? (
+              <div className="flex flex-col items-center justify-center flex-1 my-auto py-8">
+                {/* Flower Emblem Bloom */}
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  transition={{ duration: 0.5 }}
+                  className="relative group cursor-pointer mb-5"
                 >
-                  <div className="flex items-center gap-2 mb-1.5">
-                    <Icon className="w-3.5 h-3.5 text-slate-400 group-hover:text-indigo-500 transition-colors" />
-                    <span className="text-xs font-semibold dark:text-slate-200 text-slate-800 group-hover:text-indigo-600 dark:group-hover:text-white">
-                      {card.title}
-                    </span>
+                  <div className="relative w-14 h-14 rounded-3xl dark:bg-[#0c0c0e]/90 bg-white border dark:border-white/20 border-slate-200 flex items-center justify-center shadow-[0_0_35px_rgba(168,85,247,0.35)] backdrop-blur-xl">
+                    <NexusFlowerIcon className="w-8 h-8" />
                   </div>
-                  <p className="text-[11px] dark:text-slate-400 text-slate-500 leading-snug line-clamp-2">
-                    {card.desc}
-                  </p>
-                </button>
-              );
-            })}
-          </div>
+                </motion.div>
 
-          {/* Conversation / Results Stream */}
-          <AnimatePresence>
-            {(conversation.length > 0 || isGenerating) && (
-              <motion.div
-                initial={{ opacity: 0, y: 15 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 15 }}
-                className="w-full mt-6 space-y-4"
-              >
+                <h2 className="text-xl sm:text-2xl font-black tracking-tight dark:text-white text-slate-900 mb-1.5 font-sans text-center">
+                  How can Nexus² help your team today?
+                </h2>
+                <p className="text-xs sm:text-[13px] dark:text-slate-400 text-slate-500 font-medium tracking-tight text-center max-w-md mb-6 leading-relaxed">
+                  Grounded with workspace documents, PostgreSQL pgvector RAG, and LangGraph autonomous task execution.
+                </p>
+
+                {/* Pill Switcher */}
+                <div className="flex items-center p-1 rounded-xl dark:bg-[#121214] bg-slate-200/70 border dark:border-white/[0.06] border-slate-200 mb-8 shadow-sm">
+                  <button
+                    onClick={() => setActiveTab("ask")}
+                    className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                      activeTab === "ask"
+                        ? "dark:bg-white/10 bg-white dark:text-white text-slate-900 shadow-sm"
+                        : "text-slate-500 dark:hover:text-slate-300 hover:text-slate-900"
+                    }`}
+                  >
+                    <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+                    <span>Ask Nexus (RAG)</span>
+                  </button>
+                  <button
+                    onClick={() => setActiveTab("agents")}
+                    className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                      activeTab === "agents"
+                        ? "dark:bg-white/10 bg-white dark:text-white text-slate-900 shadow-sm"
+                        : "text-slate-500 dark:hover:text-slate-300 hover:text-slate-900"
+                    }`}
+                  >
+                    <Bot className="w-3.5 h-3.5 text-cyan-400" />
+                    <span>Agent Mode (Actions)</span>
+                  </button>
+                </div>
+
+                {/* 4 Quick Action Preset Cards */}
+                <div className="w-full grid grid-cols-1 sm:grid-cols-2 gap-2.5 max-w-2xl">
+                  {PRESET_CARDS.map((card) => {
+                    const Icon = card.icon;
+                    return (
+                      <button
+                        key={card.id}
+                        onClick={() => handleCardClick(card)}
+                        className="text-left p-3.5 rounded-xl dark:bg-[#121214] bg-white dark:hover:bg-[#18181b] hover:bg-slate-50 border dark:border-white/[0.06] border-slate-200 dark:hover:border-indigo-500/30 hover:border-slate-300 transition-all group flex flex-col justify-between shadow-xs hover:shadow-sm"
+                      >
+                        <div className="flex items-center gap-2 mb-1">
+                          <Icon className="w-3.5 h-3.5 text-indigo-400 group-hover:text-indigo-500 transition-colors" />
+                          <span className="text-xs font-semibold dark:text-slate-200 text-slate-800 group-hover:text-indigo-600 dark:group-hover:text-white">
+                            {card.title}
+                          </span>
+                        </div>
+                        <p className="text-[11.5px] dark:text-slate-400 text-slate-500 leading-snug">
+                          {card.desc}
+                        </p>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (
+              /* Active Conversation Messages */
+              <div className="space-y-4 pb-4">
                 {conversation.map((msg) => (
                   <div
                     key={msg.id}
                     className={`rounded-2xl p-4 border text-xs leading-relaxed ${
                       msg.role === "user"
-                        ? "dark:bg-[#181c29] bg-indigo-50/80 dark:border-white/10 border-indigo-200/60 dark:text-slate-200 text-slate-800 ml-auto max-w-xl shadow-sm"
-                        : "dark:bg-[#121520] bg-white dark:border-white/[0.08] border-slate-200 dark:text-slate-300 text-slate-700 shadow-sm"
+                        ? "dark:bg-[#18181b] bg-indigo-50/80 dark:border-white/10 border-indigo-200/60 dark:text-slate-200 text-slate-800 ml-auto max-w-xl shadow-sm"
+                        : "dark:bg-[#121214] bg-white dark:border-white/[0.08] border-slate-200 dark:text-slate-300 text-slate-700 shadow-sm"
                     }`}
                   >
                     <div className="flex items-center justify-between mb-2">
@@ -467,7 +369,7 @@ export default function NexusAi() {
                         {msg.role === "assistant" ? (
                           <>
                             <NexusFlowerIcon className="w-4 h-4" />
-                            <span className="dark:text-white text-slate-900">Nexus² Synthesis</span>
+                            <span className="dark:text-white text-slate-900">Nexus² Agent</span>
                           </>
                         ) : (
                           <span className="dark:text-slate-400 text-slate-500">You</span>
@@ -492,58 +394,184 @@ export default function NexusAi() {
                         </button>
                       )}
                     </div>
-                    <div className="whitespace-pre-line dark:text-slate-200 text-slate-800">
+
+                    {/* Message Body */}
+                    <div className="whitespace-pre-line dark:text-slate-200 text-slate-800 leading-relaxed font-sans">
                       {msg.text}
                     </div>
+
+                    {/* Grounded Sources (RAG) */}
+                    {msg.sources && msg.sources.length > 0 && (
+                      <div className="mt-3 pt-2 border-t dark:border-white/[0.06] border-slate-200 flex items-center gap-2 flex-wrap text-[11px]">
+                        <span className="text-slate-400 font-medium">Grounded Sources:</span>
+                        {msg.sources.map((src, i) => (
+                          <span
+                            key={i}
+                            className="px-2 py-0.5 rounded-md bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 font-medium"
+                          >
+                            📄 {src}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Human-in-the-Loop Action Approval Card */}
+                    {msg.status === "approval_required" && (
+                      <div className="mt-3 p-3.5 rounded-xl dark:bg-[#161619] bg-indigo-50/50 border border-indigo-500/30 space-y-3">
+                        <div className="flex items-center gap-2 text-indigo-400 font-semibold text-xs">
+                          <Shield className="w-4 h-4" />
+                          <span>Action Confirmation Required</span>
+                        </div>
+
+                        {msg.toolCalls && msg.toolCalls.length > 0 && (
+                          <div className="p-2.5 rounded-lg dark:bg-black/30 bg-white border dark:border-white/10 border-slate-200 space-y-1 font-mono text-[11.5px]">
+                            <div className="text-slate-400">
+                              Tool: <span className="text-indigo-400 font-bold">{msg.toolCalls[0].name}</span>
+                            </div>
+                            {msg.toolCalls[0].args?.title && (
+                              <div>
+                                Title: <span className="dark:text-white text-slate-900 font-sans font-semibold">"{msg.toolCalls[0].args.title}"</span>
+                              </div>
+                            )}
+                            {msg.toolCalls[0].args?.description && (
+                              <div className="text-slate-400 truncate">
+                                Description: <span className="dark:text-slate-300 text-slate-700 font-sans">{msg.toolCalls[0].args.description}</span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        <div className="flex items-center gap-2 pt-1">
+                          <button
+                            onClick={() => handleApproveAction(msg.threadId, true)}
+                            disabled={approvingThreadId === msg.threadId}
+                            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs shadow-sm transition-all disabled:opacity-50"
+                          >
+                            {approvingThreadId === msg.threadId ? (
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            ) : (
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                            )}
+                            <span>Approve & Execute</span>
+                          </button>
+                          <button
+                            onClick={() => handleApproveAction(msg.threadId, false)}
+                            disabled={approvingThreadId === msg.threadId}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg dark:bg-white/5 bg-slate-200/80 hover:bg-rose-500/20 hover:text-rose-400 text-slate-400 text-xs font-semibold transition-all disabled:opacity-50"
+                          >
+                            <XCircle className="w-3.5 h-3.5" />
+                            <span>Reject</span>
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Approved Action Result Banner */}
+                    {msg.status === "approved" && (
+                      <div className="mt-3 p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center gap-2 text-xs font-medium">
+                        <CheckCircle2 className="w-4 h-4 flex-shrink-0 text-emerald-400" />
+                        <span>{msg.resultText || "Action approved and executed on board."}</span>
+                      </div>
+                    )}
+
+                    {/* Rejected Action Banner */}
+                    {msg.status === "rejected" && (
+                      <div className="mt-3 p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 flex items-center gap-2 text-xs font-medium">
+                        <XCircle className="w-4 h-4 flex-shrink-0 text-rose-400" />
+                        <span>Action was rejected by user.</span>
+                      </div>
+                    )}
                   </div>
                 ))}
 
                 {isGenerating && (
-                  <div className="rounded-2xl p-4 dark:bg-[#121520] bg-white border dark:border-white/[0.08] border-slate-200 flex items-center gap-3 text-xs dark:text-slate-400 text-slate-600 shadow-sm">
+                  <div className="rounded-2xl p-4 dark:bg-[#121214] bg-white border dark:border-white/[0.08] border-slate-200 flex items-center gap-3 text-xs dark:text-slate-400 text-slate-600 shadow-sm">
                     <NexusFlowerIcon className="w-4 h-4 animate-spin" />
                     <span>Nexus² is analyzing workspace documents and context...</span>
                   </div>
                 )}
-
-                {conversation.length > 0 && (
-                  <div className="flex justify-end">
-                    <button
-                      onClick={() => setConversation([])}
-                      className="flex items-center gap-1.5 text-[11px] dark:text-slate-400 text-slate-600 dark:hover:text-slate-200 hover:text-slate-900 transition-colors py-1 px-2.5 rounded-lg dark:bg-white/5 bg-slate-100 border dark:border-white/5 border-slate-200"
-                    >
-                      <RotateCcw className="w-3 h-3" />
-                      <span>Clear Chat</span>
-                    </button>
-                  </div>
-                )}
-              </motion.div>
+              </div>
             )}
-          </AnimatePresence>
 
-          {/* 5. Bottom Promo Pill */}
-          <div className="mt-12">
-            <div className="flex items-center gap-3 px-4 py-2 rounded-2xl dark:bg-[#151824] bg-white border dark:border-white/[0.08] border-slate-200 shadow-lg hover:border-indigo-400/40 transition-all cursor-pointer group">
-              <div className="w-7 h-7 rounded-xl dark:bg-slate-800/80 bg-slate-100 flex items-center justify-center shadow-inner">
-                <NexusFlowerIcon className="w-4 h-4" />
+            <div ref={messagesEndRef} />
+          </div>
+        </div>
+
+        {/* ══════ 3. FIXED BOTTOM DOCKED INPUT BAR ══════ */}
+        <div className="p-4 border-t dark:border-white/[0.06] border-slate-200/80 dark:bg-[#080808]/95 bg-white/95 backdrop-blur z-20 flex-shrink-0">
+          <div className="max-w-3xl mx-auto w-full">
+            <div className="relative rounded-2xl dark:bg-[#121214] bg-white border dark:border-white/10 border-slate-300 shadow-lg overflow-hidden transition-all focus-within:border-indigo-500/50">
+              <div className="p-3">
+                <textarea
+                  rows={2}
+                  value={promptText}
+                  onChange={(e) => setPromptText(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSendPrompt();
+                    }
+                  }}
+                  placeholder="Ask anything about workspace docs, or tell Nexus to 'Create a task'..."
+                  className="w-full bg-transparent text-xs sm:text-sm dark:text-slate-100 text-slate-900 placeholder-slate-400 outline-none resize-none leading-relaxed"
+                />
               </div>
-              <div className="text-left">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-xs font-bold dark:text-white text-slate-900 group-hover:text-indigo-500 transition-colors">
-                    Meet Nexus²
-                  </span>
-                  <span className="px-1.5 py-0.2 rounded text-[9px] font-bold uppercase bg-purple-600/20 text-purple-600 dark:text-purple-300 border border-purple-500/20">
-                    New
-                  </span>
+
+              {/* Action Toolbar */}
+              <div className="px-3.5 py-2 dark:bg-[#161619] bg-slate-50/90 border-t dark:border-white/[0.06] border-slate-200 flex items-center justify-between text-xs">
+                <div className="flex items-center gap-2 text-slate-400 text-[11px]">
+                  <span>Enter to send</span>
+                  <span>•</span>
+                  <span>Shift + Enter for new line</span>
                 </div>
-                <p className="text-[11px] dark:text-slate-400 text-slate-500">
-                  Way smarter, wildly more capable
-                </p>
+
+                <div className="flex items-center gap-2">
+                  <div className="relative">
+                    <button
+                      onClick={() => setShowModelPicker(!showModelPicker)}
+                      className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg dark:bg-white/5 bg-slate-200/50 dark:hover:bg-white/10 hover:bg-slate-200 dark:text-slate-300 text-slate-700 border dark:border-white/5 border-slate-200 text-xs font-medium"
+                    >
+                      <NexusFlowerIcon className="w-3.5 h-3.5" />
+                      <span>{selectedModel}</span>
+                      <ChevronDown className="w-3 h-3 text-slate-400" />
+                    </button>
+
+                    {showModelPicker && (
+                      <div className="absolute right-0 bottom-full mb-2 w-44 rounded-xl dark:bg-[#151518] bg-white border dark:border-white/10 border-slate-200 shadow-2xl p-1.5 z-40 space-y-0.5">
+                        {["GPT-OSS 120B", "GPT-OSS 20B"].map((m) => (
+                          <button
+                            key={m}
+                            onClick={() => {
+                              setSelectedModel(m);
+                              setShowModelPicker(false);
+                            }}
+                            className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition-colors ${
+                              selectedModel === m
+                                ? "dark:bg-indigo-600/30 bg-indigo-50 text-indigo-600 dark:text-indigo-300 font-semibold"
+                                : "dark:text-slate-300 text-slate-700 dark:hover:bg-white/5 hover:bg-slate-100"
+                            }`}
+                          >
+                            <span>{m}</span>
+                            {selectedModel === m && <Check className="w-3 h-3 text-indigo-500" />}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <button
+                    onClick={() => handleSendPrompt()}
+                    disabled={!promptText.trim() || isGenerating}
+                    className="w-7 h-7 rounded-lg bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white flex items-center justify-center transition-all shadow-sm"
+                  >
+                    {isGenerating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
+                  </button>
+                </div>
               </div>
-              <ArrowRight className="w-3.5 h-3.5 dark:text-slate-400 text-slate-500 group-hover:text-indigo-600 dark:group-hover:text-white group-hover:translate-x-0.5 transition-all ml-2" />
             </div>
           </div>
-
         </div>
+
       </div>
     </PageTransition>
   );

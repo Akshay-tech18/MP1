@@ -358,7 +358,7 @@ export default function WorkspaceSettingsModal({
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.96, y: 15 }}
           transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-          className="relative w-full max-w-4xl max-h-[90vh] rounded-3xl dark:bg-[#0d1019]/95 bg-white/95 backdrop-blur-2xl border dark:border-white/[0.12] border-slate-200 dark:text-slate-200 text-slate-800 shadow-[0_30px_90px_rgba(0,0,0,0.7)] flex flex-col overflow-hidden z-10"
+          className="relative w-full max-w-4xl max-h-[90vh] rounded-3xl dark:bg-[#0a0a0c]/95 bg-white/95 backdrop-blur-2xl border dark:border-white/[0.12] border-slate-200 dark:text-slate-200 text-slate-800 shadow-[0_30px_90px_rgba(0,0,0,0.7)] flex flex-col overflow-hidden z-10"
         >
           {/* Top Specular Line */}
           <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-indigo-500/50 to-transparent pointer-events-none" />

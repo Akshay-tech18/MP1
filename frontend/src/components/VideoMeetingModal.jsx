@@ -25,7 +25,7 @@ export default function VideoMeetingModal({ isOpen, onClose, currentProject, use
           animate={{ scale: 1, opacity: 1, y: 0 }}
           exit={{ scale: 0.94, opacity: 0, y: 20 }}
           transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-          className="w-full max-w-5xl h-[85vh] rounded-3xl flex flex-col overflow-hidden relative z-10 bg-[#0b0e17]/85 backdrop-blur-3xl border border-white/[0.14] shadow-[0_30px_90px_rgba(0,0,0,0.85),inset_0_1px_1px_rgba(255,255,255,0.2)]"
+          className="w-full max-w-5xl h-[85vh] rounded-3xl flex flex-col overflow-hidden relative z-10 bg-[#0a0a0c]/85 backdrop-blur-3xl border border-white/[0.14] shadow-[0_30px_90px_rgba(0,0,0,0.85),inset_0_1px_1px_rgba(255,255,255,0.2)]"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Ambient top specular reflection line */}

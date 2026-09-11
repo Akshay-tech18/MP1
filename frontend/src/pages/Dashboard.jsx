@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import useAuthStore from "../store/useAuthStore";
 import useSocketStore from "../store/useSocketStore";
 import client from "../api/client";
-import PageTransition, { staggerContainer, staggerItem } from "../components/PageTransition";
+import PageTransition from "../components/PageTransition";
 import Avatar from "../components/Avatar";
 import {
   CheckCircle,
@@ -37,6 +37,8 @@ import {
   CheckCircle2,
   Flame,
   ArrowUpRight,
+  Loader2,
+  UserCheck,
 } from "lucide-react";
 import { SocketEvent } from "../config/constants";
 
@@ -53,94 +55,132 @@ function BrainFlowerIcon({ className = "w-3.5 h-3.5" }) {
   );
 }
 
-const DEFAULT_LINEUP = [
-  {
-    id: "def-1",
-    title: "Configure Neon database connection pooling & retry interceptor",
-    priority: "URGENT",
-    priorityColor: "bg-rose-500/20 text-rose-300 border-rose-500/30",
-    dotColor: "bg-rose-500",
-    tag: "Backend",
-    due: "Today",
-    completed: false,
-  },
-  {
-    id: "def-2",
-    title: "Implement ClickUp 3.0 dark-mode navigation rail and subnav tabs",
-    priority: "HIGH",
-    priorityColor: "bg-amber-500/20 text-amber-300 border-amber-500/30",
-    dotColor: "bg-amber-500",
-    tag: "Frontend",
-    due: "Tomorrow",
-    completed: true,
-  },
-  {
-    id: "def-3",
-    title: "Build Nexus² contextual ask engine with workspace docs grounding",
-    priority: "HIGH",
-    priorityColor: "bg-amber-500/20 text-amber-300 border-amber-500/30",
-    dotColor: "bg-amber-500",
-    tag: "AI / Core",
-    due: "Sep 14",
-    completed: false,
-  },
-  {
-    id: "def-4",
-    title: "Weekly timesheets matrix grid and member hour approvals",
-    priority: "NORMAL",
-    priorityColor: "bg-blue-500/20 text-blue-300 border-blue-500/30",
-    dotColor: "bg-blue-500",
-    tag: "Timesheets",
-    due: "Sep 16",
-    completed: false,
-  },
-];
+// Relative time helper
+function formatRelativeTime(dateStr) {
+  if (!dateStr) return "Just now";
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "Just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days}d ago`;
+}
+
+// Activity badge styling helper
+function getActivityMeta(actionType) {
+  switch (actionType) {
+    case "TASK_CREATED":
+      return {
+        label: "Task Created",
+        badge: "bg-indigo-500/20 text-indigo-300 border-indigo-500/30",
+        icon: Plus,
+        iconBg: "bg-indigo-500/15 text-indigo-400 border-indigo-500/25",
+      };
+    case "TASK_STATUS_CHANGED":
+      return {
+        label: "Status Updated",
+        badge: "bg-emerald-500/20 text-emerald-300 border-emerald-500/30",
+        icon: CheckCircle2,
+        iconBg: "bg-emerald-500/15 text-emerald-400 border-emerald-500/25",
+      };
+    case "MEMBER_ADDED":
+      return {
+        label: "Member Added",
+        badge: "bg-cyan-500/20 text-cyan-300 border-cyan-500/30",
+        icon: UserCheck,
+        iconBg: "bg-cyan-500/15 text-cyan-400 border-cyan-500/25",
+      };
+    case "MEMBER_REMOVED":
+      return {
+        label: "Member Removed",
+        badge: "bg-rose-500/20 text-rose-300 border-rose-500/30",
+        icon: X,
+        iconBg: "bg-rose-500/15 text-rose-400 border-rose-500/25",
+      };
+    case "SPRINT_CREATED":
+      return {
+        label: "Sprint Created",
+        badge: "bg-purple-500/20 text-purple-300 border-purple-500/30",
+        icon: Flame,
+        iconBg: "bg-purple-500/15 text-purple-400 border-purple-500/25",
+      };
+    case "COMMIT_SYNCED":
+      return {
+        label: "Git Commit",
+        badge: "bg-blue-500/20 text-blue-300 border-blue-500/30",
+        icon: GitPullRequest,
+        iconBg: "bg-blue-500/15 text-blue-400 border-blue-500/25",
+      };
+    default:
+      return {
+        label: actionType?.replace(/_/g, " ") || "Activity",
+        badge: "dark:bg-white/10 bg-slate-200 text-slate-400 border-slate-300",
+        icon: Activity,
+        iconBg: "dark:bg-white/10 bg-slate-100 text-slate-400",
+      };
+  }
+}
 
 export default function Dashboard() {
   const navigate = useNavigate();
   const { user, currentProject } = useAuthStore();
   const { socket } = useSocketStore();
-  const [personalStats, setPersonalStats] = useState(null);
+
+  const [projectDetails, setProjectDetails] = useState(null);
   const [dashboardMetrics, setDashboardMetrics] = useState(null);
-  const [myTasks, setMyTasks] = useState([]);
+  const [workspaceTasks, setWorkspaceTasks] = useState([]);
+  const [sprints, setSprints] = useState([]);
+  const [docsCount, setDocsCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [showBanner, setShowBanner] = useState(() => !sessionStorage.getItem("dp_hide_banner"));
-  const [activeViewTab, setActiveViewTab] = useState("overview");
-  const [lineupTasks, setLineupTasks] = useState(DEFAULT_LINEUP);
   const [quickTaskText, setQuickTaskText] = useState("");
+  const [isSubmittingTask, setIsSubmittingTask] = useState(false);
 
+  // Load all real data strictly for the current workspace
   const loadDashboardData = useCallback(async () => {
-    if (!currentProject) {
+    if (!currentProject?.id) {
       setLoading(false);
       return;
     }
 
     try {
-      // 1. Fetch User Personal Stats
-      const personalStatsRes = await client.get("/users/me/stats");
-      if (personalStatsRes.data.success) {
-        setPersonalStats(personalStatsRes.data.data.stats);
+      // 1. Fetch Project Details (members, description, deadline)
+      const projRes = await client.get(`/projects/${currentProject.id}`);
+      if (projRes.data?.success) {
+        setProjectDetails(projRes.data.data.project);
       }
 
-      // 2. Fetch Project Dashboard Metrics
+      // 2. Fetch Project Analytics & Dashboard Metrics (real recentActivity, statusDistribution)
       const metricsRes = await client.get(`/projects/${currentProject.id}/analytics/dashboard`);
-      if (metricsRes.data.success) {
+      if (metricsRes.data?.success) {
         setDashboardMetrics(metricsRes.data.data);
       }
 
-      // 3. Fetch Tasks assigned to user in this space
-      const tasksRes = await client.get(`/projects/${currentProject.id}/tasks`, {
-        params: { assigneeId: user?.id }
-      });
-      if (tasksRes.data.success && tasksRes.data.data.tasks?.length > 0) {
-        setMyTasks(tasksRes.data.data.tasks);
+      // 3. Fetch all tasks for this workspace
+      const tasksRes = await client.get(`/projects/${currentProject.id}/tasks`);
+      if (tasksRes.data?.success) {
+        setWorkspaceTasks(tasksRes.data.data.tasks || []);
+      }
+
+      // 4. Fetch sprints for this workspace
+      const sprintsRes = await client.get(`/projects/${currentProject.id}/sprints`);
+      if (sprintsRes.data?.success) {
+        setSprints(sprintsRes.data.data.sprints || []);
+      }
+
+      // 5. Fetch documents count for this workspace
+      const docsRes = await client.get(`/projects/${currentProject.id}/documents`);
+      if (docsRes.data?.success) {
+        setDocsCount(docsRes.data.data.documents?.length || 0);
       }
     } catch (err) {
-      // Keep state resilient
+      console.error("Dashboard data load error:", err);
     } finally {
       setLoading(false);
     }
-  }, [currentProject, user]);
+  }, [currentProject]);
 
   useEffect(() => {
     setLoading(true);
@@ -170,47 +210,84 @@ export default function Dashboard() {
     sessionStorage.setItem("dp_hide_banner", "true");
   };
 
-  const toggleTaskCompleted = (id) => {
-    setLineupTasks((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, completed: !t.completed } : t))
+  // Toggle task completed via backend API
+  const toggleTaskCompleted = async (task) => {
+    if (!currentProject || !task?.id) return;
+    const newStatus = task.status === "COMPLETED" ? "TODO" : "COMPLETED";
+
+    // Optimistic UI update
+    setWorkspaceTasks((prev) =>
+      prev.map((t) => (t.id === task.id ? { ...t, status: newStatus } : t))
     );
+
+    try {
+      await client.patch(`/projects/${currentProject.id}/tasks/${task.id}`, {
+        status: newStatus,
+      });
+      loadDashboardData();
+    } catch (err) {
+      console.error("Failed to update task status:", err);
+      // Revert on error
+      setWorkspaceTasks((prev) =>
+        prev.map((t) => (t.id === task.id ? { ...t, status: task.status } : t))
+      );
+    }
   };
 
-  const handleAddQuickTask = (e) => {
+  // Add quick task to database
+  const handleAddQuickTask = async (e) => {
     e.preventDefault();
-    if (!quickTaskText.trim()) return;
+    if (!quickTaskText.trim() || !currentProject || isSubmittingTask) return;
 
-    const newTask = {
-      id: `task-${Date.now()}`,
-      title: quickTaskText.trim(),
-      priority: "NORMAL",
-      priorityColor: "bg-blue-500/20 text-blue-300 border-blue-500/30",
-      dotColor: "bg-blue-500",
-      tag: "Sprint Task",
-      due: "This Sprint",
-      completed: false,
-    };
+    setIsSubmittingTask(true);
+    try {
+      const res = await client.post(`/projects/${currentProject.id}/tasks`, {
+        title: quickTaskText.trim(),
+        status: "TODO",
+        priority: "MEDIUM",
+      });
 
-    setLineupTasks([newTask, ...lineupTasks]);
-    setQuickTaskText("");
+      if (res.data?.success && res.data?.data?.task) {
+        setQuickTaskText("");
+        await loadDashboardData();
+      }
+    } catch (err) {
+      console.error("Failed to add quick task:", err);
+    } finally {
+      setIsSubmittingTask(false);
+    }
   };
 
-  const assignedCount = myTasks.length > 0 ? myTasks.length : lineupTasks.length;
-  const completedCount = myTasks.length > 0 
-    ? myTasks.filter((t) => t.status === "COMPLETED").length 
-    : lineupTasks.filter((t) => t.completed).length;
-  const completionRate = assignedCount > 0 ? Math.round((completedCount / assignedCount) * 100) : 0;
+  // Derived real workspace metrics
+  const totalTasks = workspaceTasks.length;
+  const completedTasks = workspaceTasks.filter((t) => t.status === "COMPLETED");
+  const completedCount = completedTasks.length;
+  const activeTasks = workspaceTasks.filter((t) => t.status !== "COMPLETED");
+  const activeTasksCount = activeTasks.length;
+  const inProgressCount = workspaceTasks.filter((t) => t.status === "IN_PROGRESS").length;
+  const urgentCount = workspaceTasks.filter((t) => t.priority === "URGENT").length;
+  const highCount = workspaceTasks.filter((t) => t.priority === "HIGH").length;
+  const membersCount = projectDetails?.members?.length || 1;
+  const completionRate = totalTasks > 0 ? Math.round((completedCount / totalTasks) * 100) : 0;
+
+  const activeSprint =
+    dashboardMetrics?.activeSprint ||
+    sprints.find((s) => s.status === "ACTIVE") ||
+    sprints[0] ||
+    null;
+  const sprintName = activeSprint ? activeSprint.name : "Sprint Backlog";
+  const recentActivities = dashboardMetrics?.recentActivity || [];
 
   return (
     <PageTransition>
-      <div className="flex-1 flex flex-col h-full overflow-hidden dark:bg-[#0c0e14] bg-[#f8fafc] dark:text-white text-slate-900 select-none transition-colors duration-200">
+      <div className="flex-1 flex flex-col h-full overflow-hidden dark:bg-[#080808] bg-[#f8fafc] dark:text-white text-slate-900 select-none transition-colors duration-200">
         
-        {/* ══════ Top Real-Time Notification Purple Banner ══════ */}
+        {/* ══════ Top Notification Banner ══════ */}
         {showBanner && (
           <div className="bg-gradient-to-r from-purple-700 via-indigo-600 to-indigo-700 px-4 py-2 text-xs font-medium text-white flex items-center justify-between shadow-sm flex-shrink-0">
             <div className="flex items-center gap-2">
               <Bell className="w-3.5 h-3.5 text-purple-200" />
-              <span>DevPilot 3.0 Workspace Active • Sprints and real-time sync connected.</span>
+              <span>Workspace Active • Live telemetry and task synchronization active.</span>
             </div>
             <div className="flex items-center gap-2">
               <button
@@ -229,15 +306,15 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* ══════ Team Space Subnav Tabs (ClickUp 3.0 Style) ══════ */}
-        <div className="h-10 border-b dark:border-white/[0.08] border-slate-200 px-4 flex items-center justify-between dark:bg-[#0f121a] bg-white flex-shrink-0 text-xs transition-colors">
+        {/* ══════ Team Space Subnav Tabs ══════ */}
+        <div className="h-10 border-b dark:border-white/[0.08] border-slate-200 px-4 flex items-center justify-between dark:bg-[#0d0d10] bg-white flex-shrink-0 text-xs transition-colors">
           <div className="flex items-center gap-3 h-full overflow-x-auto scrollbar-none">
             {/* Space Identifier */}
             <div className="flex items-center gap-1.5 font-bold dark:text-white text-slate-800 pr-2 border-r dark:border-white/10 border-slate-200">
               <span className="w-4 h-4 rounded bg-indigo-600 flex items-center justify-center text-[10px]">
                 <Users className="w-2.5 h-2.5 text-white" />
               </span>
-              <span>{currentProject?.name || "DevPilot Workspace"}</span>
+              <span>{currentProject?.name || "Workspace"}</span>
             </div>
 
             {/* View Tabs */}
@@ -250,14 +327,9 @@ export default function Dashboard() {
             </button>
 
             <button
-              onClick={() => setActiveViewTab("overview")}
-              className={`flex items-center gap-1.5 h-full px-1 font-semibold transition-colors ${
-                activeViewTab === "overview"
-                  ? "dark:text-white text-indigo-600 border-b-2 dark:border-white border-indigo-600 font-bold"
-                  : "text-slate-500 dark:hover:text-white hover:text-slate-900"
-              }`}
+              className="flex items-center gap-1.5 font-semibold dark:text-white text-slate-900 border-b-2 border-indigo-500 h-full px-1"
             >
-              <Info className="w-3.5 h-3.5 text-slate-400" />
+              <Info className="w-3.5 h-3.5 text-indigo-500" />
               <span>Overview</span>
             </button>
 
@@ -265,23 +337,15 @@ export default function Dashboard() {
               onClick={() => navigate("/board")}
               className="flex items-center gap-1.5 text-slate-500 dark:hover:text-white hover:text-slate-900 h-full px-1 transition-colors"
             >
-              <List className="w-3.5 h-3.5 text-slate-400" />
-              <span>List</span>
-            </button>
-
-            <button
-              onClick={() => navigate("/board")}
-              className="flex items-center gap-1.5 text-slate-500 dark:hover:text-white hover:text-slate-900 h-full px-1 transition-colors"
-            >
-              <KanbanSquare className="w-3.5 h-3.5 text-indigo-500" />
+              <KanbanSquare className="w-3.5 h-3.5 text-slate-400" />
               <span>Board</span>
             </button>
 
             <button
-              onClick={() => navigate("/team")}
+              onClick={() => navigate("/teams")}
               className="flex items-center gap-1.5 text-slate-500 dark:hover:text-white hover:text-slate-900 h-full px-1 transition-colors"
             >
-              <Users className="w-3.5 h-3.5 text-emerald-500" />
+              <Users className="w-3.5 h-3.5 text-slate-400" />
               <span>Teams</span>
             </button>
 
@@ -309,25 +373,12 @@ export default function Dashboard() {
               <span>Nexus² AI</span>
             </button>
           </div>
-
-          {/* Right quick shortcut */}
-          <div className="flex items-center gap-3 text-slate-400 text-xs">
-            <button
-              onClick={() => navigate("/ai")}
-              className="flex items-center gap-1 dark:text-slate-300 text-slate-600 dark:hover:text-white hover:text-slate-900 transition-colors"
-            >
-              <BrainFlowerIcon className="w-3.5 h-3.5" />
-              <span>Nexus²</span>
-            </button>
-            <span>•</span>
-            <span className="text-[11px] text-slate-400">Auto refresh: On</span>
-          </div>
         </div>
 
         {/* ══════ Scrollable Dashboard Body ══════ */}
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
           
-          {/* 1. Header: Greeting + Sprint Command Ribbon with Workspace Status Pulse */}
+          {/* 1. Header: Greeting + Real Workspace Telemetry */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
               <h2 className="text-page-title dark:text-white text-slate-900 flex items-center gap-2">
@@ -336,46 +387,55 @@ export default function Dashboard() {
                   {user?.name || "Engineer"}!
                 </span>
               </h2>
-              {/* Workspace Status Pulse (Ultra-compact context line) */}
+              
+              {/* Workspace Status Pulse (Dynamic strictly for current workspace) */}
               <div className="flex items-center gap-2 mt-1.5 flex-wrap text-caption-meta dark:text-slate-400 text-slate-500">
                 <span className="flex items-center gap-1.5 font-semibold dark:text-slate-200 text-slate-700">
                   <span className="signal-dot signal-dot-success animate-pulse" />
-                  Sprint 2
+                  {sprintName}
                 </span>
                 <span className="opacity-40">•</span>
-                <span><strong className="dark:text-slate-200 text-slate-800">{assignedCount}</strong> active tasks</span>
+                <span><strong className="dark:text-slate-200 text-slate-800">{activeTasksCount}</strong> active tasks</span>
                 <span className="opacity-40">•</span>
-                <span className="text-rose-400 font-medium">1 urgent</span>
+                <span className={urgentCount > 0 ? "text-rose-400 font-semibold" : "text-amber-400 font-medium"}>
+                  {urgentCount > 0 ? `${urgentCount} urgent` : `${highCount} high priority`}
+                </span>
                 <span className="opacity-40">•</span>
-                <span>32 SP completed</span>
+                <span>{completedCount} completed</span>
                 <span className="opacity-40">•</span>
-                <span className="font-semibold text-amber-500">Next deadline: Today</span>
+                <span className="font-semibold text-indigo-400">
+                  {completionRate}% progress
+                </span>
               </div>
             </div>
 
-            {/* Sprint Status Badge (Operational Telemetry) */}
-            <div className="flex items-center gap-3 dark:bg-[#121520] bg-white border dark:border-white/[0.08] border-slate-200 p-2 px-3.5 rounded-xl text-xs shadow-sm flex-shrink-0">
+            {/* Sprint Status Badge */}
+            <div className="flex items-center gap-3 dark:bg-[#121214] bg-white border dark:border-white/[0.08] border-slate-200 p-2 px-3.5 rounded-xl text-xs shadow-sm flex-shrink-0">
               <div className="flex items-center gap-2">
-                <span className="font-semibold dark:text-white text-slate-800 text-[13px]">Sprint 2</span>
+                <span className="font-semibold dark:text-white text-slate-800 text-[13px]">{sprintName}</span>
               </div>
               <span className="dark:text-slate-600 text-slate-300">|</span>
               <div className="flex items-center gap-1.5 text-slate-500 text-[12px]">
                 <Clock className="w-3.5 h-3.5 text-amber-500" />
-                <span>Ends in 4 days</span>
+                <span>
+                  {activeSprint?.endDate
+                    ? `Ends ${new Date(activeSprint.endDate).toLocaleDateString([], { month: "short", day: "numeric" })}`
+                    : "Active Workspace"}
+                </span>
               </div>
               <span className="dark:text-slate-600 text-slate-300">|</span>
               <span className="font-mono text-emerald-500 font-semibold flex items-center gap-1 text-[12px]">
                 <TrendingUp className="w-3 h-3" />
-                86% Velocity
+                {completionRate}% Complete
               </span>
             </div>
           </div>
 
-          {/* 2. Quick Jump Feature Cards with Contextual Micro-Information */}
+          {/* 2. Quick Jump Feature Cards (Real numbers) */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <button
               onClick={() => navigate("/board")}
-              className="p-3.5 rounded-2xl dark:bg-[#121520] bg-white hover:bg-slate-50 dark:hover:bg-[#161a29] border dark:border-white/[0.08] border-slate-200 hover:border-indigo-500/30 transition-all text-left group shadow-sm flex flex-col justify-between micro-elevate"
+              className="p-3.5 rounded-2xl dark:bg-[#121214] bg-white hover:bg-slate-50 dark:hover:bg-[#18181b] border dark:border-white/[0.08] border-slate-200 hover:border-indigo-500/30 transition-all text-left group shadow-sm flex flex-col justify-between micro-elevate"
             >
               <div className="flex items-center justify-between mb-2">
                 <div className="w-8 h-8 rounded-xl bg-indigo-500/15 text-indigo-500 flex items-center justify-center">
@@ -388,18 +448,16 @@ export default function Dashboard() {
                   Kanban Board
                 </h4>
                 <div className="flex items-center gap-1.5 mt-1 text-[11.5px] text-slate-400">
-                  <span className="font-semibold dark:text-slate-300 text-slate-600">4 active tasks</span>
+                  <span className="font-semibold dark:text-slate-300 text-slate-600">{activeTasksCount} active tasks</span>
                   <span>•</span>
-                  <span className="text-rose-400 font-medium">1 urgent</span>
-                  <span>•</span>
-                  <span>2 due this week</span>
+                  <span className="text-indigo-400 font-medium">{inProgressCount} in progress</span>
                 </div>
               </div>
             </button>
 
             <button
               onClick={() => navigate("/ai")}
-              className="p-3.5 rounded-2xl dark:bg-[#121520] bg-white hover:bg-slate-50 dark:hover:bg-[#161a29] border dark:border-white/[0.08] border-slate-200 hover:border-pink-500/30 transition-all text-left group shadow-sm flex flex-col justify-between micro-elevate"
+              className="p-3.5 rounded-2xl dark:bg-[#121214] bg-white hover:bg-slate-50 dark:hover:bg-[#18181b] border dark:border-white/[0.08] border-slate-200 hover:border-pink-500/30 transition-all text-left group shadow-sm flex flex-col justify-between micro-elevate"
             >
               <div className="flex items-center justify-between mb-2">
                 <div className="w-8 h-8 rounded-xl bg-pink-500/15 text-pink-500 flex items-center justify-center">
@@ -412,38 +470,38 @@ export default function Dashboard() {
                   Nexus² AI
                 </h4>
                 <div className="flex items-center gap-1.5 mt-1 text-[11.5px] text-slate-400">
-                  <span className="font-semibold dark:text-slate-300 text-slate-600">3 docs indexed</span>
+                  <span className="font-semibold dark:text-slate-300 text-slate-600">{docsCount} docs indexed</span>
                   <span>•</span>
-                  <span>Last analysis: 12m ago</span>
+                  <span className="text-emerald-400">RAG Ready</span>
                 </div>
               </div>
             </button>
 
             <button
-              onClick={() => navigate("/timesheets")}
-              className="p-3.5 rounded-2xl dark:bg-[#121520] bg-white hover:bg-slate-50 dark:hover:bg-[#161a29] border dark:border-white/[0.08] border-slate-200 hover:border-amber-500/30 transition-all text-left group shadow-sm flex flex-col justify-between micro-elevate"
+              onClick={() => navigate("/teams")}
+              className="p-3.5 rounded-2xl dark:bg-[#121214] bg-white hover:bg-slate-50 dark:hover:bg-[#18181b] border dark:border-white/[0.08] border-slate-200 hover:border-amber-500/30 transition-all text-left group shadow-sm flex flex-col justify-between micro-elevate"
             >
               <div className="flex items-center justify-between mb-2">
                 <div className="w-8 h-8 rounded-xl bg-amber-500/15 text-amber-500 flex items-center justify-center">
-                  <Clock className="w-4 h-4" />
+                  <Users className="w-4 h-4" />
                 </div>
                 <ArrowUpRight className="w-3.5 h-3.5 text-slate-400 group-hover:text-amber-500 transition-colors" />
               </div>
               <div>
                 <h4 className="text-card-title dark:text-white text-slate-900 group-hover:text-amber-500 dark:group-hover:text-amber-300 transition-colors">
-                  Weekly Timesheets
+                  Workspace Team
                 </h4>
                 <div className="flex items-center gap-1.5 mt-1 text-[11.5px] text-slate-400">
-                  <span className="font-semibold dark:text-slate-300 text-slate-600">29.5h logged</span>
+                  <span className="font-semibold dark:text-slate-300 text-slate-600">{membersCount} members</span>
                   <span>•</span>
-                  <span className="text-emerald-500 font-medium">73% weekly target</span>
+                  <span className="text-emerald-500 font-medium">Collaborating</span>
                 </div>
               </div>
             </button>
 
             <button
               onClick={() => navigate("/docs")}
-              className="p-3.5 rounded-2xl dark:bg-[#121520] bg-white hover:bg-slate-50 dark:hover:bg-[#161a29] border dark:border-white/[0.08] border-slate-200 hover:border-cyan-500/30 transition-all text-left group shadow-sm flex flex-col justify-between micro-elevate"
+              className="p-3.5 rounded-2xl dark:bg-[#121214] bg-white hover:bg-slate-50 dark:hover:bg-[#18181b] border dark:border-white/[0.08] border-slate-200 hover:border-cyan-500/30 transition-all text-left group shadow-sm flex flex-col justify-between micro-elevate"
             >
               <div className="flex items-center justify-between mb-2">
                 <div className="w-8 h-8 rounded-xl bg-cyan-500/15 text-cyan-500 flex items-center justify-center">
@@ -456,41 +514,34 @@ export default function Dashboard() {
                   Knowledge Docs
                 </h4>
                 <div className="flex items-center gap-1.5 mt-1 text-[11.5px] text-slate-400">
-                  <span className="font-semibold dark:text-slate-300 text-slate-600">12 active docs</span>
+                  <span className="font-semibold dark:text-slate-300 text-slate-600">{docsCount} workspace docs</span>
                   <span>•</span>
-                  <span className="text-cyan-400">2 recently updated</span>
+                  <span className="text-cyan-400">pgvector sync</span>
                 </div>
               </div>
             </button>
           </div>
 
-          {/* 3. Metric Cards with Micro-Trends & Miniature Sparkline Traces */}
+          {/* 3. Metric Cards with Real Numbers */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-            <div className="p-4 rounded-2xl dark:bg-[#121520] bg-white border dark:border-white/[0.08] border-slate-200 shadow-sm relative overflow-hidden micro-elevate">
+            <div className="p-4 rounded-2xl dark:bg-[#121214] bg-white border dark:border-white/[0.08] border-slate-200 shadow-sm relative overflow-hidden micro-elevate">
               <div className="flex items-start justify-between">
                 <div>
                   <span className="text-metric-label text-slate-400 block">
                     Active Tasks
                   </span>
                   <span className="text-metric-val dark:text-white text-slate-900 mt-1 block">
-                    {assignedCount}
+                    {activeTasksCount}
                   </span>
-                  <span className="text-metric-support text-slate-400 mt-0.5 block">Assigned in sprint</span>
+                  <span className="text-metric-support text-slate-400 mt-0.5 block">Pending in workspace</span>
                 </div>
                 <div className="w-10 h-10 rounded-xl bg-blue-500/15 text-blue-500 flex items-center justify-center flex-shrink-0">
                   <Clock className="w-4 h-4" />
                 </div>
               </div>
-              {/* Micro-sparkline trace */}
-              <div className="mt-3 pt-2 border-t dark:border-white/[0.04] border-slate-100 flex items-center justify-between text-[10px]">
-                <span className="text-slate-500 font-medium">Sprint backlog: 14 SP</span>
-                <svg className="w-16 h-5 stroke-blue-400 fill-none" viewBox="0 0 64 20">
-                  <path d="M 2 15 L 18 11 L 34 14 L 48 7 L 62 4" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </div>
             </div>
 
-            <div className="p-4 rounded-2xl dark:bg-[#121520] bg-white border dark:border-white/[0.08] border-slate-200 shadow-sm relative overflow-hidden micro-elevate">
+            <div className="p-4 rounded-2xl dark:bg-[#121214] bg-white border dark:border-white/[0.08] border-slate-200 shadow-sm relative overflow-hidden micro-elevate">
               <div className="flex items-start justify-between">
                 <div>
                   <span className="text-metric-label text-slate-400 block">
@@ -499,90 +550,69 @@ export default function Dashboard() {
                   <span className="text-metric-val text-emerald-500 mt-1 block">
                     {completedCount}
                   </span>
-                  <span className="text-metric-support text-slate-400 mt-0.5 block">Shipped to testing</span>
+                  <span className="text-metric-support text-slate-400 mt-0.5 block">Finished tasks</span>
                 </div>
                 <div className="w-10 h-10 rounded-xl bg-emerald-500/15 text-emerald-500 flex items-center justify-center flex-shrink-0">
                   <CheckCircle2 className="w-4 h-4" />
                 </div>
               </div>
-              {/* Micro-sparkline trace */}
-              <div className="mt-3 pt-2 border-t dark:border-white/[0.04] border-slate-100 flex items-center justify-between text-[10px]">
-                <span className="text-emerald-500 font-semibold">+3 tasks this week</span>
-                <svg className="w-16 h-5 stroke-emerald-400 fill-none" viewBox="0 0 64 20">
-                  <path d="M 2 16 L 20 14 L 36 9 L 48 6 L 62 2" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </div>
             </div>
 
-            <div className="p-4 rounded-2xl dark:bg-[#121520] bg-white border dark:border-white/[0.08] border-slate-200 shadow-sm relative overflow-hidden micro-elevate">
+            <div className="p-4 rounded-2xl dark:bg-[#121214] bg-white border dark:border-white/[0.08] border-slate-200 shadow-sm relative overflow-hidden micro-elevate">
               <div className="flex items-start justify-between">
                 <div>
                   <span className="text-metric-label text-slate-400 block">
-                    Sprint Velocity
+                    Completion Velocity
                   </span>
                   <div className="flex items-baseline gap-2 mt-1">
                     <span className="text-metric-val dark:text-white text-slate-900 block">
-                      32 SP
+                      {completionRate}%
                     </span>
-                    <span className="text-[12px] font-bold text-emerald-500">+18%</span>
                   </div>
-                  <span className="text-metric-support text-slate-400 mt-0.5 block">vs previous cycle</span>
+                  <span className="text-metric-support text-slate-400 mt-0.5 block">{completedCount} of {totalTasks} tasks done</span>
                 </div>
                 <div className="w-10 h-10 rounded-xl bg-purple-500/15 text-purple-500 flex items-center justify-center flex-shrink-0">
                   <Sparkles className="w-4 h-4" />
                 </div>
               </div>
-              {/* Micro-sparkline trace */}
-              <div className="mt-3 pt-2 border-t dark:border-white/[0.04] border-slate-100 flex items-center justify-between text-[10px]">
-                <span className="text-purple-400 font-medium">Optimal velocity band</span>
-                <svg className="w-16 h-5 stroke-purple-400 fill-none" viewBox="0 0 64 20">
-                  <path d="M 2 14 L 18 10 L 32 12 L 46 6 L 62 3" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </div>
             </div>
 
-            <div className="p-4 rounded-2xl dark:bg-[#121520] bg-white border dark:border-white/[0.08] border-slate-200 shadow-sm relative overflow-hidden micro-elevate">
+            <div className="p-4 rounded-2xl dark:bg-[#121214] bg-white border dark:border-white/[0.08] border-slate-200 shadow-sm relative overflow-hidden micro-elevate">
               <div className="flex items-start justify-between">
                 <div>
                   <span className="text-metric-label text-slate-400 block">
-                    Sprint Health
+                    Workspace Health
                   </span>
-                  <span className="text-metric-val text-pink-500 mt-1 block">
-                    {completionRate > 0 ? `${completionRate}%` : "94%"}
+                  <span className="text-metric-val text-indigo-400 mt-1 block">
+                    {urgentCount === 0 ? "Optimal" : "Attention"}
                   </span>
-                  <span className="text-metric-support text-slate-400 mt-0.5 block">0 critical blockers</span>
+                  <span className="text-metric-support text-slate-400 mt-0.5 block">
+                    {urgentCount} urgent blocker{urgentCount !== 1 ? "s" : ""}
+                  </span>
                 </div>
                 <div className="w-10 h-10 rounded-xl bg-pink-500/15 text-pink-500 flex items-center justify-center flex-shrink-0">
                   <TrendingUp className="w-4 h-4" />
                 </div>
               </div>
-              {/* Micro-sparkline trace */}
-              <div className="mt-3 pt-2 border-t dark:border-white/[0.04] border-slate-100 flex items-center justify-between text-[10px]">
-                <span className="text-pink-400 font-medium">On-track for Friday release</span>
-                <svg className="w-16 h-5 stroke-pink-400 fill-none" viewBox="0 0 64 20">
-                  <path d="M 2 14 L 18 13 L 34 8 L 48 6 L 62 4" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-              </div>
             </div>
           </div>
 
-          {/* 4. Main Operational Command Center: Sprint Lineup & Event Hierarchy Activity Feed */}
+          {/* 4. Main Operational Command Center: Real Lineup & Real Activity Feed */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
             
-            {/* Left Column (2 Cols): Sprint Lineup & Task Work Queue */}
-            <div className="lg:col-span-2 rounded-2xl dark:bg-[#121520] bg-white border dark:border-white/[0.08] border-slate-200 flex flex-col overflow-hidden shadow-sm">
+            {/* Left Column (2 Cols): Real Workspace Lineup & Work Queue */}
+            <div className="lg:col-span-2 rounded-2xl dark:bg-[#121214] bg-white border dark:border-white/[0.08] border-slate-200 flex flex-col overflow-hidden shadow-sm">
               {/* Card Header */}
-              <div className="p-3.5 px-4 border-b dark:border-white/[0.08] border-slate-200 flex items-center justify-between dark:bg-[#151926] bg-slate-50/70">
+              <div className="p-3.5 px-4 border-b dark:border-white/[0.08] border-slate-200 flex items-center justify-between dark:bg-[#161619] bg-slate-50/70">
                 <div className="flex items-center gap-2.5">
                   <span className="w-6 h-6 rounded-lg bg-indigo-500/15 text-indigo-500 flex items-center justify-center">
                     <CheckCircle className="w-3.5 h-3.5" />
                   </span>
                   <h3 className="text-section-heading dark:text-white text-slate-800">
-                    Sprint Lineup & Priority Work ({lineupTasks.length})
+                    Workspace Lineup ({workspaceTasks.length})
                   </h3>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="text-caption-meta text-slate-400 hidden sm:inline">2-sec scan rhythm</span>
                   <button
                     onClick={() => navigate("/board")}
                     className="text-[13px] font-semibold text-indigo-500 hover:text-indigo-600 dark:text-indigo-400 dark:hover:text-indigo-300 flex items-center gap-1 transition-colors"
@@ -593,67 +623,85 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              {/* Quick Add Task Input */}
-              <form onSubmit={handleAddQuickTask} className="p-2.5 px-3 border-b dark:border-white/[0.06] border-slate-200 dark:bg-[#0c0e14]/50 bg-slate-50/50 flex items-center gap-2">
-                <Plus className="w-4 h-4 text-slate-400" />
+              {/* Quick Add Task Input (Saves directly to Database) */}
+              <form onSubmit={handleAddQuickTask} className="p-2.5 px-3 border-b dark:border-white/[0.06] border-slate-200 dark:bg-[#080808]/50 bg-slate-50/50 flex items-center gap-2">
+                {isSubmittingTask ? (
+                  <Loader2 className="w-4 h-4 animate-spin text-indigo-500" />
+                ) : (
+                  <Plus className="w-4 h-4 text-slate-400" />
+                )}
                 <input
                   type="text"
-                  placeholder="+ Add quick sprint task... (Press Enter)"
+                  placeholder="+ Add quick task to this workspace... (Press Enter)"
                   value={quickTaskText}
                   onChange={(e) => setQuickTaskText(e.target.value)}
-                  className="flex-1 bg-transparent text-[13px] dark:text-white text-slate-900 placeholder-slate-400 outline-none"
+                  disabled={isSubmittingTask}
+                  className="flex-1 bg-transparent text-[13px] dark:text-white text-slate-900 placeholder-slate-400 outline-none disabled:opacity-50"
                 />
                 {quickTaskText.trim() && (
                   <button
                     type="submit"
-                    className="px-2.5 py-1 rounded-lg bg-indigo-600 text-white text-[11px] font-bold"
+                    disabled={isSubmittingTask}
+                    className="px-2.5 py-1 rounded-lg bg-indigo-600 text-white text-[11px] font-bold disabled:opacity-50"
                   >
                     Add
                   </button>
                 )}
               </form>
 
-              {/* Task Items List with Priority Edges and State Awareness */}
+              {/* Task Items List strictly from DB */}
               <div className="divide-y dark:divide-white/[0.04] divide-slate-100 overflow-y-auto max-h-[380px]">
-                {lineupTasks.map((t) => {
+                {workspaceTasks.length === 0 && !loading && (
+                  <div className="p-8 text-center text-slate-400 text-xs">
+                    <Inbox className="w-6 h-6 mx-auto mb-2 opacity-50" />
+                    <p className="font-semibold dark:text-slate-300 text-slate-700">No tasks in this workspace yet</p>
+                    <p className="text-[11px] text-slate-500 mt-0.5">Type above to add a quick task or create one on the Board.</p>
+                  </div>
+                )}
+
+                {workspaceTasks.map((t) => {
+                  const isCompleted = t.status === "COMPLETED";
                   const edgeClass = t.priority === "URGENT"
                     ? "priority-edge-urgent"
                     : t.priority === "HIGH"
                     ? "priority-edge-high"
-                    : t.completed
+                    : isCompleted
                     ? "priority-edge-completed"
                     : "priority-edge-normal";
 
-                  const isDueToday = t.due.toLowerCase().includes("today");
-                  const isDueTomorrow = t.due.toLowerCase().includes("tomorrow");
+                  const priorityColor = t.priority === "URGENT"
+                    ? "bg-rose-500/20 text-rose-300 border-rose-500/30"
+                    : t.priority === "HIGH"
+                    ? "bg-amber-500/20 text-amber-300 border-amber-500/30"
+                    : "bg-blue-500/20 text-blue-300 border-blue-500/30";
 
                   return (
                     <div
                       key={t.id}
-                      onClick={() => toggleTaskCompleted(t.id)}
+                      onClick={() => toggleTaskCompleted(t)}
                       className={`p-3 px-4 flex items-center justify-between gap-3 dark:hover:bg-white/[0.03] hover:bg-slate-50 transition-colors cursor-pointer group ${edgeClass} ${
-                        t.completed ? "opacity-60" : ""
+                        isCompleted ? "opacity-60" : ""
                       }`}
                     >
                       <div className="flex items-center gap-3 min-w-0 flex-1">
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            toggleTaskCompleted(t.id);
+                            toggleTaskCompleted(t);
                           }}
                           className={`w-4 h-4 rounded-md border flex items-center justify-center transition-all flex-shrink-0 ${
-                            t.completed
+                            isCompleted
                               ? "bg-emerald-500 border-emerald-500 text-white"
                               : "dark:border-white/20 border-slate-300 dark:hover:border-white/40 hover:border-slate-400"
                           }`}
                         >
-                          {t.completed && <CheckCircle2 className="w-3 h-3" />}
+                          {isCompleted && <CheckCircle2 className="w-3 h-3" />}
                         </button>
 
                         <div className="min-w-0 flex-1">
                           <span
                             className={`text-card-title truncate block ${
-                              t.completed
+                              isCompleted
                                 ? "line-through text-slate-400"
                                 : "dark:text-slate-200 text-slate-800 dark:group-hover:text-white group-hover:text-slate-900"
                             }`}
@@ -664,28 +712,24 @@ export default function Dashboard() {
                       </div>
 
                       <div className="flex items-center gap-2 flex-shrink-0">
-                        {/* Secondary metadata */}
+                        {/* Status tag */}
                         <span className="px-1.5 py-0.5 rounded text-badge-meta dark:bg-white/5 bg-slate-100 dark:text-slate-400 text-slate-600 border dark:border-white/5 border-slate-200 font-mono">
-                          {t.tag}
+                          {t.status}
                         </span>
+                        
+                        {/* Priority Badge */}
                         <span
-                          className={`px-1.5 py-0.5 rounded text-badge-meta font-bold uppercase tracking-wider border ${t.priorityColor}`}
+                          className={`px-1.5 py-0.5 rounded text-badge-meta font-bold uppercase tracking-wider border ${priorityColor}`}
                         >
                           {t.priority}
                         </span>
                         
-                        {/* Due status with contextual emphasis */}
-                        <span
-                          className={`text-task-metadata font-medium px-1.5 py-0.5 rounded ${
-                            isDueToday
-                              ? "text-rose-400 font-bold bg-rose-500/10 border border-rose-500/20"
-                              : isDueTomorrow
-                              ? "text-amber-400 font-semibold bg-amber-500/10 border border-amber-500/20"
-                              : "text-slate-400"
-                          }`}
-                        >
-                          {t.due}
-                        </span>
+                        {/* Due status */}
+                        {t.dueDate && (
+                          <span className="text-task-metadata font-medium px-1.5 py-0.5 rounded text-slate-400">
+                            {new Date(t.dueDate).toLocaleDateString([], { month: "short", day: "numeric" })}
+                          </span>
+                        )}
                       </div>
                     </div>
                   );
@@ -693,13 +737,13 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* Right Column (1 Col): Real-Time Telemetry & Event Hierarchy Activity Feed */}
-            <div className="rounded-2xl dark:bg-[#121520] bg-white border dark:border-white/[0.08] border-slate-200 flex flex-col overflow-hidden shadow-sm">
-              <div className="p-3.5 px-4 border-b dark:border-white/[0.08] border-slate-200 flex items-center justify-between dark:bg-[#151926] bg-slate-50/70">
+            {/* Right Column (1 Col): Real-Time Telemetry & Real Database Activity Feed */}
+            <div className="rounded-2xl dark:bg-[#121214] bg-white border dark:border-white/[0.08] border-slate-200 flex flex-col overflow-hidden shadow-sm">
+              <div className="p-3.5 px-4 border-b dark:border-white/[0.08] border-slate-200 flex items-center justify-between dark:bg-[#161619] bg-slate-50/70">
                 <div className="flex items-center gap-2">
                   <Activity className="w-3.5 h-3.5 text-indigo-500" />
                   <h3 className="text-section-heading dark:text-white text-slate-800">
-                    Sprint Activity Feed
+                    Workspace Activity Feed
                   </h3>
                 </div>
                 <div className="flex items-center gap-1.5 text-caption-meta text-slate-400 font-mono">
@@ -708,85 +752,57 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              {/* Event Hierarchy: High importance (PRs), Medium (AI), Normal (Timesheets, Tasks) */}
+              {/* Real Activity Logs from PostgreSQL */}
               <div className="p-3.5 space-y-3 overflow-y-auto max-h-[380px] text-xs divide-y dark:divide-white/[0.04] divide-slate-100">
-                
-                {/* Event 1: High Importance (PR Merged) */}
-                <div className="flex items-start gap-3 pt-1">
-                  <div className="w-7 h-7 rounded-lg bg-indigo-500/15 text-indigo-400 border border-indigo-500/25 flex items-center justify-center flex-shrink-0 mt-0.5 shadow-sm">
-                    <GitPullRequest className="w-3.5 h-3.5" />
+                {recentActivities.length === 0 && (
+                  <div className="p-8 text-center text-slate-400 text-xs">
+                    <Activity className="w-6 h-6 mx-auto mb-2 opacity-50" />
+                    <p className="font-semibold dark:text-slate-300 text-slate-700">No activity recorded yet</p>
+                    <p className="text-[11px] text-slate-500 mt-0.5">Activities appear automatically as team members interact.</p>
                   </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="text-badge-meta uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-                        PR Merged
-                      </span>
-                      <span className="text-caption-meta text-slate-400 font-mono">#42</span>
-                    </div>
-                    <p className="dark:text-slate-300 text-slate-600 leading-snug mt-1 text-[13px]">
-                      <strong className="dark:text-white text-slate-900">Varun S</strong> merged{" "}
-                      <span className="text-indigo-400 font-mono">ClickUp 3.0 Dark Layout</span>
-                    </p>
-                    <span className="text-caption-meta text-slate-400 mt-0.5 block">10 mins ago</span>
-                  </div>
-                </div>
+                )}
 
-                {/* Event 2: Medium Importance (AI Summary) */}
-                <div className="flex items-start gap-3 pt-3">
-                  <div className="w-7 h-7 rounded-lg bg-pink-500/15 text-pink-400 border border-pink-500/25 flex items-center justify-center flex-shrink-0 mt-0.5 shadow-sm">
-                    <BrainFlowerIcon className="w-3.5 h-3.5" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="text-badge-meta uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-pink-500/20 text-pink-300 border border-pink-500/30">
-                        Nexus² AI
-                      </span>
-                    </div>
-                    <p className="dark:text-slate-300 text-slate-600 leading-snug mt-1 text-[13px]">
-                      <strong className="dark:text-white text-slate-900">Nexus² AI</strong> generated sprint summary for{" "}
-                      <span className="text-pink-400"># Phase 2</span>
-                    </p>
-                    <span className="text-caption-meta text-slate-400 mt-0.5 block">24 mins ago</span>
-                  </div>
-                </div>
+                {recentActivities.map((act) => {
+                  const meta = getActivityMeta(act.actionType);
+                  const Icon = meta.icon;
+                  const userName = act.user?.name || "Team Member";
 
-                {/* Event 3: Normal Importance (Timesheet) */}
-                <div className="flex items-start gap-3 pt-3">
-                  <div className="w-7 h-7 rounded-lg bg-amber-500/15 text-amber-400 border border-amber-500/25 flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <Clock className="w-3.5 h-3.5" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="text-badge-meta uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                        Timesheet
-                      </span>
-                    </div>
-                    <p className="dark:text-slate-300 text-slate-600 leading-snug mt-1 text-[13px]">
-                      <strong className="dark:text-white text-slate-900">Gowtham N</strong> logged 6.5 hours on{" "}
-                      <span className="text-slate-400">Neon query pooler</span>
-                    </p>
-                    <span className="text-caption-meta text-slate-400 mt-0.5 block">1 hour ago</span>
-                  </div>
-                </div>
+                  // Extract action summary
+                  let description = "";
+                  if (act.actionType === "TASK_STATUS_CHANGED") {
+                    description = `moved "${act.metadata?.title || "Task"}" to ${act.metadata?.newStatus || "updated"}`;
+                  } else if (act.actionType === "TASK_CREATED") {
+                    description = `created task "${act.metadata?.title || "New task"}"`;
+                  } else if (act.actionType === "MEMBER_ADDED") {
+                    description = `added ${act.metadata?.name || "member"} as ${act.metadata?.role || "collaborator"}`;
+                  } else if (act.actionType === "MEMBER_REMOVED") {
+                    description = `removed ${act.metadata?.name || "member"} from workspace`;
+                  } else {
+                    description = act.metadata?.title || act.metadata?.name || act.actionType?.toLowerCase().replace(/_/g, " ");
+                  }
 
-                {/* Event 4: Normal Importance (Completed Task) */}
-                <div className="flex items-start gap-3 pt-3">
-                  <div className="w-7 h-7 rounded-lg bg-emerald-500/15 text-emerald-400 border border-emerald-500/25 flex items-center justify-center flex-shrink-0 mt-0.5">
-                    <CheckCircle2 className="w-3.5 h-3.5" />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="text-badge-meta uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                        Task Done
-                      </span>
+                  return (
+                    <div key={act.id} className="flex items-start gap-3 pt-2.5 first:pt-0">
+                      <div className={`w-7 h-7 rounded-lg border flex items-center justify-center flex-shrink-0 mt-0.5 shadow-sm ${meta.iconBg}`}>
+                        <Icon className="w-3.5 h-3.5" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className={`text-badge-meta uppercase font-bold tracking-wider px-1.5 py-0.5 rounded border ${meta.badge}`}>
+                            {meta.label}
+                          </span>
+                        </div>
+                        <p className="dark:text-slate-300 text-slate-600 leading-snug mt-1 text-[12.5px]">
+                          <strong className="dark:text-white text-slate-900">{userName}</strong>{" "}
+                          <span>{description}</span>
+                        </p>
+                        <span className="text-caption-meta text-slate-400 mt-0.5 block">
+                          {formatRelativeTime(act.createdAt)}
+                        </span>
+                      </div>
                     </div>
-                    <p className="dark:text-slate-300 text-slate-600 leading-snug mt-1 text-[13px]">
-                      <strong className="dark:text-white text-slate-900">Harshaa J</strong> completed{" "}
-                      <span className="text-slate-400">Timesheets approval workflow</span>
-                    </p>
-                    <span className="text-caption-meta text-slate-400 mt-0.5 block">2 hours ago</span>
-                  </div>
-                </div>
+                  );
+                })}
               </div>
             </div>
           </div>

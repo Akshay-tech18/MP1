@@ -137,7 +137,7 @@ export default function Navbar() {
   };
 
   return (
-    <div className="h-12 dark:bg-[#090b10] bg-white border-b dark:border-white/[0.08] border-slate-200 px-4 flex items-center justify-between select-none flex-shrink-0 relative z-20 transition-colors duration-200">
+    <div className="h-12 dark:bg-[#050505] bg-white border-b dark:border-white/[0.08] border-slate-200 px-4 flex items-center justify-between select-none flex-shrink-0 relative z-20 transition-colors duration-200">
       {/* Left: Workspace Dropdown Switcher (Matching Screenshot 2) */}
       <div className="flex items-center gap-2">
         <WorkspaceDropdown />
@@ -186,7 +186,7 @@ export default function Navbar() {
             onClick={() => setShowSearchModal(false)}
           >
             <div
-              className="w-full max-w-lg rounded-2xl dark:bg-[#121520] bg-white border dark:border-white/15 border-slate-200 shadow-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-150"
+              className="w-full max-w-lg rounded-2xl dark:bg-[#121214] bg-white border dark:border-white/15 border-slate-200 shadow-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-150"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Input Header */}
@@ -306,7 +306,7 @@ export default function Navbar() {
 
           {/* Notifications Flyout Dropdown (Apple-Level Frosted Glassmorphism) */}
           {showNotifications && (
-            <div className="absolute right-0 mt-2 w-80 sm:w-96 rounded-3xl shadow-[0_25px_60px_rgba(0,0,0,0.85),inset_0_1px_1px_rgba(255,255,255,0.18)] z-50 overflow-hidden flex flex-col border dark:border-white/[0.12] border-slate-200 dark:bg-[#0c0f18]/90 bg-white/95 backdrop-blur-3xl dark:text-slate-200 text-slate-800 animate-in fade-in zoom-in-95 duration-150">
+            <div className="absolute right-0 mt-2 w-80 sm:w-96 rounded-3xl shadow-[0_25px_60px_rgba(0,0,0,0.85),inset_0_1px_1px_rgba(255,255,255,0.18)] z-50 overflow-hidden flex flex-col border dark:border-white/[0.12] border-slate-200 dark:bg-[#0a0a0c]/90 bg-white/95 backdrop-blur-3xl dark:text-slate-200 text-slate-800 animate-in fade-in zoom-in-95 duration-150">
               {/* Specular line */}
               <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-white/25 to-transparent pointer-events-none" />
 

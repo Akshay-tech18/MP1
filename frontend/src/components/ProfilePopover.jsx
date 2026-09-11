@@ -79,7 +79,7 @@ export default function ProfilePopover({ user, isOpen, onClose, onLogout }) {
           exit={{ opacity: 0, scale: 0.94, y: -8 }}
           transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
           onClick={(e) => e.stopPropagation()}
-          className="fixed top-14 right-4 pointer-events-auto w-80 rounded-3xl p-4 shadow-[0_25px_60px_rgba(0,0,0,0.5),inset_0_1px_1px_rgba(255,255,255,0.2)] border dark:border-white/[0.14] border-slate-200 dark:bg-[#0c0f18]/90 bg-white/95 backdrop-blur-3xl dark:text-slate-200 text-slate-800 select-none text-xs flex flex-col overflow-hidden"
+          className="fixed top-14 right-4 pointer-events-auto w-80 rounded-3xl p-4 shadow-[0_25px_60px_rgba(0,0,0,0.5),inset_0_1px_1px_rgba(255,255,255,0.2)] border dark:border-white/[0.14] border-slate-200 dark:bg-[#0a0a0c]/90 bg-white/95 backdrop-blur-3xl dark:text-slate-200 text-slate-800 select-none text-xs flex flex-col overflow-hidden"
         >
           {/* Top specular highlight line */}
           <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent pointer-events-none" />

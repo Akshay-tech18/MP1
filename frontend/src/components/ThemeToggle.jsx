@@ -124,12 +124,12 @@ export default function ThemeToggle({
       {/* Floating Tooltip Label (Positioned cleanly below to avoid overlapping adjacent elements) */}
       {tooltipPlacement !== "none" && (
         <span
-          className={`pointer-events-none absolute z-[100] px-2.5 py-1 text-[11px] font-semibold rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-all duration-150 select-none shadow-xl border dark:bg-[#131722] dark:text-slate-100 dark:border-white/10 bg-slate-900 text-white border-slate-800 ${getTooltipClasses()}`}
+          className={`pointer-events-none absolute z-[100] px-2.5 py-1 text-[11px] font-semibold rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-all duration-150 select-none shadow-xl border dark:bg-[#131316] dark:text-slate-100 dark:border-white/10 bg-slate-900 text-white border-slate-800 ${getTooltipClasses()}`}
         >
           {/* Subtle connecting caret for bottom placements */}
           {tooltipPlacement.startsWith("bottom") && (
             <span
-              className={`absolute w-2 h-2 rotate-45 border-t border-l dark:bg-[#131722] dark:border-white/10 bg-slate-900 border-slate-800 ${getArrowClasses()}`}
+              className={`absolute w-2 h-2 rotate-45 border-t border-l dark:bg-[#131316] dark:border-white/10 bg-slate-900 border-slate-800 ${getArrowClasses()}`}
             />
           )}
           <span className="relative z-10">

@@ -23,16 +23,16 @@ export default {
 
           // Dark theme surfaces
           dark: {
-            bg: "#0a0e1a",          // Deep navy background
-            "bg-secondary": "#0f1424",
-            surface: "#111827",     // Card/panel surface
-            "surface-hover": "#1a2035",
-            elevated: "#1e293b",    // Elevated elements
-            border: "#1e293b",
-            "border-light": "#2d3a52",
-            sidebar: "#080c16",     // Deep sidebar
-            "sidebar-hover": "#111827",
-            input: "#0f172a",
+            bg: "#000000",          // Deep navy background
+            "bg-secondary": "#08080a",
+            surface: "#101012",     // Card/panel surface
+            "surface-hover": "#18181b",
+            elevated: "#18181b",    // Elevated elements
+            border: "#26262a",
+            "border-light": "#333338",
+            sidebar: "#050505",     // Deep sidebar
+            "sidebar-hover": "#101012",
+            input: "#0c0c0e",
           },
 
           // Light theme surfaces
@@ -54,7 +54,7 @@ export default {
             primary: "#f8fafc",     // Dark mode primary text
             secondary: "#94a3b8",
             muted: "#64748b",
-            "light-primary": "#0f172a",  // Light mode primary text
+            "light-primary": "#0c0c0e",  // Light mode primary text
             "light-secondary": "#475569",
             "light-muted": "#94a3b8",
           }
@@ -65,10 +65,10 @@ export default {
           primary: "#7c3aed",
           pink: "#ec4899",
           dark: {
-            DEFAULT: "#0a0e1a",
-            sidebar: "#080c16",
-            card: "#111827",
-            border: "#1e293b"
+            DEFAULT: "#000000",
+            sidebar: "#050505",
+            card: "#101012",
+            border: "#26262a"
           },
           light: {
             DEFAULT: "#f8fafc",
@@ -77,7 +77,7 @@ export default {
             border: "#e2e8f0"
           },
           text: {
-            primary: "#0f172a",
+            primary: "#0c0c0e",
             secondary: "#475569",
             muted: "#94a3b8"
           }

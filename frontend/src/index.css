@@ -90,8 +90,14 @@
   }
 
   /* Dark mode defaults */
+  .dark {
+    color-scheme: dark;
+    background-color: #000000;
+  }
+
   .dark body {
     @apply bg-dp-dark-bg text-dp-text-primary;
+    background-color: #000000;
   }
 
   /* Light mode defaults */
@@ -122,11 +128,11 @@
   }
 
   .dark .glass-card {
-    background: rgba(15, 23, 42, 0.65);
+    background: rgba(16, 16, 18, 0.85);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
-    border-color: rgba(255, 255, 255, 0.07);
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+    border-color: rgba(255, 255, 255, 0.08);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
   }
 
   .light .glass-card {
@@ -138,8 +144,8 @@
   }
 
   .dark .glass-card:hover {
-    border-color: rgba(255, 255, 255, 0.12);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+    border-color: rgba(255, 255, 255, 0.14);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
   }
 
   .light .glass-card:hover {
@@ -165,13 +171,13 @@
   .dark .glass-sidebar {
     background: linear-gradient(
       180deg,
-      rgba(8, 12, 22, 0.95) 0%,
-      rgba(10, 14, 26, 0.9) 100%
+      rgba(5, 5, 6, 0.98) 0%,
+      rgba(10, 10, 12, 0.95) 100%
     );
     backdrop-filter: blur(var(--glass-blur-heavy));
     -webkit-backdrop-filter: blur(var(--glass-blur-heavy));
-    border-color: rgba(255, 255, 255, 0.05);
-    box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.03);
+    border-color: rgba(255, 255, 255, 0.06);
+    box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.04);
   }
 
   .light .glass-sidebar {
@@ -532,15 +538,15 @@
 
 /* Surface Levels (Level 0: bg, Level 1: card, Level 2: interactive, Level 3: hover/focus) */
 .dark .surface-lvl-1 {
-  background: #111420;
-  border-color: rgba(255, 255, 255, 0.07);
+  background: #0d0d0f;
+  border-color: rgba(255, 255, 255, 0.08);
 }
 .dark .surface-lvl-2 {
-  background: #161a29;
+  background: #141416;
   border-color: rgba(255, 255, 255, 0.1);
 }
 .dark .surface-lvl-3 {
-  background: #1d2338;
+  background: #1c1c1f;
   border-color: rgba(255, 255, 255, 0.16);
 }
 

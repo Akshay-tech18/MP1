@@ -118,7 +118,7 @@ export default function Sidebar({ isOpen }) {
           animate={{ width: 264, opacity: 1 }}
           exit={{ width: 0, opacity: 0 }}
           transition={{ duration: 0.18, ease: "easeOut" }}
-          className="w-[264px] dark:bg-[#0c0e14] bg-[#f8fafc] border-r dark:border-white/[0.08] border-slate-200 flex flex-col h-full overflow-hidden select-none flex-shrink-0 relative z-20 dark:text-slate-200 text-slate-700 transition-colors duration-200"
+          className="w-[264px] dark:bg-[#080808] bg-[#f8fafc] border-r dark:border-white/[0.08] border-slate-200 flex flex-col h-full overflow-hidden select-none flex-shrink-0 relative z-20 dark:text-slate-200 text-slate-700 transition-colors duration-200"
         >
           {/* 1. Header Toolbar */}
           <div className="px-3.5 py-3 border-b dark:border-white/[0.06] border-slate-200 flex items-center justify-between flex-shrink-0">
@@ -408,7 +408,7 @@ export default function Sidebar({ isOpen }) {
                   animate={{ opacity: 1, scale: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.95, y: 10 }}
                   transition={{ duration: 0.16 }}
-                  className="w-full max-w-md rounded-2xl dark:bg-[#0f1117] bg-white border dark:border-red-500/20 border-red-200 p-6 shadow-2xl relative"
+                  className="w-full max-w-md rounded-2xl dark:bg-[#0d0d10] bg-white border dark:border-red-500/20 border-red-200 p-6 shadow-2xl relative"
                 >
                   <button
                     type="button"

@@ -213,7 +213,7 @@ export default function GitIntegrationModal({ isOpen, onClose }) {
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 15 }}
           transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-          className="relative w-full max-w-2xl max-h-[88vh] rounded-3xl dark:bg-[#0d1019]/95 bg-white/95 backdrop-blur-2xl border dark:border-white/[0.12] border-slate-200 dark:text-slate-200 text-slate-800 shadow-[0_25px_70px_rgba(0,0,0,0.65)] flex flex-col overflow-hidden z-10"
+          className="relative w-full max-w-2xl max-h-[88vh] rounded-3xl dark:bg-[#0a0a0c]/95 bg-white/95 backdrop-blur-2xl border dark:border-white/[0.12] border-slate-200 dark:text-slate-200 text-slate-800 shadow-[0_25px_70px_rgba(0,0,0,0.65)] flex flex-col overflow-hidden z-10"
         >
           {/* Top Specular Line */}
           <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-indigo-500/50 to-transparent pointer-events-none" />

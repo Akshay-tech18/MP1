@@ -294,7 +294,7 @@ export default function Teams() {
 
   return (
     <PageTransition>
-      <div className="flex-1 flex flex-col h-full overflow-y-auto dark:bg-[#0c0e14] bg-[#f8fafc] dark:text-white text-slate-900 select-none p-6 lg:p-8 space-y-6 transition-colors duration-200">
+      <div className="flex-1 flex flex-col h-full overflow-y-auto dark:bg-[#080808] bg-[#f8fafc] dark:text-white text-slate-900 select-none p-6 lg:p-8 space-y-6 transition-colors duration-200">
         {/* Top Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b dark:border-white/[0.08] border-slate-200 pb-5 flex-shrink-0">
           <div>
@@ -331,7 +331,7 @@ export default function Teams() {
 
         {/* Workload & Capacity Overview Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
-          <div className="p-4 rounded-xl dark:bg-[#121520] bg-white border dark:border-white/[0.08] border-slate-200 shadow-sm micro-elevate">
+          <div className="p-4 rounded-xl dark:bg-[#121214] bg-white border dark:border-white/[0.08] border-slate-200 shadow-sm micro-elevate">
             <div className="flex items-center justify-between text-xs text-slate-400 mb-1.5">
               <span className="text-metric-label text-slate-400">Total Members</span>
               <span className="p-1 rounded-md bg-blue-500/10 text-blue-400">
@@ -351,7 +351,7 @@ export default function Teams() {
             </span>
           </div>
 
-          <div className="p-4 rounded-xl dark:bg-[#121520] bg-white border dark:border-white/[0.08] border-slate-200 shadow-sm micro-elevate">
+          <div className="p-4 rounded-xl dark:bg-[#121214] bg-white border dark:border-white/[0.08] border-slate-200 shadow-sm micro-elevate">
             <div className="flex items-center justify-between text-xs text-slate-400 mb-1.5">
               <span className="text-metric-label text-slate-400">Workload Allocation</span>
               <span className="p-1 rounded-md bg-amber-500/10 text-amber-400">
@@ -379,7 +379,7 @@ export default function Teams() {
             </span>
           </div>
 
-          <div className="p-4 rounded-xl dark:bg-[#121520] bg-white border dark:border-white/[0.08] border-slate-200 shadow-sm micro-elevate">
+          <div className="p-4 rounded-xl dark:bg-[#121214] bg-white border dark:border-white/[0.08] border-slate-200 shadow-sm micro-elevate">
             <div className="flex items-center justify-between text-xs text-slate-400 mb-1.5">
               <span className="text-metric-label text-slate-400">Active Sprint</span>
               <span className="p-1 rounded-md bg-purple-500/10 text-purple-400">
@@ -398,7 +398,7 @@ export default function Teams() {
             </div>
           </div>
 
-          <div className="p-4 rounded-xl dark:bg-[#121520] bg-white border dark:border-white/[0.08] border-slate-200 shadow-sm micro-elevate">
+          <div className="p-4 rounded-xl dark:bg-[#121214] bg-white border dark:border-white/[0.08] border-slate-200 shadow-sm micro-elevate">
             <div className="flex items-center justify-between text-xs text-slate-400 mb-1.5">
               <span className="text-metric-label text-slate-400">Team Velocity</span>
               <span className="p-1 rounded-md bg-emerald-500/10 text-emerald-400">
@@ -459,7 +459,7 @@ export default function Teams() {
             <div className="spinner-gradient mb-2" />
           </div>
         ) : filteredMembers.length === 0 ? (
-          <div className="p-12 text-center border dark:border-white/[0.08] border-slate-200 rounded-2xl dark:bg-[#121520] bg-white space-y-3">
+          <div className="p-12 text-center border dark:border-white/[0.08] border-slate-200 rounded-2xl dark:bg-[#121214] bg-white space-y-3">
             <Users className="w-8 h-8 text-slate-400 mx-auto" />
             <h3 className="text-section-heading dark:text-white text-slate-800">No members match your search</h3>
             <p className="text-body-secondary text-slate-500">Try adjusting your role filter or invite new colleagues.</p>
@@ -477,7 +477,7 @@ export default function Teams() {
               return (
                 <div
                   key={member.id}
-                  className={`p-4 rounded-2xl dark:bg-[#121520] bg-white dark:hover:bg-[#151926] hover:bg-slate-50 border transition-all flex flex-col justify-between group shadow-sm relative micro-elevate ${
+                  className={`p-4 rounded-2xl dark:bg-[#121214] bg-white dark:hover:bg-[#161619] hover:bg-slate-50 border transition-all flex flex-col justify-between group shadow-sm relative micro-elevate ${
                     isOverloaded
                       ? "dark:border-amber-500/30 border-amber-500/40"
                       : "dark:border-white/[0.08] border-slate-200 dark:hover:border-white/[0.15] hover:border-slate-300"
@@ -502,7 +502,7 @@ export default function Teams() {
                             </div>
                           )}
                           <span
-                            className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full ring-2 dark:ring-[#121520] ring-white ${
+                            className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full ring-2 dark:ring-[#121214] ring-white ${
                               member.isPending
                                 ? "bg-amber-500"
                                 : member.status === "online"
@@ -675,7 +675,7 @@ export default function Teams() {
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.95 }}
-                className="w-full max-w-md rounded-2xl dark:bg-[#151926] bg-white border dark:border-white/10 border-slate-200 shadow-2xl p-6 dark:text-slate-200 text-slate-800"
+                className="w-full max-w-md rounded-2xl dark:bg-[#161619] bg-white border dark:border-white/10 border-slate-200 shadow-2xl p-6 dark:text-slate-200 text-slate-800"
               >
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-sm font-bold dark:text-white text-slate-900 flex items-center gap-2">

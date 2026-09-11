@@ -116,10 +116,10 @@ export default function Timesheets() {
 
   return (
     <PageTransition>
-      <div className="flex-1 flex flex-col h-full overflow-hidden dark:bg-[#0c0e14] bg-[#f8fafc] dark:text-white text-slate-900 select-none transition-colors duration-200">
+      <div className="flex-1 flex flex-col h-full overflow-hidden dark:bg-[#080808] bg-[#f8fafc] dark:text-white text-slate-900 select-none transition-colors duration-200">
         
         {/* Top ClickUp-style Subnav Tabs Bar */}
-        <div className="h-11 border-b dark:border-white/[0.08] border-slate-200 px-6 flex items-center gap-6 dark:bg-[#0f121a] bg-white flex-shrink-0 text-nav-top transition-colors">
+        <div className="h-11 border-b dark:border-white/[0.08] border-slate-200 px-6 flex items-center gap-6 dark:bg-[#0d0d10] bg-white flex-shrink-0 text-nav-top transition-colors">
           <button
             onClick={() => setActiveSubTab("timesheets")}
             className={`h-full flex items-center gap-1.5 font-medium transition-colors ${
@@ -156,7 +156,7 @@ export default function Timesheets() {
         </div>
 
         {/* Subheader Controls & Operational Summary */}
-        <div className="p-4 px-6 border-b dark:border-white/[0.06] border-slate-200 flex flex-wrap items-center justify-between gap-3 dark:bg-[#0c0e14] bg-white flex-shrink-0 text-body-secondary transition-colors">
+        <div className="p-4 px-6 border-b dark:border-white/[0.06] border-slate-200 flex flex-wrap items-center justify-between gap-3 dark:bg-[#080808] bg-white flex-shrink-0 text-body-secondary transition-colors">
           {/* Left: Date range navigator & filter chips */}
           <div className="flex flex-wrap items-center gap-3">
             {/* Week date navigator */}
@@ -176,19 +176,19 @@ export default function Timesheets() {
             <div className="h-4 w-px dark:bg-white/10 bg-slate-200" />
 
             {/* Filter chips from Screenshot 6 */}
-            <button className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg dark:bg-[#151924] bg-slate-100 dark:hover:bg-[#1c2130] hover:bg-slate-200/80 text-task-metadata dark:text-slate-300 text-slate-700 border dark:border-white/5 border-slate-200 transition-colors">
+            <button className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg dark:bg-[#151518] bg-slate-100 dark:hover:bg-[#1e1e22] hover:bg-slate-200/80 text-task-metadata dark:text-slate-300 text-slate-700 border dark:border-white/5 border-slate-200 transition-colors">
               <DollarSign className="w-3 h-3 text-slate-400" />
               <span>Billable status</span>
             </button>
-            <button className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg dark:bg-[#151924] bg-slate-100 dark:hover:bg-[#1c2130] hover:bg-slate-200/80 text-task-metadata dark:text-slate-300 text-slate-700 border dark:border-white/5 border-slate-200 transition-colors">
+            <button className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg dark:bg-[#151518] bg-slate-100 dark:hover:bg-[#1e1e22] hover:bg-slate-200/80 text-task-metadata dark:text-slate-300 text-slate-700 border dark:border-white/5 border-slate-200 transition-colors">
               <Tag className="w-3 h-3 text-slate-400" />
               <span>Tag</span>
             </button>
-            <button className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg dark:bg-[#151924] bg-slate-100 dark:hover:bg-[#1c2130] hover:bg-slate-200/80 text-task-metadata dark:text-slate-300 text-slate-700 border dark:border-white/5 border-slate-200 transition-colors">
+            <button className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg dark:bg-[#151518] bg-slate-100 dark:hover:bg-[#1e1e22] hover:bg-slate-200/80 text-task-metadata dark:text-slate-300 text-slate-700 border dark:border-white/5 border-slate-200 transition-colors">
               <Clock className="w-3 h-3 text-slate-400" />
               <span>Tracked time</span>
             </button>
-            <button className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg dark:bg-[#151924] bg-slate-100 dark:hover:bg-[#1c2130] hover:bg-slate-200/80 text-task-metadata dark:text-slate-300 text-slate-700 border dark:border-white/5 border-slate-200 transition-colors">
+            <button className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg dark:bg-[#151518] bg-slate-100 dark:hover:bg-[#1e1e22] hover:bg-slate-200/80 text-task-metadata dark:text-slate-300 text-slate-700 border dark:border-white/5 border-slate-200 transition-colors">
               <Archive className="w-3 h-3 text-slate-400" />
               <span>Archived tasks</span>
             </button>
@@ -204,7 +204,7 @@ export default function Timesheets() {
               <span className="text-slate-400">/ {members.length * 40}h</span>
             </div>
 
-            <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg dark:bg-[#151924] bg-slate-100 dark:hover:bg-[#1c2130] hover:bg-slate-200/80 text-btn-refined dark:text-slate-300 text-slate-700 border dark:border-white/5 border-slate-200 transition-colors">
+            <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg dark:bg-[#151518] bg-slate-100 dark:hover:bg-[#1e1e22] hover:bg-slate-200/80 text-btn-refined dark:text-slate-300 text-slate-700 border dark:border-white/5 border-slate-200 transition-colors">
               <span>All members</span>
               <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
             </button>
@@ -213,10 +213,10 @@ export default function Timesheets() {
 
         {/* Matrix Grid Table matching Screenshot 6 */}
         <div className="flex-1 overflow-auto p-6">
-          <div className="rounded-xl border dark:border-white/[0.08] border-slate-200 dark:bg-[#11141e] bg-white overflow-hidden shadow-sm">
+          <div className="rounded-xl border dark:border-white/[0.08] border-slate-200 dark:bg-[#111113] bg-white overflow-hidden shadow-sm">
             <table className="w-full text-left text-body-secondary border-collapse min-w-[860px]">
               <thead>
-                <tr className="border-b dark:border-white/[0.08] border-slate-200 dark:bg-[#141824] bg-slate-50 text-slate-500 text-metric-label uppercase font-semibold tracking-wider">
+                <tr className="border-b dark:border-white/[0.08] border-slate-200 dark:bg-[#141417] bg-slate-50 text-slate-500 text-metric-label uppercase font-semibold tracking-wider">
                   <th className="p-3.5 pl-4 font-semibold w-72">
                     People ({members.length})
                   </th>
@@ -356,7 +356,7 @@ export default function Timesheets() {
             <motion.div
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
-              className="w-full max-w-md rounded-2xl dark:bg-[#131622] bg-white border dark:border-white/10 border-slate-200 p-6 shadow-2xl space-y-4 text-slate-800 dark:text-white"
+              className="w-full max-w-md rounded-2xl dark:bg-[#131316] bg-white border dark:border-white/10 border-slate-200 p-6 shadow-2xl space-y-4 text-slate-800 dark:text-white"
             >
               <div className="flex items-center justify-between pb-3 border-b dark:border-white/10 border-slate-200">
                 <div className="flex items-center gap-2">
@@ -382,7 +382,7 @@ export default function Timesheets() {
                   <select
                     value={logForm.dayIndex}
                     onChange={(e) => setLogForm({ ...logForm, dayIndex: parseInt(e.target.value) })}
-                    className="w-full p-2.5 rounded-xl dark:bg-[#1b2030] bg-slate-50 border dark:border-white/10 border-slate-200 dark:text-white text-slate-900 focus:outline-none focus:border-indigo-500"
+                    className="w-full p-2.5 rounded-xl dark:bg-[#18181b] bg-slate-50 border dark:border-white/10 border-slate-200 dark:text-white text-slate-900 focus:outline-none focus:border-indigo-500"
                   >
                     {DAYS.map((d, i) => (
                       <option key={i} value={i}>{d.label}</option>
@@ -399,7 +399,7 @@ export default function Timesheets() {
                     max="24"
                     value={logForm.hours}
                     onChange={(e) => setLogForm({ ...logForm, hours: e.target.value })}
-                    className="w-full p-2.5 rounded-xl dark:bg-[#1b2030] bg-slate-50 border dark:border-white/10 border-slate-200 dark:text-white text-slate-900 font-mono focus:outline-none focus:border-indigo-500"
+                    className="w-full p-2.5 rounded-xl dark:bg-[#18181b] bg-slate-50 border dark:border-white/10 border-slate-200 dark:text-white text-slate-900 font-mono focus:outline-none focus:border-indigo-500"
                   />
                 </div>
 
@@ -410,7 +410,7 @@ export default function Timesheets() {
                     placeholder="e.g. Electron setup, API contract review..."
                     value={logForm.note}
                     onChange={(e) => setLogForm({ ...logForm, note: e.target.value })}
-                    className="w-full p-2.5 rounded-xl dark:bg-[#1b2030] bg-slate-50 border dark:border-white/10 border-slate-200 dark:text-white text-slate-900 focus:outline-none focus:border-indigo-500"
+                    className="w-full p-2.5 rounded-xl dark:bg-[#18181b] bg-slate-50 border dark:border-white/10 border-slate-200 dark:text-white text-slate-900 focus:outline-none focus:border-indigo-500"
                   />
                 </div>
 

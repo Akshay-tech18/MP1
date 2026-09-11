@@ -641,7 +641,7 @@ export default function Chat() {
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: 10 }}
                 transition={{ duration: 0.16 }}
-                className="w-full max-w-md rounded-2xl dark:bg-[#0f1117] bg-white border dark:border-white/10 border-slate-200 p-6 shadow-2xl relative"
+                className="w-full max-w-md rounded-2xl dark:bg-[#0d0d10] bg-white border dark:border-white/10 border-slate-200 p-6 shadow-2xl relative"
               >
                 <button
                   type="button"
@@ -740,7 +740,7 @@ export default function Chat() {
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.95, y: 10 }}
                 transition={{ duration: 0.16 }}
-                className="w-full max-w-md rounded-2xl dark:bg-[#0f1117] bg-white border dark:border-red-500/20 border-red-200 p-6 shadow-2xl relative"
+                className="w-full max-w-md rounded-2xl dark:bg-[#0d0d10] bg-white border dark:border-red-500/20 border-red-200 p-6 shadow-2xl relative"
               >
                 <button
                   type="button"

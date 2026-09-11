@@ -4,14 +4,7 @@ import {
   ChevronDown,
   Calendar,
   Settings,
-  Layers,
-  LayoutTemplate,
-  FileEdit,
-  Bot,
-  Tag,
   Plus,
-  Sparkles,
-  ExternalLink,
   Check,
 } from "lucide-react";
 import useAuthStore from "../store/useAuthStore";
@@ -47,7 +40,7 @@ export default function WorkspaceDropdown() {
       {/* Workspace Switcher Button */}
       <button
         onClick={() => setIsOpen((prev) => !prev)}
-        className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg dark:bg-[#181b24] bg-slate-100 hover:bg-slate-200 dark:hover:bg-[#202532] border dark:border-white/[0.08] border-slate-200 transition-all text-nav-top font-semibold dark:text-slate-200 text-slate-800 group shadow-sm"
+        className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg dark:bg-[#18181b] bg-slate-100 hover:bg-slate-200 dark:hover:bg-[#202024] border dark:border-white/[0.08] border-slate-200 transition-all text-nav-top font-semibold dark:text-slate-200 text-slate-800 group shadow-sm"
       >
         <span className="w-5 h-5 rounded-md bg-teal-600 flex items-center justify-center text-white text-caption-meta font-bold shadow-sm">
           {initial}
@@ -76,7 +69,7 @@ export default function WorkspaceDropdown() {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 8, scale: 0.96 }}
             transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
-            className="absolute left-0 top-full mt-2 w-80 max-h-[82vh] rounded-3xl p-3.5 dark:shadow-[0_30px_70px_rgba(0,0,0,0.85),inset_0_1px_1px_rgba(255,255,255,0.2)] shadow-2xl border dark:border-white/[0.14] border-slate-200 dark:bg-[#0b0e17]/95 bg-white/95 backdrop-blur-3xl z-50 select-none dark:text-slate-200 text-slate-800 flex flex-col overflow-hidden"
+            className="absolute left-0 top-full mt-2 w-80 max-h-[82vh] rounded-3xl p-3.5 dark:shadow-[0_30px_70px_rgba(0,0,0,0.85),inset_0_1px_1px_rgba(255,255,255,0.2)] shadow-2xl border dark:border-white/[0.14] border-slate-200 dark:bg-[#0a0a0c]/95 bg-white/95 backdrop-blur-3xl z-50 select-none dark:text-slate-200 text-slate-800 flex flex-col overflow-hidden"
           >
             {/* Top specular reflection line */}
             <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent pointer-events-none" />
@@ -97,12 +90,6 @@ export default function WorkspaceDropdown() {
                       ? "member"
                       : "members"}
                   </span>
-                  <span>•</span>
-                  <span>Free Forever</span>
-                  <span>•</span>
-                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-pink-500 to-purple-500 font-semibold cursor-pointer hover:underline">
-                    Upgrade
-                  </span>
                 </p>
               </div>
             </div>
@@ -122,121 +109,56 @@ export default function WorkspaceDropdown() {
               </button>
             </div>
 
-            {/* Scrollable Middle Container (Manage + Switch Workspace) */}
-            <div className="flex-1 overflow-y-auto overflow-x-hidden pr-1 space-y-2.5 scrollbar-thin max-h-[46vh]">
-              {/* Manage Section */}
-              <div className="space-y-0.5 border-t dark:border-white/[0.06] border-slate-200 pt-2">
-                <span className="text-metric-label font-semibold text-slate-400 uppercase tracking-wider px-2 block mb-1">
-                  Manage
-                </span>
-
-                <button
-                  onClick={() => setIsOpen(false)}
-                  className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-body-secondary dark:hover:bg-white/5 hover:bg-slate-100 transition-colors group"
-                >
-                  <div className="w-4 h-4 flex items-center justify-center text-indigo-400">
-                    <Layers className="w-3.5 h-3.5" />
-                  </div>
-                  <span className="dark:text-slate-300 text-slate-700 dark:group-hover:text-white group-hover:text-slate-900 font-medium">Apps</span>
-                </button>
-
-                <button
-                  onClick={() => setIsOpen(false)}
-                  className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-body-secondary dark:hover:bg-white/5 hover:bg-slate-100 transition-colors group"
-                >
-                  <div className="w-4 h-4 flex items-center justify-center text-cyan-400">
-                    <LayoutTemplate className="w-3.5 h-3.5" />
-                  </div>
-                  <span className="dark:text-slate-300 text-slate-700 dark:group-hover:text-white group-hover:text-slate-900 font-medium">Templates</span>
-                </button>
-
-                <button
-                  onClick={() => setIsOpen(false)}
-                  className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-body-secondary dark:hover:bg-white/5 hover:bg-slate-100 transition-colors group"
-                >
-                  <div className="w-4 h-4 flex items-center justify-center text-amber-400">
-                    <FileEdit className="w-3.5 h-3.5" />
-                  </div>
-                  <span className="dark:text-slate-300 text-slate-700 dark:group-hover:text-white group-hover:text-slate-900 font-medium">Custom Fields</span>
-                </button>
-
-                <button
-                  onClick={() => setIsOpen(false)}
-                  className="w-full flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-body-secondary dark:hover:bg-white/5 hover:bg-slate-100 transition-colors group"
-                >
-                  <div className="w-4 h-4 flex items-center justify-center text-emerald-400">
-                    <Bot className="w-3.5 h-3.5" />
-                  </div>
-                  <span className="dark:text-slate-300 text-slate-700 dark:group-hover:text-white group-hover:text-slate-900 font-medium">Automations</span>
-                </button>
-
-                <button
-                  onClick={() => setIsOpen(false)}
-                  className="w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-body-secondary dark:hover:bg-white/5 hover:bg-slate-100 transition-colors group"
-                >
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-4 h-4 flex items-center justify-center text-purple-400">
-                      <Tag className="w-3.5 h-3.5" />
-                    </div>
-                    <span className="dark:text-slate-300 text-slate-700 dark:group-hover:text-white group-hover:text-slate-900 font-medium">Tag Manager</span>
-                  </div>
-                  <span className="px-1.5 py-0.5 rounded text-badge-meta font-bold uppercase bg-purple-600/30 text-purple-400 border border-purple-500/20">
-                    New
+            {/* Scrollable Middle Container (Switch Workspace if multiple) */}
+            {projects.length > 1 && (
+              <div className="flex-1 overflow-y-auto overflow-x-hidden pr-1 space-y-0.5 scrollbar-thin max-h-[46vh] border-t dark:border-white/[0.06] border-slate-200 pt-2">
+                <div className="flex items-center justify-between px-2 mb-1">
+                  <span className="text-metric-label font-semibold text-slate-400 uppercase tracking-wider">
+                    Switch Workspace
                   </span>
-                </button>
-              </div>
-
-              {/* Other workspaces list if any */}
-              {projects.length > 1 && (
-                <div className="border-t dark:border-white/[0.06] border-slate-200 pt-2 space-y-0.5">
-                  <div className="flex items-center justify-between px-2 mb-1">
-                    <span className="text-metric-label font-semibold text-slate-400 uppercase tracking-wider">
-                      Switch Workspace
-                    </span>
-                    <span className="text-caption-meta font-mono px-1.5 py-0.2 rounded-full bg-slate-200 dark:bg-white/10 text-slate-500 dark:text-slate-400">
-                      {projects.length}
-                    </span>
-                  </div>
-                  {projects.map((p) => (
-                    <div
-                      key={p.id}
-                      className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-body-secondary transition-colors group ${
-                        p.id === currentProject?.id
-                          ? "bg-indigo-600/20 text-indigo-400 font-semibold"
-                          : "dark:hover:bg-white/5 hover:bg-slate-100 dark:text-slate-300 text-slate-700"
-                      }`}
-                    >
-                      <button
-                        onClick={() => {
-                          setCurrentProject(p);
-                          setIsOpen(false);
-                        }}
-                        className="flex items-center gap-2 flex-1 min-w-0 text-left"
-                      >
-                        <span className="truncate">{p.name}</span>
-                        {p.id === currentProject?.id && (
-                          <Check className="w-3.5 h-3.5 text-indigo-400 flex-shrink-0" />
-                        )}
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setIsOpen(false);
-                          setSettingsTargetProjectId(p.id);
-                          setShowSettingsModal(true);
-                        }}
-                        title={`Manage "${p.name}" settings`}
-                        className="opacity-0 group-hover:opacity-100 p-1 rounded-md hover:bg-white/10 text-slate-400 hover:text-slate-200 transition-all ml-1 flex-shrink-0"
-                      >
-                        <Settings className="w-3 h-3" />
-                      </button>
-                    </div>
-                  ))}
+                  <span className="text-caption-meta font-mono px-1.5 py-0.2 rounded-full bg-slate-200 dark:bg-white/10 text-slate-500 dark:text-slate-400">
+                    {projects.length}
+                  </span>
                 </div>
-              )}
-            </div>
+                {projects.map((p) => (
+                  <div
+                    key={p.id}
+                    className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-body-secondary transition-colors group ${
+                      p.id === currentProject?.id
+                        ? "bg-indigo-600/20 text-indigo-400 font-semibold"
+                        : "dark:hover:bg-white/5 hover:bg-slate-100 dark:text-slate-300 text-slate-700"
+                    }`}
+                  >
+                    <button
+                      onClick={() => {
+                        setCurrentProject(p);
+                        setIsOpen(false);
+                      }}
+                      className="flex items-center gap-2 flex-1 min-w-0 text-left"
+                    >
+                      <span className="truncate">{p.name}</span>
+                      {p.id === currentProject?.id && (
+                        <Check className="w-3.5 h-3.5 text-indigo-400 flex-shrink-0" />
+                      )}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setIsOpen(false);
+                        setSettingsTargetProjectId(p.id);
+                        setShowSettingsModal(true);
+                      }}
+                      title={`Manage "${p.name}" settings`}
+                      className="opacity-0 group-hover:opacity-100 p-1 rounded-md hover:bg-white/10 text-slate-400 hover:text-slate-200 transition-all ml-1 flex-shrink-0"
+                    >
+                      <Settings className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
 
             {/* Pinned Bottom: + Create Workspace Button (Always fully visible!) */}
             <div className="border-t dark:border-white/[0.08] border-slate-200 pt-2.5 mt-2 flex-shrink-0">
