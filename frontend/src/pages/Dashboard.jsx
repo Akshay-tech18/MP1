@@ -41,6 +41,7 @@ import {
   UserCheck,
 } from "lucide-react";
 import { SocketEvent } from "../config/constants";
+import { formatDuration } from "../utils/timeFormat";
 
 // ClickUp Brain / Nexus flower icon
 function BrainFlowerIcon({ className = "w-3.5 h-3.5" }) {
@@ -269,6 +270,8 @@ export default function Dashboard() {
   const highCount = workspaceTasks.filter((t) => t.priority === "HIGH").length;
   const membersCount = projectDetails?.members?.length || 1;
   const completionRate = totalTasks > 0 ? Math.round((completedCount / totalTasks) * 100) : 0;
+  const totalEstimatedMinutes = workspaceTasks.reduce((acc, t) => acc + (t.estimatedTime || 0), 0);
+  const totalSpentMinutes = workspaceTasks.reduce((acc, t) => acc + (t.timeSpent || 0), 0);
 
   const activeSprint =
     dashboardMetrics?.activeSprint ||
@@ -406,6 +409,14 @@ export default function Dashboard() {
                 <span className="font-semibold text-indigo-400">
                   {completionRate}% progress
                 </span>
+                {(totalEstimatedMinutes > 0 || totalSpentMinutes > 0) && (
+                  <>
+                    <span className="opacity-40">•</span>
+                    <span className="font-mono text-emerald-400">
+                      {formatDuration(totalSpentMinutes)} / {formatDuration(totalEstimatedMinutes)} logged
+                    </span>
+                  </>
+                )}
               </div>
             </div>
 
@@ -712,6 +723,21 @@ export default function Dashboard() {
                       </div>
 
                       <div className="flex items-center gap-2 flex-shrink-0">
+                        {/* Time Spent / Estimated badge */}
+                        {((t.estimatedTime && t.estimatedTime > 0) || (t.timeSpent && t.timeSpent > 0)) && (
+                          <span
+                            className={`flex items-center gap-1 font-mono text-badge-meta px-1.5 py-0.5 rounded ${
+                              t.estimatedTime > 0 && t.timeSpent > t.estimatedTime
+                                ? "bg-amber-500/15 text-amber-400 border border-amber-500/30"
+                                : "dark:bg-white/5 bg-slate-100 dark:text-slate-300 text-slate-600 border dark:border-white/5 border-slate-200"
+                            }`}
+                            title={`Logged: ${formatDuration(t.timeSpent || 0)} / Est: ${formatDuration(t.estimatedTime || 0)}`}
+                          >
+                            <Clock className="w-2.5 h-2.5 text-indigo-400" />
+                            <span>{formatDuration(t.timeSpent || 0)} / {formatDuration(t.estimatedTime || 0)}</span>
+                          </span>
+                        )}
+
                         {/* Status tag */}
                         <span className="px-1.5 py-0.5 rounded text-badge-meta dark:bg-white/5 bg-slate-100 dark:text-slate-400 text-slate-600 border dark:border-white/5 border-slate-200 font-mono">
                           {t.status}

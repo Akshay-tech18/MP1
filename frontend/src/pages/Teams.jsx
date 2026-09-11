@@ -97,7 +97,10 @@ export default function Teams() {
         const activeTask =
           memberTasks.find((t) => t.status !== "COMPLETED")?.title ||
           (memberTasks.length > 0 ? "All assigned tasks completed" : "Awaiting sprint onboarding");
-        const hoursAllocated = Math.min(memberTasks.length * 8, 40);
+        const memberEstimatedMins = memberTasks.reduce((acc, t) => acc + (t.estimatedTime || 0), 0);
+        const hoursAllocated = memberEstimatedMins > 0
+          ? Math.min(Math.round((memberEstimatedMins / 60) * 10) / 10, 60)
+          : Math.min(memberTasks.length * 8, 40);
 
         let roleCategory = "dev";
         const roleUpper = (m.role || "DEVELOPER").toUpperCase();

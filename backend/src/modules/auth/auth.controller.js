@@ -42,7 +42,7 @@ const googleCallback = (req, res) => {
   if (!req.user) {
     return res.redirect(`${process.env.CORS_ORIGIN || "http://localhost:3000"}/login?error=auth_failed`);
   }
-  
+
   // For OAuth redirect flow, set the cookies and redirect to frontend dashboard
   const accessToken = signAccessToken(req.user);
 
@@ -104,7 +104,12 @@ const githubCallback = async (req, res) => {
  * Log user out, clear cookies
  */
 const logout = (req, res) => {
+  // Aggressively clear cookies matching both previous and current configurations
+  // to ensure stale cookies from old versions are properly deleted by the browser.
   res.clearCookie("accessToken", COOKIE_OPTIONS);
+  res.clearCookie("accessToken", { ...COOKIE_OPTIONS, sameSite: "lax", secure: false });
+  res.clearCookie("access_token", COOKIE_OPTIONS);
+
   return sendSuccess(res, 200, "Logged out successfully");
 };
 
@@ -116,7 +121,7 @@ const getMe = (req, res) => {
     return sendError(res, 401, "Not authenticated");
   }
   const token = req.cookies?.accessToken || req.cookies?.access_token || (req.headers.authorization?.startsWith("Bearer ") ? req.headers.authorization.slice(7) : null);
-  return sendSuccess(res, 200, "User profile retrieved", { 
+  return sendSuccess(res, 200, "User profile retrieved", {
     user: req.user,
     accessToken: token
   });

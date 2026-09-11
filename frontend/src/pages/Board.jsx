@@ -13,9 +13,11 @@ import {
   Send,
   AlertCircle,
   Loader2,
+  Clock,
 } from "lucide-react";
 import Avatar from "../components/Avatar";
 import { TaskStatus, TaskPriority, SocketEvent } from "../config/constants";
+import { formatDuration, calculateTimeProgress } from "../utils/timeFormat";
 
 const COLUMNS = ["TODO", "IN_PROGRESS", "IN_REVIEW", "COMPLETED", "BLOCKED"];
 
@@ -55,6 +57,8 @@ export default function Board() {
   const [newTaskPriority, setNewTaskPriority] = useState("MEDIUM");
   const [newTaskAssignee, setNewTaskAssignee] = useState("");
   const [newTaskSprint, setNewTaskSprint] = useState("");
+  const [newTaskEstimatedTime, setNewTaskEstimatedTime] = useState("");
+  const [newTaskTimeSpent, setNewTaskTimeSpent] = useState("");
   const [createTaskLoading, setCreateTaskLoading] = useState(false);
   const [createTaskError, setCreateTaskError] = useState(null);
 
@@ -223,7 +227,9 @@ export default function Board() {
         priority: newTaskPriority,
         status: createColumnTarget,
         assigneeId: newTaskAssignee || null,
-        sprintId: sprintToAssign
+        sprintId: sprintToAssign,
+        estimatedTime: newTaskEstimatedTime ? parseInt(newTaskEstimatedTime, 10) : 0,
+        timeSpent: newTaskTimeSpent ? parseInt(newTaskTimeSpent, 10) : 0,
       });
 
       if (res.data.success) {
@@ -239,6 +245,8 @@ export default function Board() {
         setNewTaskDesc("");
         setNewTaskAssignee("");
         setNewTaskSprint("");
+        setNewTaskEstimatedTime("");
+        setNewTaskTimeSpent("");
         setCreateTaskError(null);
         setShowCreateModal(false);
         fetchTasks();
@@ -410,6 +418,19 @@ export default function Board() {
                                         </span>
                                       </div>
                                       <div className="flex items-center gap-2">
+                                        {((taskItem.estimatedTime && taskItem.estimatedTime > 0) || (taskItem.timeSpent && taskItem.timeSpent > 0)) && (
+                                          <span
+                                            className={`flex items-center gap-1 font-mono text-[11px] px-1.5 py-0.5 rounded ${
+                                              taskItem.estimatedTime > 0 && taskItem.timeSpent > taskItem.estimatedTime
+                                                ? "bg-amber-500/15 text-amber-400 border border-amber-500/30"
+                                                : "dark:bg-white/5 bg-slate-100 dark:text-slate-400 text-slate-500 border dark:border-white/5 border-slate-200"
+                                            }`}
+                                            title={`Logged: ${formatDuration(taskItem.timeSpent || 0)} / Est: ${formatDuration(taskItem.estimatedTime || 0)}`}
+                                          >
+                                            <Clock className="w-2.5 h-2.5 text-indigo-400" />
+                                            <span>{formatDuration(taskItem.timeSpent || 0)} / {formatDuration(taskItem.estimatedTime || 0)}</span>
+                                          </span>
+                                        )}
                                         {taskItem._count?.comments > 0 && (
                                           <span className="flex items-center gap-0.5 dark:text-slate-400 text-slate-500 font-mono text-[11.5px]">
                                             <MessageSquare className="w-2.5 h-2.5" />
@@ -508,6 +529,124 @@ export default function Board() {
                     </select>
                   </div>
                 </div>
+
+                {/* Time Tracking & Estimation Module */}
+                {(() => {
+                  const timeProgress = calculateTimeProgress(taskDetails.timeSpent, taskDetails.estimatedTime);
+                  const spent = taskDetails.timeSpent || 0;
+                  const est = taskDetails.estimatedTime || 0;
+
+                  return (
+                    <div className="p-4 rounded-xl dark:bg-dp-dark-surface/50 bg-slate-50 border dark:border-dp-dark-border-light/30 border-dp-light-border/60 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="flex items-center gap-1.5 text-[13px] font-semibold dark:text-dp-text-primary text-dp-text-light-primary">
+                          <Clock className="w-4 h-4 text-indigo-400" />
+                          Time Tracking
+                        </span>
+                        <div className="flex items-center gap-2">
+                          {timeProgress.isOverBudget ? (
+                            <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-500/15 text-amber-400 border border-amber-500/25">
+                              +{formatDuration(timeProgress.overMinutes)} over est.
+                            </span>
+                          ) : est > 0 ? (
+                            <span className="text-[11.5px] font-mono dark:text-slate-400 text-slate-500">
+                              {formatDuration(timeProgress.remainingMinutes)} remaining
+                            </span>
+                          ) : null}
+                          <span className="font-mono text-[12px] font-bold dark:text-indigo-300 text-indigo-600">
+                            {formatDuration(spent)} / {est > 0 ? formatDuration(est) : "No est."}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Progress Bar */}
+                      {est > 0 && (
+                        <div className="space-y-1">
+                          <div className="w-full h-2 rounded-full dark:bg-white/10 bg-slate-200 overflow-hidden">
+                            <div
+                              className={`h-full rounded-full transition-all duration-300 ${
+                                timeProgress.isOverBudget
+                                  ? "bg-amber-500"
+                                  : "bg-gradient-to-r from-indigo-500 to-emerald-500"
+                              }`}
+                              style={{ width: `${Math.min(timeProgress.percentage, 100)}%` }}
+                            />
+                          </div>
+                          <div className="flex justify-between text-[11px] font-mono dark:text-slate-400 text-slate-500">
+                            <span>{timeProgress.percentage}% logged</span>
+                            <span>{est > 0 ? `${est} mins total` : ""}</span>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Editable Inputs for Estimated and Spent */}
+                      <div className="grid grid-cols-2 gap-3 pt-1">
+                        <div className="space-y-1">
+                          <label className="text-[11.5px] font-medium dark:text-slate-400 text-slate-500 flex items-center justify-between">
+                            <span>Estimated (mins)</span>
+                            <span className="font-mono text-indigo-400 text-[11px]">
+                              {est > 0 ? formatDuration(est) : "0m"}
+                            </span>
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            step="5"
+                            placeholder="0"
+                            value={taskDetails.estimatedTime ?? 0}
+                            onChange={(e) => {
+                              const val = Math.max(0, parseInt(e.target.value, 10) || 0);
+                              setTaskDetails((prev) => ({ ...prev, estimatedTime: val }));
+                              handleUpdateTaskField("estimatedTime", val);
+                            }}
+                            className="glass-input w-full text-[13px] font-mono py-1.5 px-2.5"
+                          />
+                        </div>
+
+                        <div className="space-y-1">
+                          <label className="text-[11.5px] font-medium dark:text-slate-400 text-slate-500 flex items-center justify-between">
+                            <span>Time Spent (mins)</span>
+                            <span className="font-mono text-emerald-400 text-[11px]">
+                              {spent > 0 ? formatDuration(spent) : "0m"}
+                            </span>
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            step="5"
+                            placeholder="0"
+                            value={taskDetails.timeSpent ?? 0}
+                            onChange={(e) => {
+                              const val = Math.max(0, parseInt(e.target.value, 10) || 0);
+                              setTaskDetails((prev) => ({ ...prev, timeSpent: val }));
+                              handleUpdateTaskField("timeSpent", val);
+                            }}
+                            className="glass-input w-full text-[13px] font-mono py-1.5 px-2.5"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Quick Log Increment Pills */}
+                      <div className="pt-1 flex items-center gap-1.5 flex-wrap">
+                        <span className="text-[11px] text-slate-400 mr-1">Quick Log:</span>
+                        {[15, 30, 60, 120].map((incMins) => (
+                          <button
+                            key={incMins}
+                            type="button"
+                            onClick={() => {
+                              const newSpent = (taskDetails.timeSpent || 0) + incMins;
+                              setTaskDetails((prev) => ({ ...prev, timeSpent: newSpent }));
+                              handleUpdateTaskField("timeSpent", newSpent);
+                            }}
+                            className="px-2 py-0.5 text-[11px] font-mono rounded-md dark:bg-white/5 bg-white hover:bg-indigo-500/10 dark:hover:bg-indigo-500/20 hover:text-indigo-400 border dark:border-white/10 border-slate-200 transition-colors"
+                          >
+                            +{formatDuration(incMins)}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 {/* Linked Commits */}
                 {taskDetails.commits && taskDetails.commits.length > 0 && (
@@ -624,8 +763,51 @@ export default function Board() {
                       </select>
                     </div>
                   </div>
+
+                  {/* Time Estimation & Spent Inputs */}
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <div>
+                      <label className="flex items-center justify-between text-metric-label dark:text-dp-text-muted text-dp-text-light-muted mb-1">
+                        <span className="flex items-center gap-1"><Clock className="w-3 h-3 text-indigo-400" /> Estimated Time (mins)</span>
+                        {newTaskEstimatedTime > 0 && (
+                          <span className="text-caption-meta text-indigo-400 font-mono font-bold">
+                            ({formatDuration(newTaskEstimatedTime)})
+                          </span>
+                        )}
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="5"
+                        placeholder="e.g. 120 (2h)"
+                        value={newTaskEstimatedTime}
+                        onChange={(e) => setNewTaskEstimatedTime(e.target.value)}
+                        className="glass-input w-full text-[13px] font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="flex items-center justify-between text-metric-label dark:text-dp-text-muted text-dp-text-light-muted mb-1">
+                        <span className="flex items-center gap-1"><Clock className="w-3 h-3 text-emerald-400" /> Time Spent (mins)</span>
+                        {newTaskTimeSpent > 0 && (
+                          <span className="text-caption-meta text-emerald-400 font-mono font-bold">
+                            ({formatDuration(newTaskTimeSpent)})
+                          </span>
+                        )}
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="5"
+                        placeholder="e.g. 45 (45m)"
+                        value={newTaskTimeSpent}
+                        onChange={(e) => setNewTaskTimeSpent(e.target.value)}
+                        className="glass-input w-full text-[13px] font-mono"
+                      />
+                    </div>
+                  </div>
+
                   <div className="flex justify-end gap-2 pt-2">
-                    <button type="button" onClick={() => { setShowCreateModal(false); setNewTaskTitle(""); setNewTaskDesc(""); setNewTaskAssignee(""); setNewTaskSprint(""); setCreateTaskError(null); }} className="btn-ghost text-btn-refined">Cancel</button>
+                    <button type="button" onClick={() => { setShowCreateModal(false); setNewTaskTitle(""); setNewTaskDesc(""); setNewTaskAssignee(""); setNewTaskSprint(""); setNewTaskEstimatedTime(""); setNewTaskTimeSpent(""); setCreateTaskError(null); }} className="btn-ghost text-btn-refined">Cancel</button>
                     <button type="submit" disabled={createTaskLoading || !newTaskTitle.trim()} className="btn-primary text-btn-refined flex items-center gap-1.5 disabled:opacity-50">
                       {createTaskLoading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                       <span>{createTaskLoading ? "Adding..." : "Add Task"}</span>
