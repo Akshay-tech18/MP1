@@ -11,6 +11,14 @@ const COOKIE_OPTIONS = {
   sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
 };
 
+const getClientUrl = () => {
+  if (process.env.CLIENT_URL) return process.env.CLIENT_URL;
+  if (process.env.CORS_ORIGIN) {
+    return process.env.CORS_ORIGIN.split(",")[0].trim();
+  }
+  return "http://localhost:3000";
+};
+
 // Set token cookies and respond
 const handleAuthSuccess = (res, user, message = "Authentication successful") => {
   const accessToken = signAccessToken(user);
@@ -40,7 +48,7 @@ const handleAuthSuccess = (res, user, message = "Authentication successful") => 
  */
 const googleCallback = (req, res) => {
   if (!req.user) {
-    return res.redirect(`${process.env.CORS_ORIGIN || "http://localhost:3000"}/login?error=auth_failed`);
+    return res.redirect(`${getClientUrl()}/login?error=auth_failed`);
   }
 
   // For OAuth redirect flow, set the cookies and redirect to frontend dashboard
@@ -51,7 +59,7 @@ const googleCallback = (req, res) => {
     maxAge: 24 * 60 * 60 * 1000,
   });
 
-  res.redirect(`${process.env.CORS_ORIGIN || "http://localhost:3000"}/dashboard?auth=success`);
+  res.redirect(`${getClientUrl()}/dashboard?auth=success`);
 };
 
 /**
@@ -59,7 +67,7 @@ const googleCallback = (req, res) => {
  */
 const githubCallback = async (req, res) => {
   if (!req.user) {
-    return res.redirect(`${process.env.CORS_ORIGIN || "http://localhost:3000"}/login?error=auth_failed`);
+    return res.redirect(`${getClientUrl()}/login?error=auth_failed`);
   }
 
   // If state was provided, it is an existing logged-in user connecting their GitHub account

@@ -11,7 +11,15 @@ const {
 
 const router = express.Router();
 
-const CLIENT_LOGIN_ERROR = `${process.env.CORS_ORIGIN || "http://localhost:3000"}/login?error=auth_failed`;
+const getClientUrl = () => {
+  if (process.env.CLIENT_URL) return process.env.CLIENT_URL;
+  if (process.env.CORS_ORIGIN) {
+    return process.env.CORS_ORIGIN.split(",")[0].trim();
+  }
+  return "http://localhost:3000";
+};
+
+const CLIENT_LOGIN_ERROR = `${getClientUrl()}/login?error=auth_failed`;
 
 // Google OAuth
 router.get(
