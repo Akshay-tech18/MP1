@@ -1,5 +1,6 @@
 const express = require("express");
 const passport = require("passport");
+const logger = require("../../utils/logger");
 const { protect } = require("../../middleware/auth.middleware");
 const {
   googleCallback,
@@ -19,19 +20,26 @@ const getClientUrl = () => {
   return "http://localhost:3000";
 };
 
-const CLIENT_LOGIN_ERROR = `${getClientUrl()}/login?error=auth_failed`;
-
 // Google OAuth
 router.get(
   "/google",
   passport.authenticate("google", { scope: ["profile", "email"], session: false })
 );
 
-router.get(
-  "/google/callback",
-  passport.authenticate("google", { session: false, failureRedirect: CLIENT_LOGIN_ERROR }),
-  googleCallback
-);
+router.get("/google/callback", (req, res, next) => {
+  passport.authenticate("google", { session: false }, (err, user, info) => {
+    if (err) {
+      logger.error("Google OAuth Error: %s \nOAuth Details: %o", err.message, err.oauthError || err);
+      return res.redirect(`${getClientUrl()}/login?error=google_auth_failed`);
+    }
+    if (!user) {
+      logger.warn("Google OAuth Failed - No user returned: %o", info);
+      return res.redirect(`${getClientUrl()}/login?error=auth_failed`);
+    }
+    req.user = user;
+    return googleCallback(req, res);
+  })(req, res, next);
+});
 
 // GitHub OAuth
 router.get("/github", (req, res, next) => {
@@ -43,11 +51,20 @@ router.get("/github", (req, res, next) => {
   })(req, res, next);
 });
 
-router.get(
-  "/github/callback",
-  passport.authenticate("github", { session: false, failureRedirect: CLIENT_LOGIN_ERROR }),
-  githubCallback
-);
+router.get("/github/callback", (req, res, next) => {
+  passport.authenticate("github", { session: false }, (err, user, info) => {
+    if (err) {
+      logger.error("GitHub OAuth Error: %s \nOAuth Details: %o", err.message, err.oauthError || err);
+      return res.redirect(`${getClientUrl()}/login?error=github_auth_failed`);
+    }
+    if (!user) {
+      logger.warn("GitHub OAuth Failed - No user returned: %o", info);
+      return res.redirect(`${getClientUrl()}/login?error=auth_failed`);
+    }
+    req.user = user;
+    return githubCallback(req, res);
+  })(req, res, next);
+});
 
 // Session Management & Tokens
 router.post("/logout", logout);
