@@ -11,6 +11,9 @@ const crypto = require("crypto");
 
 const app = express();
 
+// Enable trust proxy for Dokku / Nginx reverse proxy (for secure HTTPS cookies)
+app.set("trust proxy", 1);
+
 // 0. Inject Correlation ID and Access Logging
 app.use((req, res, next) => {
   req.id = crypto.randomUUID();
