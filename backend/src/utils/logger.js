@@ -34,12 +34,11 @@ const logger = winston.createLogger({
   ],
 });
 
-if (process.env.NODE_ENV !== "production") {
-  logger.add(
-    new winston.transports.Console({
-      format: consoleFormat,
-    })
-  );
-}
+// Always add Console transport so Docker/Dokku logs capture all application output
+logger.add(
+  new winston.transports.Console({
+    format: consoleFormat,
+  })
+);
 
 module.exports = logger;
