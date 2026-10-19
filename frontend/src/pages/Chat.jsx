@@ -692,74 +692,121 @@ export default function Chat() {
                       </div>
                     )}
 
-                    <div className="flex gap-3 items-start transition-opacity duration-150">
-                      <Avatar src={msg.sender?.avatar} name={msg.sender?.name} size="md" />
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2.5">
-                          <span className="text-card-title font-bold dark:text-dp-text-primary text-dp-text-light-primary">
-                            {msg.sender?.name || "Colleague"}
-                          </span>
-                          <span className="text-caption-meta dark:text-dp-text-muted text-dp-text-light-muted">
-                            {formattedTime}
-                          </span>
-                        </div>
+                    {/* Message Row: Right for Own Messages, Left for Others */}
+                    <div
+                      className={`w-full flex ${
+                        isOwnMessage ? "justify-end" : "justify-start"
+                      } transition-opacity duration-150`}
+                    >
+                      <div
+                        className={`flex gap-2.5 items-end max-w-[85%] sm:max-w-[75%] ${
+                          isOwnMessage ? "flex-row-reverse" : "flex-row"
+                        }`}
+                      >
+                        <Avatar
+                          src={msg.sender?.avatar}
+                          name={msg.sender?.name}
+                          size="sm"
+                          className="mb-1 flex-shrink-0"
+                        />
 
-                        {/* Text Message Content */}
-                        {msg.content && (
-                          <p
-                            className={`mt-1.5 leading-relaxed p-3 rounded-xl inline-block max-w-lg text-body-primary border ${
-                              isOwnMessage
-                                ? "bg-dp-primary/10 dark:border-dp-primary/20 border-dp-primary/15 dark:text-dp-text-primary text-dp-text-light-primary"
-                                : "dark:bg-dp-dark-surface/60 bg-white dark:border-dp-dark-border-light/30 border-dp-light-border/60 dark:text-dp-text-secondary text-dp-text-light-secondary"
-                            }`}
-                          >
-                            {msg.content}
-                          </p>
-                        )}
+                        <div className={`flex flex-col ${isOwnMessage ? "items-end" : "items-start"} min-w-0`}>
+                          {/* Sender name & time header (shown for others, or in group channels) */}
+                          {(!isOwnMessage || activeChannel.isGroup) && (
+                            <div className="flex items-center gap-2 mb-1 px-1">
+                              <span className="text-[12px] font-bold dark:text-slate-200 text-slate-800">
+                                {isOwnMessage ? "You" : (msg.sender?.name || "Colleague")}
+                              </span>
+                              <span className="text-[10px] text-slate-400 font-mono">
+                                {formattedTime}
+                              </span>
+                            </div>
+                          )}
 
-                        {/* Media Attachment (Photo / Video / Document) */}
-                        {msg.fileUrl && (
-                          <div className="mt-2">
-                            {isMediaImage(msg.fileUrl) ? (
-                              <div
-                                onClick={() => setPreviewMediaUrl(msg.fileUrl)}
-                                className="relative inline-block rounded-2xl overflow-hidden border dark:border-white/10 border-slate-200 cursor-pointer group shadow-sm hover:shadow-md transition-shadow max-w-sm"
-                              >
-                                <img
-                                  src={msg.fileUrl}
-                                  alt="Attachment"
-                                  className="max-h-64 w-auto object-cover rounded-2xl group-hover:scale-[1.01] transition-transform"
-                                  loading="lazy"
-                                />
-                                <div className="absolute inset-0 bg-black/35 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-white text-xs font-semibold gap-1.5 backdrop-blur-[1px]">
-                                  <Maximize2 className="w-4 h-4" />
-                                  <span>Click to expand</span>
+                          {/* Text Message Content */}
+                          {msg.content && (
+                            <div
+                              className={`p-3 px-4 rounded-2xl text-body-primary break-words text-left shadow-sm ${
+                                isOwnMessage
+                                  ? "rounded-br-xs bg-indigo-600 text-white border border-indigo-500/30"
+                                  : "rounded-bl-xs dark:bg-[#18181b] bg-slate-100 border dark:border-white/10 border-slate-200 dark:text-slate-200 text-slate-800"
+                              }`}
+                            >
+                              <p className="leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+                              {isOwnMessage && !activeChannel.isGroup && (
+                                <div className="text-[10px] text-indigo-200/90 mt-1 text-right font-mono select-none">
+                                  {formattedTime}
                                 </div>
-                              </div>
-                            ) : isMediaVideo(msg.fileUrl) ? (
-                              <div className="rounded-2xl overflow-hidden border dark:border-white/10 border-slate-200 max-w-md shadow-sm">
-                                <video
-                                  src={msg.fileUrl}
-                                  controls
-                                  preload="metadata"
-                                  className="w-full max-h-72 bg-black rounded-2xl"
-                                />
-                              </div>
-                            ) : (
-                              <a
-                                href={msg.fileUrl}
-                                download
-                                target="_blank"
-                                rel="noreferrer"
-                                className="inline-flex items-center gap-2 p-3 rounded-xl dark:bg-white/5 bg-slate-100 border dark:border-white/10 border-slate-200 hover:border-indigo-500/40 text-xs font-semibold dark:text-white text-slate-800 transition-colors"
-                              >
-                                <Paperclip className="w-4 h-4 text-indigo-400" />
-                                <span>Download Attachment</span>
-                                <Download className="w-3.5 h-3.5 text-slate-400 ml-1" />
-                              </a>
-                            )}
-                          </div>
-                        )}
+                              )}
+                            </div>
+                          )}
+
+                          {/* Media Attachment (Photo / Video / Document) */}
+                          {msg.fileUrl && (
+                            <div className={`mt-1.5 flex flex-col ${isOwnMessage ? "items-end" : "items-start"}`}>
+                              {isMediaImage(msg.fileUrl) ? (
+                                <div
+                                  onClick={() => setPreviewMediaUrl(msg.fileUrl)}
+                                  className={`relative rounded-2xl overflow-hidden cursor-pointer group shadow-sm hover:shadow-md transition-shadow max-w-sm border ${
+                                    isOwnMessage
+                                      ? "border-indigo-500/30"
+                                      : "dark:border-white/10 border-slate-200"
+                                  }`}
+                                >
+                                  <img
+                                    src={msg.fileUrl}
+                                    alt="Attachment"
+                                    className="max-h-64 w-auto object-cover rounded-2xl group-hover:scale-[1.01] transition-transform"
+                                    loading="lazy"
+                                  />
+                                  <div className="absolute inset-0 bg-black/35 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-white text-xs font-semibold gap-1.5 backdrop-blur-[1px]">
+                                    <Maximize2 className="w-4 h-4" />
+                                    <span>Click to expand</span>
+                                  </div>
+                                  <div className="absolute bottom-2 right-2 px-1.5 py-0.5 rounded-md bg-black/60 text-[10px] text-white font-mono backdrop-blur-sm">
+                                    {formattedTime}
+                                  </div>
+                                </div>
+                              ) : isMediaVideo(msg.fileUrl) ? (
+                                <div
+                                  className={`rounded-2xl overflow-hidden max-w-md shadow-sm border ${
+                                    isOwnMessage
+                                      ? "border-indigo-500/30"
+                                      : "dark:border-white/10 border-slate-200"
+                                  }`}
+                                >
+                                  <video
+                                    src={msg.fileUrl}
+                                    controls
+                                    preload="metadata"
+                                    className="w-full max-h-72 bg-black rounded-2xl"
+                                  />
+                                </div>
+                              ) : (
+                                <a
+                                  href={msg.fileUrl}
+                                  download
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className={`inline-flex items-center gap-2 p-3 rounded-xl text-xs font-semibold shadow-sm transition-colors border ${
+                                    isOwnMessage
+                                      ? "bg-indigo-600 text-white border-indigo-500/40 hover:bg-indigo-500"
+                                      : "dark:bg-white/5 bg-slate-100 dark:text-white text-slate-800 border-slate-200 dark:border-white/10 hover:border-indigo-500/40"
+                                  }`}
+                                >
+                                  <Paperclip className="w-4 h-4" />
+                                  <span>Download Attachment</span>
+                                  <Download className="w-3.5 h-3.5 ml-1 opacity-70" />
+                                </a>
+                              )}
+                              {!msg.content && isOwnMessage && !activeChannel.isGroup && (
+                                <span className="text-[10px] text-slate-400 mt-1 mr-1 font-mono">
+                                  {formattedTime}
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </React.Fragment>
