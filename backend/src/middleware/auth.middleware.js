@@ -9,14 +9,14 @@ const logger = require("../utils/logger");
 const protect = async (req, res, next) => {
   let token = null;
 
-  // 1. Try to get token from cookies
-  if (req.cookies) {
-    token = req.cookies.accessToken || req.cookies.access_token;
+  // 1. Check Authorization Header first (ensures tab-specific tokens take precedence)
+  if (req.headers.authorization && req.headers.authorization.startsWith("Bearer")) {
+    token = req.headers.authorization.split(" ")[1];
   }
 
-  // 2. Fallback to Authorization Header
-  if (!token && req.headers.authorization && req.headers.authorization.startsWith("Bearer")) {
-    token = req.headers.authorization.split(" ")[1];
+  // 2. Fallback to cookies if no Authorization Header is provided
+  if (!token && req.cookies) {
+    token = req.cookies.accessToken || req.cookies.access_token;
   }
 
   if (!token) {

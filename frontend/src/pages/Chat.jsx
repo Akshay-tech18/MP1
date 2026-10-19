@@ -7,6 +7,7 @@ import useChannelStore from "../store/useChannelStore";
 import client from "../api/client";
 import PageTransition from "../components/PageTransition";
 import Avatar from "../components/Avatar";
+import VideoMeetingModal from "../components/VideoMeetingModal";
 import {
   Send,
   Hash,
@@ -16,8 +17,47 @@ import {
   Trash2,
   AlertCircle,
   AlertTriangle,
+  Video,
+  Paperclip,
+  Film,
+  Download,
+  Maximize2,
 } from "lucide-react";
 import { SocketEvent } from "../config/constants";
+
+function isMediaImage(url) {
+  if (!url) return false;
+  return url.startsWith("data:image/") || /\.(jpeg|jpg|png|gif|webp|svg)($|\?)/i.test(url);
+}
+
+function isMediaVideo(url) {
+  if (!url) return false;
+  return url.startsWith("data:video/") || /\.(mp4|webm|ogg|mov)($|\?)/i.test(url);
+}
+
+function getMessageDateKey(dateStr) {
+  if (!dateStr) return "";
+  const d = new Date(dateStr);
+  return `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
+}
+
+function formatChatDateDivider(dateStr) {
+  if (!dateStr) return "";
+  const date = new Date(dateStr);
+  const today = new Date();
+  const yesterday = new Date(today);
+  yesterday.setDate(yesterday.getDate() - 1);
+
+  if (date.toDateString() === today.toDateString()) return "Today";
+  if (date.toDateString() === yesterday.toDateString()) return "Yesterday";
+
+  return date.toLocaleDateString(undefined, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    year: date.getFullYear() !== today.getFullYear() ? "numeric" : undefined,
+  });
+}
 
 export default function Chat() {
   const { user, currentProject } = useAuthStore();
@@ -53,12 +93,49 @@ export default function Chat() {
 
   const [channelToDelete, setChannelToDelete] = useState(null);
   const [isDeletingChannel, setIsDeletingChannel] = useState(false);
+  const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
+  const [attachment, setAttachment] = useState(null);
+  const [previewMediaUrl, setPreviewMediaUrl] = useState(null);
 
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
+  const fileInputRef = useRef(null);
   const typingTimeoutRef = useRef(null);
   const isTypingRef = useRef(false);
   const activeRequestIdRef = useRef(0);
+
+  const handleFileSelect = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 10 * 1024 * 1024) {
+      alert("Attachment size cannot exceed 10MB");
+      e.target.value = "";
+      return;
+    }
+
+    const isImg = file.type.startsWith("image/");
+    const isVid = file.type.startsWith("video/");
+    const fileType = isImg ? "image" : isVid ? "video" : "file";
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setAttachment({
+        file,
+        dataUrl: event.target.result,
+        type: fileType,
+        name: file.name,
+        size: (file.size / 1024).toFixed(1) + " KB",
+      });
+    };
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  };
+
+  const removeAttachment = () => {
+    setAttachment(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
 
   // 1. Fetch project members & channels
   useEffect(() => {
@@ -241,16 +318,22 @@ export default function Chat() {
 
   const handleSendMessage = async (e) => {
     e.preventDefault();
-    if (!messageText.trim()) return;
+    if (!messageText.trim() && !attachment) return;
     try {
       await client.post(`/projects/${currentProject.id}/messages`, {
-        content: messageText,
+        content: messageText.trim() || "",
         isGroup: activeChannel.isGroup,
         channelId: activeChannel.isGroup ? (activeChannel.channel?.id || "general") : null,
-        receiverId: activeChannel.isGroup ? null : activeChannel.targetUser.id
+        receiverId: activeChannel.isGroup ? null : activeChannel.targetUser.id,
+        fileUrl: attachment?.dataUrl || null,
       });
-      setMessageText(""); stopTyping();
-    } catch (err) { console.error(err); }
+      setMessageText("");
+      setAttachment(null);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      stopTyping();
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   const handleCreateChannel = (e) => {
@@ -495,19 +578,37 @@ export default function Chat() {
               )}
             </div>
 
-            {/* Actions for this Channel: Delete Channel with confirmation */}
-            {activeChannel.isGroup && activeChannel.channel?.id && activeChannel.channel.id !== "general" && (
+            {/* Header Right Actions: Video Meeting + Delete Channel */}
+            <div className="flex items-center gap-2 flex-shrink-0">
               <button
                 type="button"
-                id="delete-channel-top-btn"
-                onClick={() => setChannelToDelete(activeChannel.channel)}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-red-400 hover:text-white hover:bg-red-500/20 border border-red-500/30 text-btn-refined font-semibold transition-all active:scale-95 ml-3 flex-shrink-0"
-                title={`Delete #${activeChannel.channel.name}`}
+                onClick={() => setIsVideoModalOpen(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-indigo-400 hover:text-white hover:bg-indigo-500/20 border border-indigo-500/30 text-btn-refined font-semibold transition-all active:scale-95 shadow-sm"
+                title={
+                  activeChannel.isGroup
+                    ? "Start Team Video Meeting with Screen Sharing"
+                    : `Start 1-on-1 Call with ${activeChannel.targetUser?.name || "Colleague"}`
+                }
               >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Delete Channel</span>
+                <Video className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">
+                  {activeChannel.isGroup ? "Meet" : "Call"}
+                </span>
               </button>
-            )}
+
+              {activeChannel.isGroup && activeChannel.channel?.id && activeChannel.channel.id !== "general" && (
+                <button
+                  type="button"
+                  id="delete-channel-top-btn"
+                  onClick={() => setChannelToDelete(activeChannel.channel)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-red-400 hover:text-white hover:bg-red-500/20 border border-red-500/30 text-btn-refined font-semibold transition-all active:scale-95 flex-shrink-0"
+                  title={`Delete #${activeChannel.channel.name}`}
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Delete Channel</span>
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Messages */}
@@ -572,38 +673,144 @@ export default function Chat() {
                 </div>
               </div>
             ) : (
-              messages.map((msg) => {
+              messages.map((msg, index) => {
                 const date = new Date(msg.createdAt);
                 const formattedTime = date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
                 const isOwnMessage = msg.senderId === user?.id;
+                const dateKey = getMessageDateKey(msg.createdAt);
+                const prevDateKey = index > 0 ? getMessageDateKey(messages[index - 1].createdAt) : null;
+                const showDateDivider = dateKey !== prevDateKey;
+
                 return (
-                  <div
-                    key={msg.id}
-                    className="flex gap-3 items-start transition-opacity duration-150"
-                  >
-                    <Avatar src={msg.sender?.avatar} name={msg.sender?.name} size="md" />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2.5">
-                        <span className="text-card-title font-bold dark:text-dp-text-primary text-dp-text-light-primary">{msg.sender?.name}</span>
-                        <span className="text-caption-meta dark:text-dp-text-muted text-dp-text-light-muted">{formattedTime}</span>
+                  <React.Fragment key={msg.id}>
+                    {/* WhatsApp-Style Date Divider Pill */}
+                    {showDateDivider && (
+                      <div className="flex items-center justify-center my-4 select-none">
+                        <span className="px-3.5 py-1 rounded-full text-[11px] font-semibold dark:bg-white/[0.06] bg-slate-200/90 dark:text-slate-300 text-slate-700 border dark:border-white/5 border-slate-300 shadow-sm backdrop-blur-md">
+                          {formatChatDateDivider(msg.createdAt)}
+                        </span>
                       </div>
-                      <p className={`mt-1.5 leading-relaxed p-3 rounded-xl inline-block max-w-lg text-body-primary border ${
-                        isOwnMessage
-                          ? "bg-dp-primary/10 dark:border-dp-primary/20 border-dp-primary/15 dark:text-dp-text-primary text-dp-text-light-primary"
-                          : "dark:bg-dp-dark-surface/60 bg-white dark:border-dp-dark-border-light/30 border-dp-light-border/60 dark:text-dp-text-secondary text-dp-text-light-secondary"
-                      }`}>
-                        {msg.content}
-                      </p>
+                    )}
+
+                    <div className="flex gap-3 items-start transition-opacity duration-150">
+                      <Avatar src={msg.sender?.avatar} name={msg.sender?.name} size="md" />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2.5">
+                          <span className="text-card-title font-bold dark:text-dp-text-primary text-dp-text-light-primary">
+                            {msg.sender?.name || "Colleague"}
+                          </span>
+                          <span className="text-caption-meta dark:text-dp-text-muted text-dp-text-light-muted">
+                            {formattedTime}
+                          </span>
+                        </div>
+
+                        {/* Text Message Content */}
+                        {msg.content && (
+                          <p
+                            className={`mt-1.5 leading-relaxed p-3 rounded-xl inline-block max-w-lg text-body-primary border ${
+                              isOwnMessage
+                                ? "bg-dp-primary/10 dark:border-dp-primary/20 border-dp-primary/15 dark:text-dp-text-primary text-dp-text-light-primary"
+                                : "dark:bg-dp-dark-surface/60 bg-white dark:border-dp-dark-border-light/30 border-dp-light-border/60 dark:text-dp-text-secondary text-dp-text-light-secondary"
+                            }`}
+                          >
+                            {msg.content}
+                          </p>
+                        )}
+
+                        {/* Media Attachment (Photo / Video / Document) */}
+                        {msg.fileUrl && (
+                          <div className="mt-2">
+                            {isMediaImage(msg.fileUrl) ? (
+                              <div
+                                onClick={() => setPreviewMediaUrl(msg.fileUrl)}
+                                className="relative inline-block rounded-2xl overflow-hidden border dark:border-white/10 border-slate-200 cursor-pointer group shadow-sm hover:shadow-md transition-shadow max-w-sm"
+                              >
+                                <img
+                                  src={msg.fileUrl}
+                                  alt="Attachment"
+                                  className="max-h-64 w-auto object-cover rounded-2xl group-hover:scale-[1.01] transition-transform"
+                                  loading="lazy"
+                                />
+                                <div className="absolute inset-0 bg-black/35 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-white text-xs font-semibold gap-1.5 backdrop-blur-[1px]">
+                                  <Maximize2 className="w-4 h-4" />
+                                  <span>Click to expand</span>
+                                </div>
+                              </div>
+                            ) : isMediaVideo(msg.fileUrl) ? (
+                              <div className="rounded-2xl overflow-hidden border dark:border-white/10 border-slate-200 max-w-md shadow-sm">
+                                <video
+                                  src={msg.fileUrl}
+                                  controls
+                                  preload="metadata"
+                                  className="w-full max-h-72 bg-black rounded-2xl"
+                                />
+                              </div>
+                            ) : (
+                              <a
+                                href={msg.fileUrl}
+                                download
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex items-center gap-2 p-3 rounded-xl dark:bg-white/5 bg-slate-100 border dark:border-white/10 border-slate-200 hover:border-indigo-500/40 text-xs font-semibold dark:text-white text-slate-800 transition-colors"
+                              >
+                                <Paperclip className="w-4 h-4 text-indigo-400" />
+                                <span>Download Attachment</span>
+                                <Download className="w-3.5 h-3.5 text-slate-400 ml-1" />
+                              </a>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
+                  </React.Fragment>
                 );
               })
             )}
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Input */}
+          {/* Input Bar */}
           <div className="p-4 glass-sidebar border-t flex-shrink-0">
+            {/* Attachment preview banner */}
+            {attachment && (
+              <div className="mb-3 p-2.5 rounded-2xl dark:bg-white/[0.04] bg-slate-100 border dark:border-white/10 border-slate-200 flex items-center justify-between gap-3 animate-in fade-in">
+                <div className="flex items-center gap-3 min-w-0">
+                  {attachment.type === "image" ? (
+                    <img
+                      src={attachment.dataUrl}
+                      alt="preview"
+                      className="w-12 h-12 object-cover rounded-xl border border-white/10 flex-shrink-0"
+                    />
+                  ) : attachment.type === "video" ? (
+                    <div className="w-12 h-12 rounded-xl bg-black/40 flex items-center justify-center flex-shrink-0 border border-white/10 text-indigo-400">
+                      <Film className="w-6 h-6" />
+                    </div>
+                  ) : (
+                    <div className="w-12 h-12 rounded-xl bg-indigo-500/10 flex items-center justify-center flex-shrink-0 text-indigo-400">
+                      <Paperclip className="w-5 h-5" />
+                    </div>
+                  )}
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold dark:text-white text-slate-800 truncate max-w-xs">
+                      {attachment.name}
+                    </p>
+                    <p className="text-[11px] text-slate-400 font-mono">
+                      {attachment.size} • Ready to send
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={removeAttachment}
+                  className="p-1.5 rounded-xl hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 transition-colors"
+                  title="Remove attachment"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            )}
+
             <div className="h-5 mb-1.5 text-task-metadata dark:text-dp-text-muted text-dp-text-light-muted italic">
               {typingText && (
                 <span className="flex items-center gap-2">
@@ -612,7 +819,27 @@ export default function Chat() {
                 </span>
               )}
             </div>
-            <form onSubmit={handleSendMessage} className="flex gap-3">
+
+            <form onSubmit={handleSendMessage} className="flex items-center gap-2">
+              {/* File Attachment Input (Hidden) */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*,video/*"
+                onChange={handleFileSelect}
+                className="hidden"
+              />
+
+              {/* Attach Media Button */}
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="p-2.5 rounded-xl dark:bg-white/5 bg-slate-100 hover:bg-slate-200 dark:hover:bg-white/10 text-slate-400 hover:text-indigo-400 border dark:border-white/5 border-slate-200 transition-colors flex-shrink-0"
+                title="Attach Photo or Video"
+              >
+                <Paperclip className="w-4 h-4" />
+              </button>
+
               <input
                 type="text"
                 placeholder={
@@ -624,7 +851,12 @@ export default function Chat() {
                 onChange={handleInputChange}
                 className="glass-input flex-1 text-body-secondary"
               />
-              <button type="submit" disabled={!messageText.trim()} className="btn-primary px-5 py-2.5 flex items-center gap-2 text-btn-refined disabled:opacity-40">
+
+              <button
+                type="submit"
+                disabled={!messageText.trim() && !attachment}
+                className="btn-primary px-5 py-2.5 flex items-center gap-2 text-btn-refined disabled:opacity-40 flex-shrink-0"
+              >
                 <Send className="w-4 h-4" />
                 <span className="hidden sm:inline">Send</span>
               </button>
@@ -792,6 +1024,41 @@ export default function Chat() {
             </div>
           )}
         </AnimatePresence>
+
+        {/* Full-screen Media Preview Modal */}
+        <AnimatePresence>
+          {previewMediaUrl && (
+            <div
+              className="fixed inset-0 z-[99999] bg-black/85 backdrop-blur-md flex items-center justify-center p-4 select-none"
+              onClick={() => setPreviewMediaUrl(null)}
+            >
+              <div className="relative max-w-4xl max-h-[90vh] flex flex-col items-center">
+                <button
+                  type="button"
+                  onClick={() => setPreviewMediaUrl(null)}
+                  className="absolute -top-11 right-0 p-2 text-white/80 hover:text-white bg-white/10 hover:bg-white/20 rounded-full transition-colors"
+                  title="Close preview"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+                <img
+                  src={previewMediaUrl}
+                  alt="Expanded preview"
+                  className="max-h-[85vh] max-w-full rounded-2xl object-contain shadow-2xl border border-white/10"
+                  onClick={(e) => e.stopPropagation()}
+                />
+              </div>
+            </div>
+          )}
+        </AnimatePresence>
+
+        {/* Video Meeting Modal (WebRTC with Screen Sharing) */}
+        <VideoMeetingModal
+          isOpen={isVideoModalOpen}
+          onClose={() => setIsVideoModalOpen(false)}
+          currentProject={currentProject}
+          user={user}
+        />
       </div>
     </PageTransition>
   );

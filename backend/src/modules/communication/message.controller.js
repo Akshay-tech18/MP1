@@ -51,7 +51,7 @@ const sendMessage = async (req, res) => {
     // 3. Create message in database
     const message = await prisma.message.create({
       data: {
-        content,
+        content: content || "",
         isGroup: isGroup !== undefined ? isGroup : true,
         channelId: targetChannelId,
         projectId,
