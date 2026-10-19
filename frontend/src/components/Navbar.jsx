@@ -1,8 +1,9 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import { AnimatePresence } from "framer-motion";
 import useAuthStore from "../store/useAuthStore";
 import useSocketStore from "../store/useSocketStore";
 import useNotificationStore from "../store/useNotificationStore";
+import client from "../api/client";
 import VideoMeetingModal from "./VideoMeetingModal";
 import WorkspaceDropdown from "./WorkspaceDropdown";
 import ThemeToggle from "./ThemeToggle";
@@ -15,6 +16,11 @@ import {
   Clock,
   Sparkles,
   Github,
+  CheckCircle2,
+  FileText,
+  Users,
+  Loader2,
+  CornerDownLeft,
 } from "lucide-react";
 import GitIntegrationModal from "./GitIntegrationModal";
 import { useNavigate } from "react-router-dom";
@@ -49,6 +55,9 @@ export default function Navbar() {
   const [showGitModal, setShowGitModal] = useState(false);
   const [showSearchModal, setShowSearchModal] = useState(false);
   const [commandQuery, setCommandQuery] = useState("");
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchResults, setSearchResults] = useState({ tasks: [], documents: [], members: [] });
+  const [selectedIndex, setSelectedIndex] = useState(0);
   const notifDropdownRef = useRef(null);
   const searchInputRef = useRef(null);
   const navigate = useNavigate();
@@ -70,24 +79,172 @@ export default function Navbar() {
   useEffect(() => {
     if (showSearchModal) {
       setTimeout(() => searchInputRef.current?.focus(), 50);
+    } else {
+      setCommandQuery("");
+      setSearchResults({ tasks: [], documents: [], members: [] });
+      setSelectedIndex(0);
     }
   }, [showSearchModal]);
 
-  const commandItems = [
-    { id: "cmd-1", label: "Open Kanban Planner & Sprint", category: "Navigation", icon: "📋", action: () => navigate("/board") },
-    { id: "cmd-2", label: "Launch Nexus AI Workspace", category: "Intelligence", icon: "✨", action: () => navigate("/ai") },
-    { id: "cmd-3", label: "Log Weekly Timesheet Hours", category: "Operational", icon: "⏱️", action: () => navigate("/timesheets") },
-    { id: "cmd-4", label: "Inspect Codebase Defect Risk", category: "Intelligence", icon: "📊", action: () => navigate("/analytics") },
-    { id: "cmd-5", label: "Manage Team Workload & Invites", category: "Operational", icon: "👥", action: () => navigate("/teams") },
-    { id: "cmd-6", label: "Working with Neon and Prisma", category: "Docs", icon: "📄", action: () => navigate("/docs") },
-    { id: "cmd-7", label: "Phase 1 - API Contract Spec", category: "Docs", icon: "📄", action: () => navigate("/docs") },
-    { id: "cmd-8", label: "Database Schema Architecture", category: "Docs", icon: "📄", action: () => navigate("/docs") },
-  ];
+  // Debounced search for real workspace items
+  useEffect(() => {
+    if (!commandQuery.trim() || !currentProject?.id) {
+      setSearchResults({ tasks: [], documents: [], members: [] });
+      setIsSearching(false);
+      return;
+    }
 
-  const filteredCommands = commandItems.filter((c) =>
-    c.label.toLowerCase().includes(commandQuery.toLowerCase()) ||
-    c.category.toLowerCase().includes(commandQuery.toLowerCase())
-  );
+    setIsSearching(true);
+    const timer = setTimeout(async () => {
+      try {
+        const res = await client.get(`/projects/${currentProject.id}/search`, {
+          params: { q: commandQuery.trim() }
+        });
+        if (res.data?.success) {
+          setSearchResults(res.data.data);
+        }
+      } catch (err) {
+        console.error("Workspace search error:", err);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 150);
+
+    return () => clearTimeout(timer);
+  }, [commandQuery, currentProject]);
+
+  const navigationCommands = useMemo(() => [
+    { id: "cmd-board", label: "Open Kanban Planner & Sprint", category: "Navigation", icon: "📋", action: () => navigate("/board") },
+    { id: "cmd-ai", label: "Launch Nexus AI Workspace", category: "Intelligence", icon: "✨", action: () => navigate("/ai") },
+    { id: "cmd-chat", label: "Team Channels & Live Messaging", category: "Communication", icon: "💬", action: () => navigate("/chat") },
+    { id: "cmd-docs", label: "Project Docs & Architecture Wiki", category: "Knowledge", icon: "📄", action: () => navigate("/docs") },
+    { id: "cmd-timesheets", label: "Log Weekly Timesheet Hours", category: "Operational", icon: "⏱️", action: () => navigate("/timesheets") },
+    { id: "cmd-analytics", label: "Inspect Code Defect Risk & Commits", category: "Intelligence", icon: "📊", action: () => navigate("/analytics") },
+    { id: "cmd-teams", label: "Manage Team Workload & Invites", category: "Operational", icon: "👥", action: () => navigate("/teams") },
+    { id: "cmd-git", label: "GitHub Integration & Repositories", category: "Integration", icon: "🐙", action: () => setShowGitModal(true) },
+  ], [navigate]);
+
+  const filteredNav = useMemo(() => {
+    if (!commandQuery.trim()) return navigationCommands;
+    const q = commandQuery.toLowerCase();
+    return navigationCommands.filter((c) =>
+      c.label.toLowerCase().includes(q) || c.category.toLowerCase().includes(q)
+    );
+  }, [commandQuery, navigationCommands]);
+
+  // Aggregate all results into a unified flat list for keyboard indexing
+  const flatItems = useMemo(() => {
+    if (!commandQuery.trim()) {
+      return filteredNav.map((item) => ({
+        ...item,
+        type: "navigation",
+        meta: "Quick Action",
+      }));
+    }
+
+    const items = [];
+
+    // Real Tasks
+    if (searchResults.tasks?.length > 0) {
+      searchResults.tasks.forEach((t) => {
+        items.push({
+          id: `task-${t.id}`,
+          type: "task",
+          label: t.title,
+          category: "Tasks",
+          meta: `${t.status.replace("_", " ")} • Priority: ${t.priority}${t.assignee?.name ? ` • Assigned to ${t.assignee.name}` : ""}`,
+          status: t.status,
+          action: () => {
+            navigate(`/board?taskId=${t.id}`);
+            setShowSearchModal(false);
+          },
+        });
+      });
+    }
+
+    // Real Documents
+    if (searchResults.documents?.length > 0) {
+      searchResults.documents.forEach((d) => {
+        items.push({
+          id: `doc-${d.id}`,
+          type: "document",
+          label: d.title,
+          category: "Documents",
+          meta: `${d.readTime || 1}m read • By ${d.author?.name || "Author"}${d.tags?.length ? ` • ${d.tags.join(", ")}` : ""}`,
+          action: () => {
+            navigate(`/docs?docId=${d.id}`);
+            setShowSearchModal(false);
+          },
+        });
+      });
+    }
+
+    // Real Members
+    if (searchResults.members?.length > 0) {
+      searchResults.members.forEach((m) => {
+        items.push({
+          id: `member-${m.id}`,
+          type: "member",
+          label: m.name,
+          category: "Team Members",
+          meta: `${m.email} • Role: ${m.role}`,
+          avatar: m.avatar,
+          action: () => {
+            navigate(`/chat?dm=${m.id}`);
+            setShowSearchModal(false);
+          },
+        });
+      });
+    }
+
+    // Matching Navigation
+    filteredNav.forEach((nav) => {
+      items.push({
+        ...nav,
+        type: "navigation",
+        meta: "Quick Action",
+      });
+    });
+
+    return items;
+  }, [commandQuery, searchResults, filteredNav, navigate]);
+
+  // Keep selected index within bounds
+  useEffect(() => {
+    setSelectedIndex(0);
+  }, [flatItems.length, commandQuery]);
+
+  // Group items for categorized visual display while preserving flat indices
+  const groupedCategories = useMemo(() => {
+    const groups = {};
+    flatItems.forEach((item, index) => {
+      const cat = item.category || "General";
+      if (!groups[cat]) groups[cat] = [];
+      groups[cat].push({ ...item, globalIndex: index });
+    });
+    return groups;
+  }, [flatItems]);
+
+  const handleInputKeyDown = (e) => {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      if (flatItems.length > 0) {
+        setSelectedIndex((prev) => (prev + 1) % flatItems.length);
+      }
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      if (flatItems.length > 0) {
+        setSelectedIndex((prev) => (prev - 1 + flatItems.length) % flatItems.length);
+      }
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      if (flatItems[selectedIndex]) {
+        flatItems[selectedIndex].action();
+      }
+    } else if (e.key === "Escape") {
+      setShowSearchModal(false);
+    }
+  };
 
   const initials = user?.name
     ? user.name
@@ -191,13 +348,18 @@ export default function Navbar() {
             >
               {/* Input Header */}
               <div className="p-3.5 px-4 border-b dark:border-white/[0.08] border-slate-200 flex items-center gap-2.5">
-                <Search className="w-4 h-4 text-indigo-400 flex-shrink-0" />
+                {isSearching ? (
+                  <Loader2 className="w-4 h-4 text-indigo-400 animate-spin flex-shrink-0" />
+                ) : (
+                  <Search className="w-4 h-4 text-indigo-400 flex-shrink-0" />
+                )}
                 <input
                   ref={searchInputRef}
                   type="text"
                   placeholder="Type a command, task, document or member..."
                   value={commandQuery}
                   onChange={(e) => setCommandQuery(e.target.value)}
+                  onKeyDown={handleInputKeyDown}
                   className="w-full bg-transparent text-body-secondary dark:text-white text-slate-900 placeholder-slate-400 outline-none"
                 />
                 <kbd className="text-caption-meta dark:bg-white/10 bg-slate-200 px-1.5 py-0.5 rounded font-mono text-slate-400 flex-shrink-0">
@@ -206,43 +368,115 @@ export default function Navbar() {
               </div>
 
               {/* Suggestions List */}
-              <div className="max-h-80 overflow-y-auto p-2 space-y-1">
-                <div className="px-2 py-1 text-metric-label uppercase font-bold tracking-wider text-slate-400">
-                  Workspace Actions & Documents
-                </div>
-
-                {filteredCommands.length === 0 ? (
-                  <div className="p-6 text-center text-task-metadata text-slate-400">
-                    No matching commands found
+              <div className="max-h-96 overflow-y-auto p-2 space-y-2">
+                {isSearching && flatItems.length === 0 ? (
+                  <div className="p-8 text-center text-slate-400 flex items-center justify-center gap-2 text-sm">
+                    <Loader2 className="w-4 h-4 animate-spin text-indigo-400" />
+                    <span>Searching workspace...</span>
+                  </div>
+                ) : flatItems.length === 0 ? (
+                  <div className="p-8 text-center text-slate-400 flex flex-col items-center gap-2 select-none">
+                    <Search className="w-7 h-7 opacity-30 text-indigo-400" />
+                    <span className="text-[13px] font-medium dark:text-slate-300 text-slate-700">
+                      No matching items found
+                    </span>
+                    <span className="text-[11.5px] text-slate-500">
+                      No tasks, documents, or members match &ldquo;{commandQuery}&rdquo;
+                    </span>
                   </div>
                 ) : (
-                  filteredCommands.map((item) => (
-                    <button
-                      key={item.id}
-                      onClick={() => {
-                        item.action();
-                        setShowSearchModal(false);
-                      }}
-                      className="w-full flex items-center justify-between p-2 rounded-xl dark:hover:bg-white/10 hover:bg-slate-100 text-left transition-colors group"
-                    >
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <span className="text-sm">{item.icon}</span>
-                        <span className="text-card-title font-semibold dark:text-slate-200 text-slate-800 dark:group-hover:text-white group-hover:text-indigo-600 truncate">
-                          {item.label}
-                        </span>
+                  Object.entries(groupedCategories).map(([category, items]) => (
+                    <div key={category} className="space-y-1">
+                      <div className="px-2 py-1 text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500 flex items-center justify-between">
+                        <span>{category}</span>
+                        <span className="text-[10px] font-mono opacity-60">{items.length}</span>
                       </div>
-                      <span className="text-badge-meta uppercase font-bold tracking-wider px-1.5 py-0.5 rounded dark:bg-white/5 bg-slate-200 text-slate-400">
-                        {item.category}
-                      </span>
-                    </button>
+                      {items.map((item) => {
+                        const isSelected = selectedIndex === item.globalIndex;
+                        return (
+                          <button
+                            key={item.id}
+                            onClick={item.action}
+                            onMouseEnter={() => setSelectedIndex(item.globalIndex)}
+                            className={`w-full flex items-center justify-between p-2 rounded-xl text-left transition-all group ${
+                              isSelected
+                                ? "dark:bg-indigo-600/20 bg-indigo-50 border dark:border-indigo-500/30 border-indigo-200 shadow-sm"
+                                : "dark:hover:bg-white/5 hover:bg-slate-100 border border-transparent"
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0 pr-2">
+                              {item.type === "task" ? (
+                                <div className="w-6 h-6 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center flex-shrink-0 text-emerald-400">
+                                  <CheckCircle2 className="w-3.5 h-3.5" />
+                                </div>
+                              ) : item.type === "document" ? (
+                                <div className="w-6 h-6 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center flex-shrink-0 text-blue-400">
+                                  <FileText className="w-3.5 h-3.5" />
+                                </div>
+                              ) : item.type === "member" ? (
+                                item.avatar ? (
+                                  <img
+                                    src={item.avatar}
+                                    alt={item.label}
+                                    className="w-6 h-6 rounded-full object-cover flex-shrink-0 border border-purple-500/30"
+                                  />
+                                ) : (
+                                  <div className="w-6 h-6 rounded-lg bg-purple-500/10 border border-purple-500/20 flex items-center justify-center flex-shrink-0 text-purple-400">
+                                    <Users className="w-3.5 h-3.5" />
+                                  </div>
+                                )
+                              ) : (
+                                <div className="w-6 h-6 rounded-lg dark:bg-white/5 bg-slate-100 border dark:border-white/10 border-slate-200 flex items-center justify-center flex-shrink-0 text-xs">
+                                  {item.icon || "⚡"}
+                                </div>
+                              )}
+                              <div className="min-w-0 flex flex-col">
+                                <span
+                                  className={`text-card-title font-semibold truncate transition-colors ${
+                                    isSelected
+                                      ? "dark:text-white text-indigo-950 font-bold"
+                                      : "dark:text-slate-200 text-slate-800"
+                                  }`}
+                                >
+                                  {item.label}
+                                </span>
+                                {item.meta && (
+                                  <span className="text-[11.5px] text-slate-400 truncate">
+                                    {item.meta}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex-shrink-0 pl-1">
+                              {isSelected ? (
+                                <span className="flex items-center gap-1 text-[11px] font-mono text-indigo-400 px-1.5 py-0.5 rounded dark:bg-indigo-500/15 bg-indigo-100 font-semibold">
+                                  <CornerDownLeft className="w-3 h-3" />
+                                  Select
+                                </span>
+                              ) : (
+                                <span className="text-badge-meta uppercase font-bold tracking-wider px-1.5 py-0.5 rounded dark:bg-white/5 bg-slate-200 text-slate-400">
+                                  {item.category}
+                                </span>
+                              )}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
                   ))
                 )}
               </div>
 
               {/* Footer */}
               <div className="p-2.5 px-4 border-t dark:border-white/[0.06] border-slate-200 dark:bg-white/[0.02] bg-slate-50 flex items-center justify-between text-caption-meta text-slate-400 font-mono">
-                <span>Navigate with click or ↵</span>
-                <span>Pro Tip: Press ⌘K anywhere</span>
+                <span className="flex items-center gap-2">
+                  <span className="dark:bg-white/10 bg-slate-200 px-1.5 py-0.5 rounded text-[11px]">↑</span>
+                  <span className="dark:bg-white/10 bg-slate-200 px-1.5 py-0.5 rounded text-[11px]">↓</span>
+                  <span>Navigate</span>
+                  <span className="dark:bg-white/10 bg-slate-200 px-1.5 py-0.5 rounded text-[11px] ml-1">↵</span>
+                  <span>Open</span>
+                </span>
+                <span>Pro Tip: ⌘K anywhere</span>
               </div>
             </div>
           </div>

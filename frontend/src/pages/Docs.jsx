@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   FileText,
@@ -92,6 +93,7 @@ When Nexus decides to perform destructive or stateful actions (like creating tas
 export default function Docs() {
   const { currentProject, projects, user } = useAuthStore();
   const projectId = currentProject?.id || (projects[0] ? projects[0].id : null);
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [activeCategory, setActiveCategory] = useState("all");
   const [docsList, setDocsList] = useState([]);
@@ -159,6 +161,23 @@ export default function Docs() {
       setSelectedDoc(doc);
     } finally {
       setIsLoadingDoc(false);
+    }
+  };
+
+  // Deep linking: auto-open document if docId is present in URL
+  useEffect(() => {
+    const docIdParam = searchParams.get("docId");
+    if (docIdParam && projectId) {
+      handleSelectDoc({ id: docIdParam });
+    }
+  }, [searchParams, projectId]);
+
+  const closeDocReader = () => {
+    setSelectedDoc(null);
+    setIsEditing(false);
+    if (searchParams.get("docId")) {
+      searchParams.delete("docId");
+      setSearchParams(searchParams, { replace: true });
     }
   };
 
@@ -703,7 +722,7 @@ export default function Docs() {
                     </button>
 
                     <button
-                      onClick={() => setSelectedDoc(null)}
+                      onClick={closeDocReader}
                       className="p-1.5 rounded-lg dark:hover:bg-white/10 hover:bg-slate-100 text-slate-400 dark:hover:text-white hover:text-slate-800 transition-colors"
                     >
                       <X className="w-4 h-4" />

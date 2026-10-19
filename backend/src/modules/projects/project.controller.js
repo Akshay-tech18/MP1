@@ -690,6 +690,106 @@ const getProgress = async (req, res) => {
   }
 };
 
+/**
+ * Unified search across tasks, documents, and members within a workspace
+ */
+const searchProject = async (req, res) => {
+  const projectId = req.params.id;
+  const { q } = req.query;
+
+  if (!q || !q.trim()) {
+    return sendSuccess(res, 200, "Empty query result", {
+      tasks: [],
+      documents: [],
+      members: []
+    });
+  }
+
+  const query = q.trim();
+
+  try {
+    const [tasks, documents, members] = await Promise.all([
+      // 1. Search Tasks (title, description)
+      prisma.task.findMany({
+        where: {
+          projectId,
+          OR: [
+            { title: { contains: query, mode: "insensitive" } },
+            { description: { contains: query, mode: "insensitive" } }
+          ]
+        },
+        select: {
+          id: true,
+          title: true,
+          status: true,
+          priority: true,
+          assignee: {
+            select: { id: true, name: true, avatar: true }
+          }
+        },
+        take: 8,
+        orderBy: { updatedAt: "desc" }
+      }),
+
+      // 2. Search Documents (title, content)
+      prisma.document.findMany({
+        where: {
+          projectId,
+          OR: [
+            { title: { contains: query, mode: "insensitive" } },
+            { content: { contains: query, mode: "insensitive" } }
+          ]
+        },
+        select: {
+          id: true,
+          title: true,
+          readTime: true,
+          tags: true,
+          updatedAt: true,
+          author: {
+            select: { name: true, avatar: true }
+          }
+        },
+        take: 8,
+        orderBy: { updatedAt: "desc" }
+      }),
+
+      // 3. Search Project Members (name, email)
+      prisma.projectMember.findMany({
+        where: {
+          projectId,
+          OR: [
+            { user: { name: { contains: query, mode: "insensitive" } } },
+            { user: { email: { contains: query, mode: "insensitive" } } }
+          ]
+        },
+        select: {
+          role: true,
+          user: {
+            select: { id: true, name: true, email: true, avatar: true }
+          }
+        },
+        take: 8
+      })
+    ]);
+
+    return sendSuccess(res, 200, "Search results retrieved", {
+      tasks,
+      documents,
+      members: members.map((m) => ({
+        id: m.user.id,
+        name: m.user.name,
+        email: m.user.email,
+        avatar: m.user.avatar,
+        role: m.role
+      }))
+    });
+  } catch (error) {
+    logger.error("Project search error: %o", error);
+    return sendError(res, 500, "Failed to search workspace");
+  }
+};
+
 module.exports = {
   createProject,
   listProjects,
@@ -698,5 +798,7 @@ module.exports = {
   deleteProject,
   addMember,
   removeMember,
-  getProgress
+  getProgress,
+  searchProject
 };
+

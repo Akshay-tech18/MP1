@@ -15,7 +15,8 @@ const {
   deleteProject,
   addMember,
   removeMember,
-  getProgress
+  getProgress,
+  searchProject
 } = require("./project.controller");
 
 const router = express.Router();
@@ -26,6 +27,12 @@ router.post("/", validateBody(createProjectSchema), createProject);
 router.get("/", listProjects);
 
 // Project member access
+router.get(
+  "/:id/search",
+  checkProjectRole("MANAGER", "DEVELOPER", "QA_TESTER", "VIEWER"),
+  searchProject
+);
+
 router.get(
   "/:id",
   checkProjectRole("MANAGER", "DEVELOPER", "QA_TESTER", "VIEWER"),

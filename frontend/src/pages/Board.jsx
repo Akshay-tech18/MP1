@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import { motion, AnimatePresence } from "framer-motion";
 import useAuthStore from "../store/useAuthStore";
@@ -39,6 +40,7 @@ const PRIORITY_STYLES = {
 export default function Board() {
   const { user, currentProject } = useAuthStore();
   const { socket } = useSocketStore();
+  const [searchParams, setSearchParams] = useSearchParams();
   
   const [tasks, setTasks] = useState([]);
   const [sprints, setSprints] = useState([]);
@@ -49,6 +51,23 @@ export default function Board() {
   const [taskDetails, setTaskDetails] = useState(null);
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState("");
+
+  // Sync taskId query parameter to drawer
+  useEffect(() => {
+    const taskIdParam = searchParams.get("taskId");
+    if (taskIdParam) {
+      setSelectedTaskId(taskIdParam);
+    }
+  }, [searchParams]);
+
+  const closeTaskDetails = () => {
+    setSelectedTaskId(null);
+    setTaskDetails(null);
+    if (searchParams.get("taskId")) {
+      searchParams.delete("taskId");
+      setSearchParams(searchParams, { replace: true });
+    }
+  };
   
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [createColumnTarget, setCreateColumnTarget] = useState("TODO");
@@ -485,7 +504,7 @@ export default function Board() {
                   <span className="text-task-metadata font-bold dark:text-dp-text-muted text-dp-text-light-muted font-mono">TASK-{taskDetails.taskNumber}</span>
                   <span className={`status-badge text-badge-meta font-semibold ${COLUMN_CONFIG[taskDetails.status]?.badge}`}>{taskDetails.status.replace("_", " ")}</span>
                 </div>
-                <button onClick={() => setSelectedTaskId(null)} className="w-7 h-7 rounded-lg flex items-center justify-center dark:hover:bg-dp-dark-surface-hover hover:bg-dp-light-bg-secondary dark:text-dp-text-muted text-dp-text-light-muted transition-colors">
+                <button onClick={closeTaskDetails} className="w-7 h-7 rounded-lg flex items-center justify-center dark:hover:bg-dp-dark-surface-hover hover:bg-dp-light-bg-secondary dark:text-dp-text-muted text-dp-text-light-muted transition-colors">
                   <X className="w-4 h-4" />
                 </button>
               </div>
