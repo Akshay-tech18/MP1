@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ChevronDown,
@@ -13,6 +14,7 @@ import CreateWorkspaceModal from "./CreateWorkspaceModal";
 import WorkspaceSettingsModal from "./WorkspaceSettingsModal";
 
 export default function WorkspaceDropdown() {
+  const navigate = useNavigate();
   const { currentProject, projects, setCurrentProject } = useAuthStore();
   const [isOpen, setIsOpen] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -65,6 +67,7 @@ export default function WorkspaceDropdown() {
 
       {/* Calendar quick action button */}
       <button
+        onClick={() => navigate("/board?view=calendar")}
         title="Calendar Planner"
         className="ml-2 w-7 h-7 rounded-lg flex items-center justify-center text-slate-400 dark:hover:text-slate-200 hover:text-slate-800 dark:hover:bg-white/5 hover:bg-slate-100 transition-colors"
       >

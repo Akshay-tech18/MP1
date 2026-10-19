@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Clock,
@@ -18,15 +18,13 @@ import useAuthStore from "../store/useAuthStore";
 import PageTransition from "../components/PageTransition";
 import client from "../api/client";
 
-const DAYS = [
-  { label: "Sun, Sep 6", short: "Sun" },
-  { label: "Mon, Sep 7", short: "Mon" },
-  { label: "Tue, Sep 8", short: "Tue" },
-  { label: "Wed, Sep 9", short: "Wed" },
-  { label: "Thu, Sep 10", short: "Thu" },
-  { label: "Fri, Sep 11", short: "Fri" },
-  { label: "Sat, Sep 12", short: "Sat" },
-];
+// Helper to get start of the week (Sunday)
+const getStartOfWeek = (d) => {
+  const date = new Date(d);
+  const day = date.getDay();
+  const diff = date.getDate() - day;
+  return new Date(date.setDate(diff));
+};
 
 export default function Timesheets() {
   const { currentProject, user } = useAuthStore();
@@ -35,6 +33,40 @@ export default function Timesheets() {
   const [selectedMember, setSelectedMember] = useState(null);
   const [logHoursModal, setLogHoursModal] = useState(false);
   const [logForm, setLogForm] = useState({ memberId: "", dayIndex: 1, hours: 4, note: "" });
+
+  const [currentWeekStart, setCurrentWeekStart] = useState(() => getStartOfWeek(new Date()));
+
+  // Dynamic 7 days of the week based on currentWeekStart
+  const daysOfWeek = useMemo(() => {
+    const days = [];
+    const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(currentWeekStart);
+      d.setDate(currentWeekStart.getDate() + i);
+      const short = dayNames[d.getDay()];
+      const month = monthNames[d.getMonth()];
+      const dateNum = d.getDate();
+      days.push({
+        label: `${short}, ${month} ${dateNum}`,
+        short,
+        date: d,
+      });
+    }
+    return days;
+  }, [currentWeekStart]);
+
+  // Formatted week range label
+  const weekRangeLabel = useMemo(() => {
+    if (daysOfWeek.length < 7) return "";
+    const start = daysOfWeek[0].date;
+    const end = daysOfWeek[6].date;
+    const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const startStr = `${monthNames[start.getMonth()]} ${start.getDate()}`;
+    const endStr = `${monthNames[end.getMonth()]} ${end.getDate()}, ${end.getFullYear()}`;
+    return `${startStr} - ${endStr}`;
+  }, [daysOfWeek]);
 
   useEffect(() => {
     async function loadWorkspaceMembers() {
@@ -161,14 +193,38 @@ export default function Timesheets() {
           <div className="flex flex-wrap items-center gap-3">
             {/* Week date navigator */}
             <div className="flex items-center gap-1">
-              <button className="p-1 rounded dark:hover:bg-white/10 hover:bg-slate-100 text-slate-400 dark:hover:text-white hover:text-slate-800 transition-colors">
+              <button
+                onClick={() => {
+                  setCurrentWeekStart((prev) => {
+                    const d = new Date(prev);
+                    d.setDate(d.getDate() - 7);
+                    return d;
+                  });
+                }}
+                className="p-1 rounded dark:hover:bg-white/10 hover:bg-slate-100 text-slate-400 dark:hover:text-white hover:text-slate-800 transition-colors"
+                title="Previous Week"
+              >
                 <ChevronLeft className="w-4 h-4" />
               </button>
-              <button className="p-1 rounded dark:hover:bg-white/10 hover:bg-slate-100 text-slate-400 dark:hover:text-white hover:text-slate-800 transition-colors">
+              <button
+                onClick={() => {
+                  setCurrentWeekStart((prev) => {
+                    const d = new Date(prev);
+                    d.setDate(d.getDate() + 7);
+                    return d;
+                  });
+                }}
+                className="p-1 rounded dark:hover:bg-white/10 hover:bg-slate-100 text-slate-400 dark:hover:text-white hover:text-slate-800 transition-colors"
+                title="Next Week"
+              >
                 <ChevronRight className="w-4 h-4" />
               </button>
-              <button className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-body-secondary font-semibold dark:text-white text-slate-800 dark:hover:bg-white/5 hover:bg-slate-100 transition-colors">
-                <span>Sep 6 - Sep 12</span>
+              <button
+                onClick={() => setCurrentWeekStart(getStartOfWeek(new Date()))}
+                className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-body-secondary font-semibold dark:text-white text-slate-800 dark:hover:bg-white/5 hover:bg-slate-100 transition-colors"
+                title="Reset to Current Week"
+              >
+                <span>{weekRangeLabel}</span>
                 <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
               </button>
             </div>
@@ -220,7 +276,7 @@ export default function Timesheets() {
                   <th className="p-3.5 pl-4 font-semibold w-72">
                     People ({members.length})
                   </th>
-                  {DAYS.map((d, idx) => (
+                  {daysOfWeek.map((d, idx) => (
                     <th key={idx} className="p-3 text-center font-medium">
                       {d.label}
                     </th>
@@ -384,7 +440,7 @@ export default function Timesheets() {
                     onChange={(e) => setLogForm({ ...logForm, dayIndex: parseInt(e.target.value) })}
                     className="w-full p-2.5 rounded-xl dark:bg-[#18181b] bg-slate-50 border dark:border-white/10 border-slate-200 dark:text-white text-slate-900 focus:outline-none focus:border-indigo-500"
                   >
-                    {DAYS.map((d, i) => (
+                    {daysOfWeek.map((d, i) => (
                       <option key={i} value={i}>{d.label}</option>
                     ))}
                   </select>

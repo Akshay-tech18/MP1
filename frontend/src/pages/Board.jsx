@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import { motion, AnimatePresence } from "framer-motion";
@@ -15,6 +15,12 @@ import {
   AlertCircle,
   Loader2,
   Clock,
+  Calendar as CalendarIcon,
+  KanbanSquare,
+  ChevronLeft,
+  ChevronRight,
+  AlertTriangle,
+  CheckCircle2,
 } from "lucide-react";
 import Avatar from "../components/Avatar";
 import { TaskStatus, TaskPriority, SocketEvent } from "../config/constants";
@@ -42,6 +48,31 @@ export default function Board() {
   const { socket } = useSocketStore();
   const [searchParams, setSearchParams] = useSearchParams();
   
+  const [activeView, setActiveView] = useState(() => {
+    return searchParams.get("view") === "calendar" ? "calendar" : "kanban";
+  });
+
+  // Keep activeView synced with URL query
+  useEffect(() => {
+    const view = searchParams.get("view");
+    if (view === "calendar") {
+      setActiveView("calendar");
+    } else if (view === "kanban") {
+      setActiveView("kanban");
+    }
+  }, [searchParams]);
+
+  const handleSwitchView = (viewMode) => {
+    setActiveView(viewMode);
+    const newParams = new URLSearchParams(searchParams);
+    if (viewMode === "calendar") {
+      newParams.set("view", "calendar");
+    } else {
+      newParams.delete("view");
+    }
+    setSearchParams(newParams);
+  };
+
   const [tasks, setTasks] = useState([]);
   const [sprints, setSprints] = useState([]);
   const [members, setMembers] = useState([]);
@@ -51,6 +82,21 @@ export default function Board() {
   const [taskDetails, setTaskDetails] = useState(null);
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState("");
+
+  // Calendar specific state
+  const [calendarDate, setCalendarDate] = useState(new Date());
+
+  const goToPrevMonth = () => {
+    setCalendarDate((prev) => new Date(prev.getFullYear(), prev.getMonth() - 1, 1));
+  };
+
+  const goToNextMonth = () => {
+    setCalendarDate((prev) => new Date(prev.getFullYear(), prev.getMonth() + 1, 1));
+  };
+
+  const goToToday = () => {
+    setCalendarDate(new Date());
+  };
 
   // Sync taskId query parameter to drawer
   useEffect(() => {
@@ -76,6 +122,7 @@ export default function Board() {
   const [newTaskPriority, setNewTaskPriority] = useState("MEDIUM");
   const [newTaskAssignee, setNewTaskAssignee] = useState("");
   const [newTaskSprint, setNewTaskSprint] = useState("");
+  const [newTaskDueDate, setNewTaskDueDate] = useState("");
   const [newTaskEstimatedTime, setNewTaskEstimatedTime] = useState("");
   const [newTaskTimeSpent, setNewTaskTimeSpent] = useState("");
   const [createTaskLoading, setCreateTaskLoading] = useState(false);
@@ -247,6 +294,7 @@ export default function Board() {
         status: createColumnTarget,
         assigneeId: newTaskAssignee || null,
         sprintId: sprintToAssign,
+        dueDate: newTaskDueDate || null,
         estimatedTime: newTaskEstimatedTime ? parseInt(newTaskEstimatedTime, 10) : 0,
         timeSpent: newTaskTimeSpent ? parseInt(newTaskTimeSpent, 10) : 0,
       });
@@ -264,6 +312,7 @@ export default function Board() {
         setNewTaskDesc("");
         setNewTaskAssignee("");
         setNewTaskSprint("");
+        setNewTaskDueDate("");
         setNewTaskEstimatedTime("");
         setNewTaskTimeSpent("");
         setCreateTaskError(null);
@@ -280,6 +329,92 @@ export default function Board() {
     } finally {
       setCreateTaskLoading(false);
     }
+  };
+
+  // Month Calendar Days Grid
+  const calendarDays = useMemo(() => {
+    const year = calendarDate.getFullYear();
+    const month = calendarDate.getMonth();
+
+    const firstDayIndex = new Date(year, month, 1).getDay(); // 0 = Sun
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const daysInPrevMonth = new Date(year, month, 0).getDate();
+
+    const days = [];
+
+    // Prev month padding
+    for (let i = firstDayIndex - 1; i >= 0; i--) {
+      const d = daysInPrevMonth - i;
+      const dateObj = new Date(year, month - 1, d);
+      days.push({
+        date: dateObj,
+        dayNumber: d,
+        isCurrentMonth: false,
+        dateKey: dateObj.toISOString().slice(0, 10),
+      });
+    }
+
+    // Current month days
+    for (let d = 1; d <= daysInMonth; d++) {
+      const dateObj = new Date(year, month, d);
+      days.push({
+        date: dateObj,
+        dayNumber: d,
+        isCurrentMonth: true,
+        dateKey: dateObj.toISOString().slice(0, 10),
+      });
+    }
+
+    // Next month padding
+    const remaining = (7 - (days.length % 7)) % 7;
+    for (let d = 1; d <= remaining; d++) {
+      const dateObj = new Date(year, month + 1, d);
+      days.push({
+        date: dateObj,
+        dayNumber: d,
+        isCurrentMonth: false,
+        dateKey: dateObj.toISOString().slice(0, 10),
+      });
+    }
+
+    return days;
+  }, [calendarDate]);
+
+  // Tasks mapped by dueDate
+  const scheduledTasksMap = useMemo(() => {
+    const map = {};
+    for (const t of tasks) {
+      if (t.dueDate) {
+        const key = new Date(t.dueDate).toISOString().slice(0, 10);
+        if (!map[key]) map[key] = [];
+        map[key].push(t);
+      }
+    }
+    return map;
+  }, [tasks]);
+
+  const unscheduledTasks = useMemo(() => {
+    return tasks.filter((t) => !t.dueDate);
+  }, [tasks]);
+
+  const activeSprintsForMonth = useMemo(() => {
+    const year = calendarDate.getFullYear();
+    const month = calendarDate.getMonth();
+    const startOfMonth = new Date(year, month, 1);
+    const endOfMonth = new Date(year, month + 1, 0, 23, 59, 59);
+
+    return sprints.filter((s) => {
+      const sStart = new Date(s.startDate);
+      const sEnd = new Date(s.endDate);
+      return sStart <= endOfMonth && sEnd >= startOfMonth;
+    });
+  }, [sprints, calendarDate]);
+
+  const handleOpenCreateForDate = (dateKey) => {
+    setCreateColumnTarget("TODO");
+    setNewTaskDueDate(dateKey);
+    setCreateTaskError(null);
+    setShowCreateModal(true);
   };
 
   const handleAddComment = async (e) => {
@@ -315,178 +450,411 @@ export default function Board() {
       <div className="flex-1 flex flex-col h-full overflow-hidden select-none">
         
         {/* Board Subheader */}
-        <div className="h-11 glass-sidebar border-b px-4 flex items-center justify-between flex-shrink-0">
-          <div className="flex items-center gap-3">
-            <span className="text-metric-label dark:text-dp-text-muted text-dp-text-light-muted">Sprint:</span>
-            <select value={selectedSprintId} onChange={(e) => setSelectedSprintId(e.target.value)} className="glass-select text-[13px]">
-              <option value="all">All Sprints & Backlog</option>
-              <option value="backlog">Backlog Only</option>
-              {sprints.map(sprint => (
-                <option key={sprint.id} value={sprint.id}>{sprint.name} ({sprint.status.toLowerCase()})</option>
-              ))}
-            </select>
+        <div className="h-12 glass-sidebar border-b dark:border-white/[0.08] border-slate-200 px-4 flex items-center justify-between flex-shrink-0">
+          <div className="flex items-center gap-4">
+            {/* View Switcher: Kanban Board vs Calendar Planner */}
+            <div className="flex items-center p-0.5 rounded-lg dark:bg-white/5 bg-slate-200/80 border dark:border-white/10 border-slate-300">
+              <button
+                onClick={() => handleSwitchView("kanban")}
+                className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-btn-refined font-semibold transition-all ${
+                  activeView === "kanban"
+                    ? "dark:bg-indigo-600 bg-indigo-600 text-white shadow-sm"
+                    : "text-slate-500 dark:hover:text-slate-200 hover:text-slate-800"
+                }`}
+              >
+                <KanbanSquare className="w-3.5 h-3.5" />
+                <span>Kanban Board</span>
+              </button>
+              <button
+                onClick={() => handleSwitchView("calendar")}
+                className={`flex items-center gap-1.5 px-3 py-1 rounded-md text-btn-refined font-semibold transition-all ${
+                  activeView === "calendar"
+                    ? "dark:bg-indigo-600 bg-indigo-600 text-white shadow-sm"
+                    : "text-slate-500 dark:hover:text-slate-200 hover:text-slate-800"
+                }`}
+              >
+                <CalendarIcon className="w-3.5 h-3.5" />
+                <span>Calendar Planner</span>
+              </button>
+            </div>
+
+            <div className="h-4 w-px dark:bg-white/10 bg-slate-200" />
+
+            {/* Sprint Filter */}
+            <div className="flex items-center gap-2">
+              <span className="text-metric-label dark:text-dp-text-muted text-dp-text-light-muted">Sprint:</span>
+              <select value={selectedSprintId} onChange={(e) => setSelectedSprintId(e.target.value)} className="glass-select text-[13px]">
+                <option value="all">All Sprints & Backlog</option>
+                <option value="backlog">Backlog Only</option>
+                {sprints.map(sprint => (
+                  <option key={sprint.id} value={sprint.id}>{sprint.name} ({sprint.status.toLowerCase()})</option>
+                ))}
+              </select>
+            </div>
           </div>
-          <button onClick={() => { setCreateColumnTarget("TODO"); setCreateTaskError(null); setShowCreateModal(true); }} className="btn-primary flex items-center gap-1.5 py-1.5 text-btn-refined">
-            <Plus className="w-3.5 h-3.5" /> Add Task
+
+          <button
+            onClick={() => {
+              setCreateColumnTarget("TODO");
+              setNewTaskDueDate("");
+              setCreateTaskError(null);
+              setShowCreateModal(true);
+            }}
+            className="btn-primary flex items-center gap-1.5 py-1.5 text-btn-refined"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Add Task</span>
           </button>
         </div>
 
-        {/* Kanban Board */}
-        <div className="flex-1 overflow-x-auto overflow-y-hidden p-4">
-          <DragDropContext onDragEnd={onDragEnd}>
-            <div className="flex gap-3 items-start h-full">
-              {COLUMNS.map((colName) => {
-                const colTasks = tasks.filter((t) => t.status === colName);
-                const config = COLUMN_CONFIG[colName];
-                const colSP = colTasks.reduce(
-                  (acc, t) => acc + (t.priority === "CRITICAL" ? 5 : t.priority === "HIGH" ? 3 : t.priority === "MEDIUM" ? 2 : 1),
-                  0
-                );
-                const isHeavyLoad = colName === "IN_PROGRESS" && colTasks.length >= 4;
+        {/* Calendar Planner View or Kanban Board View */}
+        {activeView === "calendar" ? (
+          <div className="flex-1 flex flex-col h-full overflow-hidden p-4 space-y-3 dark:bg-[#080808] bg-[#f8fafc]">
+            {/* Calendar Controls & Month Header */}
+            <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 rounded-2xl dark:bg-[#121214] bg-white border dark:border-white/[0.08] border-slate-200 shadow-sm">
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={goToPrevMonth}
+                    className="p-1.5 rounded-lg dark:hover:bg-white/10 hover:bg-slate-100 text-slate-400 hover:text-slate-800 dark:hover:text-white transition-colors"
+                    title="Previous Month"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={goToNextMonth}
+                    className="p-1.5 rounded-lg dark:hover:bg-white/10 hover:bg-slate-100 text-slate-400 hover:text-slate-800 dark:hover:text-white transition-colors"
+                    title="Next Month"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <h2 className="text-major-heading dark:text-white text-slate-900 font-bold min-w-44">
+                  {calendarDate.toLocaleDateString("en-US", { month: "long", year: "numeric" })}
+                </h2>
+
+                <button
+                  onClick={goToToday}
+                  className="px-2.5 py-1 rounded-lg text-caption-meta font-bold dark:bg-white/5 bg-slate-100 hover:bg-slate-200 dark:hover:bg-white/10 border dark:border-white/10 border-slate-200 dark:text-slate-200 text-slate-700 transition-colors"
+                >
+                  Today
+                </button>
+              </div>
+
+              {/* Active Sprint & Stats */}
+              <div className="flex items-center gap-2 flex-wrap">
+                {activeSprintsForMonth.map((s) => (
+                  <span
+                    key={s.id}
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11.5px] font-semibold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20"
+                    title={`Sprint: ${new Date(s.startDate).toLocaleDateString()} - ${new Date(s.endDate).toLocaleDateString()}`}
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
+                    <span>{s.name}</span>
+                    <span className="text-[10px] text-slate-400 opacity-80 font-mono">
+                      ({new Date(s.startDate).toLocaleDateString([], { month: "short", day: "numeric" })} - {new Date(s.endDate).toLocaleDateString([], { month: "short", day: "numeric" })})
+                    </span>
+                  </span>
+                ))}
+                <span className="text-[12px] font-mono dark:text-slate-400 text-slate-500 font-medium">
+                  {tasks.filter((t) => t.dueDate).length} scheduled • {unscheduledTasks.length} unscheduled
+                </span>
+              </div>
+            </div>
+
+            {/* Days of Week Header */}
+            <div className="grid grid-cols-7 gap-2 text-center text-[11px] font-bold uppercase tracking-wider dark:text-slate-400 text-slate-500 px-1">
+              <span>Sun</span>
+              <span>Mon</span>
+              <span>Tue</span>
+              <span>Wed</span>
+              <span>Thu</span>
+              <span>Fri</span>
+              <span>Sat</span>
+            </div>
+
+            {/* Monthly Calendar Grid */}
+            <div className="flex-1 grid grid-cols-7 grid-rows-5 gap-2 overflow-y-auto min-h-0">
+              {calendarDays.map((day, idx) => {
+                const dayTasks = scheduledTasksMap[day.dateKey] || [];
+                const isToday = day.dateKey === new Date().toISOString().slice(0, 10);
+                
+                // Check if any sprint covers this day
+                const daySprint = sprints.find((s) => {
+                  const sStart = new Date(s.startDate).toISOString().slice(0, 10);
+                  const sEnd = new Date(s.endDate).toISOString().slice(0, 10);
+                  return day.dateKey >= sStart && day.dateKey <= sEnd;
+                });
 
                 return (
-                  <div key={colName} className="w-[280px] flex-shrink-0 rounded-2xl flex flex-col max-h-full dark:bg-dp-dark-surface/40 bg-dp-light-bg-secondary/60 border dark:border-dp-dark-border-light/40 border-dp-light-border/60 shadow-sm">
-                    
-                    {/* Column Header with Operational Telemetry */}
-                    <div className="p-3 border-b dark:border-white/[0.04] border-slate-200/60 flex items-center justify-between flex-shrink-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className={`w-2 h-2 rounded-full ${config.dot}`} />
-                        <span className={`status-badge text-[12px] font-semibold ${config.badge}`}>{config.label}</span>
-                        <span className="text-[11.5px] dark:text-slate-400 text-slate-500 font-mono font-semibold">
-                          {colTasks.length} • {colSP} SP
-                        </span>
-                        {isHeavyLoad && (
-                          <span className="text-badge-meta font-bold px-1.5 py-0.2 rounded bg-amber-500/15 text-amber-400 border border-amber-500/25">
-                            Pressure
-                          </span>
-                        )}
-                      </div>
-                      <button onClick={() => { setCreateColumnTarget(colName); setCreateTaskError(null); setShowCreateModal(true); }}
-                        className="w-6 h-6 rounded-md flex items-center justify-center dark:text-dp-text-muted text-dp-text-light-muted dark:hover:bg-dp-dark-surface-hover hover:bg-dp-light-surface-hover hover:text-dp-primary transition-colors"
-                        title="Add task to column"
+                  <div
+                    key={`${day.dateKey}-${idx}`}
+                    className={`rounded-xl border p-2 flex flex-col justify-between transition-all group overflow-hidden ${
+                      day.isCurrentMonth
+                        ? isToday
+                          ? "dark:bg-indigo-950/20 bg-indigo-50/70 border-indigo-500/40 shadow-xs"
+                          : "dark:bg-[#101013] bg-white dark:border-white/[0.06] border-slate-200"
+                        : "dark:bg-[#0c0c0e]/40 bg-slate-100/40 dark:border-white/[0.02] border-slate-200/50 opacity-60"
+                    }`}
+                  >
+                    {/* Day Header */}
+                    <div className="flex items-center justify-between gap-1 flex-shrink-0 mb-1">
+                      <span
+                        className={`text-[12px] font-mono font-semibold w-6 h-6 rounded-full flex items-center justify-center ${
+                          isToday
+                            ? "bg-indigo-600 text-white font-bold shadow-sm"
+                            : day.isCurrentMonth
+                            ? "dark:text-slate-200 text-slate-800"
+                            : "text-slate-400"
+                        }`}
+                      >
+                        {day.dayNumber}
+                      </span>
+
+                      {/* Quick Add Task Button for this Date */}
+                      <button
+                        onClick={() => handleOpenCreateForDate(day.dateKey)}
+                        className="opacity-0 group-hover:opacity-100 w-5 h-5 rounded flex items-center justify-center text-slate-400 hover:text-indigo-400 dark:hover:bg-white/10 hover:bg-slate-200 transition-all"
+                        title={`Add task due on ${day.dateKey}`}
                       >
                         <Plus className="w-3.5 h-3.5" />
                       </button>
                     </div>
 
-                    {/* Droppable Column */}
-                    <Droppable droppableId={colName}>
-                      {(provided, snapshot) => (
-                        <div
-                          ref={provided.innerRef}
-                          {...provided.droppableProps}
-                          className={`flex-1 overflow-y-auto px-2 pb-2 pt-2 space-y-2 min-h-[160px] rounded-lg transition-colors duration-150 ${
-                            snapshot.isDraggingOver
-                              ? "dark:bg-indigo-500/[0.05] bg-indigo-500/[0.04] ring-1 ring-indigo-500/20"
-                              : ""
-                          }`}
-                        >
-                          {colTasks.length === 0 && (
-                            <div className="py-7 px-3 rounded-xl border border-dashed dark:border-white/10 border-slate-300/80 flex flex-col items-center justify-center text-center select-none my-1 space-y-1.5">
-                              <span className="text-[13px] font-semibold dark:text-slate-300 text-slate-700">
-                                No work waiting here
+                    {/* Sprint indicator if this day is part of sprint */}
+                    {daySprint && (
+                      <div className="mb-1 px-1.5 py-0.5 rounded text-[9.5px] font-semibold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 truncate">
+                        {daySprint.name}
+                      </div>
+                    )}
+
+                    {/* Day Task List */}
+                    <div className="flex-1 overflow-y-auto space-y-1 my-0.5 pr-0.5 max-h-24 scrollbar-none">
+                      {dayTasks.slice(0, 3).map((task) => {
+                        const isOverdue =
+                          new Date(task.dueDate) < new Date() && task.status !== "COMPLETED";
+
+                        return (
+                          <div
+                            key={task.id}
+                            onClick={() => setSelectedTaskId(task.id)}
+                            className={`p-1.5 rounded-lg border text-left cursor-pointer transition-all hover:scale-[1.01] ${
+                              isOverdue
+                                ? "dark:bg-rose-950/20 bg-rose-50/80 border-rose-500/30 text-rose-400"
+                                : task.status === "COMPLETED"
+                                ? "dark:bg-emerald-950/20 bg-emerald-50/60 border-emerald-500/30 text-emerald-400 line-through opacity-75"
+                                : "dark:bg-white/[0.04] bg-slate-50 border-slate-200/80 dark:border-white/[0.06] text-slate-700 dark:text-slate-200 hover:border-indigo-500/40"
+                            }`}
+                          >
+                            <div className="flex items-center justify-between gap-1">
+                              <span className="font-mono text-[10px] font-bold opacity-75 truncate">
+                                #{task.taskNumber}
                               </span>
-                              <span className="text-[12px] dark:text-slate-500 text-slate-400 leading-tight">
-                                Drag a task into this stage or add one
-                              </span>
-                              <button
-                                onClick={() => { setCreateColumnTarget(colName); setCreateTaskError(null); setShowCreateModal(true); }}
-                                className="mt-1 px-2.5 py-1 rounded-lg text-[11.5px] font-semibold dark:bg-white/5 bg-slate-100 hover:bg-slate-200 dark:hover:bg-white/10 border dark:border-white/10 border-slate-200 text-slate-400 hover:text-indigo-400 transition-colors flex items-center gap-1"
-                              >
-                                <Plus className="w-3 h-3" />
-                                <span>Add Task</span>
-                              </button>
+                              <span className={`w-1.5 h-1.5 rounded-full ${
+                                task.priority === "CRITICAL" ? "bg-red-400" : task.priority === "HIGH" ? "bg-amber-400" : "bg-blue-400"
+                              }`} />
                             </div>
-                          )}
-
-                          {colTasks.map((taskItem, index) => {
-                            const priorityEdgeClass = taskItem.priority === "CRITICAL"
-                              ? "priority-edge-urgent"
-                              : taskItem.priority === "HIGH"
-                              ? "priority-edge-high"
-                              : taskItem.priority === "MEDIUM"
-                              ? "priority-edge-normal"
-                              : "priority-edge-low";
-
-                            return (
-                              <Draggable key={taskItem.id} draggableId={taskItem.id} index={index}>
-                                {(dp, ds) => (
-                                  <div
-                                    ref={dp.innerRef}
-                                    {...dp.draggableProps}
-                                    {...dp.dragHandleProps}
-                                    onClick={() => setSelectedTaskId(taskItem.id)}
-                                    className={`p-3 rounded-xl cursor-grab active:cursor-grabbing select-none flex flex-col gap-2 border micro-elevate group ${priorityEdgeClass} ${
-                                      ds.isDragging
-                                        ? "shadow-2xl scale-[1.02] dark:bg-dp-dark-surface bg-white dark:border-indigo-500/50 border-indigo-500/40 z-50 ring-1 ring-indigo-500/30"
-                                        : "dark:bg-dp-dark-surface/90 bg-white dark:border-white/5 border-slate-200/80 dark:hover:border-white/20 hover:border-slate-300 shadow-sm"
-                                    }`}
-                                  >
-                                    <div className="flex items-start justify-between gap-2">
-                                      <h4 className="text-card-title dark:text-dp-text-primary text-dp-text-light-primary line-clamp-2 flex-1">
-                                        {taskItem.title}
-                                      </h4>
-                                    </div>
-                                    <div className="flex items-center justify-between text-task-metadata dark:text-dp-text-muted text-dp-text-light-muted pt-1 border-t dark:border-white/[0.04] border-slate-100">
-                                      <div className="flex items-center gap-2">
-                                        <span className="font-semibold font-mono text-[11.5px] dark:text-slate-300 text-slate-700">
-                                          #{taskItem.taskNumber}
-                                        </span>
-                                        <span className={`status-badge text-badge-meta font-semibold ${PRIORITY_STYLES[taskItem.priority]}`}>
-                                          {taskItem.priority}
-                                        </span>
-                                      </div>
-                                      <div className="flex items-center gap-2">
-                                        {((taskItem.estimatedTime && taskItem.estimatedTime > 0) || (taskItem.timeSpent && taskItem.timeSpent > 0)) && (
-                                          <span
-                                            className={`flex items-center gap-1 font-mono text-[11px] px-1.5 py-0.5 rounded ${
-                                              taskItem.estimatedTime > 0 && taskItem.timeSpent > taskItem.estimatedTime
-                                                ? "bg-amber-500/15 text-amber-400 border border-amber-500/30"
-                                                : "dark:bg-white/5 bg-slate-100 dark:text-slate-400 text-slate-500 border dark:border-white/5 border-slate-200"
-                                            }`}
-                                            title={`Logged: ${formatDuration(taskItem.timeSpent || 0)} / Est: ${formatDuration(taskItem.estimatedTime || 0)}`}
-                                          >
-                                            <Clock className="w-2.5 h-2.5 text-indigo-400" />
-                                            <span>{formatDuration(taskItem.timeSpent || 0)} / {formatDuration(taskItem.estimatedTime || 0)}</span>
-                                          </span>
-                                        )}
-                                        {taskItem._count?.comments > 0 && (
-                                          <span className="flex items-center gap-0.5 dark:text-slate-400 text-slate-500 font-mono text-[11.5px]">
-                                            <MessageSquare className="w-2.5 h-2.5" />
-                                            {taskItem._count.comments}
-                                          </span>
-                                        )}
-                                        {taskItem.assignee ? (
-                                          <Avatar
-                                            src={taskItem.assignee.avatar}
-                                            name={taskItem.assignee.name}
-                                            size="xs"
-                                          />
-                                        ) : (
-                                          <div
-                                            className="w-5 h-5 rounded-full dark:bg-dp-dark-elevated bg-dp-light-bg-secondary dark:text-dp-text-muted text-dp-text-light-muted border border-dashed dark:border-dp-dark-border-light border-dp-light-border flex items-center justify-center"
-                                            title="Unassigned"
-                                          >
-                                            <User className="w-2.5 h-2.5" />
-                                          </div>
-                                        )}
-                                      </div>
-                                    </div>
-                                  </div>
-                                )}
-                              </Draggable>
-                            );
-                          })}
-                          {provided.placeholder}
+                            <p className="text-[11px] font-medium truncate mt-0.5 leading-tight">
+                              {task.title}
+                            </p>
+                          </div>
+                        );
+                      })}
+                      {dayTasks.length > 3 && (
+                        <div
+                          onClick={() => handleOpenCreateForDate(day.dateKey)}
+                          className="text-[10px] font-mono text-indigo-400 font-semibold cursor-pointer text-center py-0.5"
+                        >
+                          +{dayTasks.length - 3} more tasks
                         </div>
                       )}
-                    </Droppable>
+                    </div>
+
+                    {/* Bottom Day Footer indicator */}
+                    <div className="text-[10px] text-right font-mono text-slate-400">
+                      {dayTasks.length > 0 ? `${dayTasks.length} ${dayTasks.length === 1 ? 'task' : 'tasks'}` : ''}
+                    </div>
                   </div>
                 );
               })}
             </div>
-          </DragDropContext>
-        </div>
+          </div>
+        ) : (
+          /* Kanban Board */
+          <div className="flex-1 overflow-x-auto overflow-y-hidden p-4">
+            <DragDropContext onDragEnd={onDragEnd}>
+              <div className="flex gap-3 items-start h-full">
+                {COLUMNS.map((colName) => {
+                  const colTasks = tasks.filter((t) => t.status === colName);
+                  const config = COLUMN_CONFIG[colName];
+                  const colSP = colTasks.reduce(
+                    (acc, t) => acc + (t.priority === "CRITICAL" ? 5 : t.priority === "HIGH" ? 3 : t.priority === "MEDIUM" ? 2 : 1),
+                    0
+                  );
+                  const isHeavyLoad = colName === "IN_PROGRESS" && colTasks.length >= 4;
+
+                  return (
+                    <div key={colName} className="w-[280px] flex-shrink-0 rounded-2xl flex flex-col max-h-full dark:bg-dp-dark-surface/40 bg-dp-light-bg-secondary/60 border dark:border-dp-dark-border-light/40 border-dp-light-border/60 shadow-sm">
+                      
+                      {/* Column Header with Operational Telemetry */}
+                      <div className="p-3 border-b dark:border-white/[0.04] border-slate-200/60 flex items-center justify-between flex-shrink-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className={`w-2 h-2 rounded-full ${config.dot}`} />
+                          <span className={`status-badge text-[12px] font-semibold ${config.badge}`}>{config.label}</span>
+                          <span className="text-[11.5px] dark:text-slate-400 text-slate-500 font-mono font-semibold">
+                            {colTasks.length} • {colSP} SP
+                          </span>
+                          {isHeavyLoad && (
+                            <span className="text-badge-meta font-bold px-1.5 py-0.2 rounded bg-amber-500/15 text-amber-400 border border-amber-500/25">
+                              Pressure
+                            </span>
+                          )}
+                        </div>
+                        <button onClick={() => { setCreateColumnTarget(colName); setNewTaskDueDate(""); setCreateTaskError(null); setShowCreateModal(true); }}
+                          className="w-6 h-6 rounded-md flex items-center justify-center dark:text-dp-text-muted text-dp-text-light-muted dark:hover:bg-dp-dark-surface-hover hover:bg-dp-light-surface-hover hover:text-dp-primary transition-colors"
+                          title="Add task to column"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+
+                      {/* Droppable Column */}
+                      <Droppable droppableId={colName}>
+                        {(provided, snapshot) => (
+                          <div
+                            ref={provided.innerRef}
+                            {...provided.droppableProps}
+                            className={`flex-1 overflow-y-auto px-2 pb-2 pt-2 space-y-2 min-h-[160px] rounded-lg transition-colors duration-150 ${
+                              snapshot.isDraggingOver
+                                ? "dark:bg-indigo-500/[0.05] bg-indigo-500/[0.04] ring-1 ring-indigo-500/20"
+                                : ""
+                            }`}
+                          >
+                            {colTasks.length === 0 && (
+                              <div className="py-7 px-3 rounded-xl border border-dashed dark:border-white/10 border-slate-300/80 flex flex-col items-center justify-center text-center select-none my-1 space-y-1.5">
+                                <span className="text-[13px] font-semibold dark:text-slate-300 text-slate-700">
+                                  No work waiting here
+                                </span>
+                                <span className="text-[12px] dark:text-slate-500 text-slate-400 leading-tight">
+                                  Drag a task into this stage or add one
+                                </span>
+                                <button
+                                  onClick={() => { setCreateColumnTarget(colName); setNewTaskDueDate(""); setCreateTaskError(null); setShowCreateModal(true); }}
+                                  className="mt-1 px-2.5 py-1 rounded-lg text-[11.5px] font-semibold dark:bg-white/5 bg-slate-100 hover:bg-slate-200 dark:hover:bg-white/10 border dark:border-white/10 border-slate-200 text-slate-400 hover:text-indigo-400 transition-colors flex items-center gap-1"
+                                >
+                                  <Plus className="w-3 h-3" />
+                                  <span>Add Task</span>
+                                </button>
+                              </div>
+                            )}
+
+                            {colTasks.map((taskItem, index) => {
+                              const priorityEdgeClass = taskItem.priority === "CRITICAL"
+                                ? "priority-edge-urgent"
+                                : taskItem.priority === "HIGH"
+                                ? "priority-edge-high"
+                                : taskItem.priority === "MEDIUM"
+                                ? "priority-edge-normal"
+                                : "priority-edge-low";
+
+                              return (
+                                <Draggable key={taskItem.id} draggableId={taskItem.id} index={index}>
+                                  {(dp, ds) => (
+                                    <div
+                                      ref={dp.innerRef}
+                                      {...dp.draggableProps}
+                                      {...dp.dragHandleProps}
+                                      onClick={() => setSelectedTaskId(taskItem.id)}
+                                      className={`p-3 rounded-xl cursor-grab active:cursor-grabbing select-none flex flex-col gap-2 border micro-elevate group ${priorityEdgeClass} ${
+                                        ds.isDragging
+                                          ? "shadow-2xl scale-[1.02] dark:bg-dp-dark-surface bg-white dark:border-indigo-500/50 border-indigo-500/40 z-50 ring-1 ring-indigo-500/30"
+                                          : "dark:bg-dp-dark-surface/90 bg-white dark:border-white/5 border-slate-200/80 dark:hover:border-white/20 hover:border-slate-300 shadow-sm"
+                                      }`}
+                                    >
+                                      <div className="flex items-start justify-between gap-2">
+                                        <h4 className="text-card-title dark:text-dp-text-primary text-dp-text-light-primary line-clamp-2 flex-1">
+                                          {taskItem.title}
+                                        </h4>
+                                      </div>
+                                      <div className="flex items-center justify-between text-task-metadata dark:text-dp-text-muted text-dp-text-light-muted pt-1 border-t dark:border-white/[0.04] border-slate-100">
+                                        <div className="flex items-center gap-2">
+                                          <span className="font-semibold font-mono text-[11.5px] dark:text-slate-300 text-slate-700">
+                                            #{taskItem.taskNumber}
+                                          </span>
+                                          <span className={`status-badge text-badge-meta font-semibold ${PRIORITY_STYLES[taskItem.priority]}`}>
+                                            {taskItem.priority}
+                                          </span>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                          {taskItem.dueDate && (() => {
+                                            const isOverdue = new Date(taskItem.dueDate) < new Date() && taskItem.status !== "COMPLETED";
+                                            return (
+                                              <span
+                                                className={`flex items-center gap-1 text-[11px] font-mono px-1.5 py-0.5 rounded ${
+                                                  isOverdue
+                                                    ? "bg-rose-500/15 text-rose-400 border border-rose-500/30 font-semibold"
+                                                    : "dark:bg-white/5 bg-slate-100 dark:text-slate-400 text-slate-500 border dark:border-white/5 border-slate-200"
+                                                }`}
+                                                title={`Due Date: ${new Date(taskItem.dueDate).toLocaleDateString()}`}
+                                              >
+                                                <CalendarIcon className="w-2.5 h-2.5 text-indigo-400" />
+                                                <span>{new Date(taskItem.dueDate).toLocaleDateString([], { month: "short", day: "numeric" })}</span>
+                                              </span>
+                                            );
+                                          })()}
+
+                                          {((taskItem.estimatedTime && taskItem.estimatedTime > 0) || (taskItem.timeSpent && taskItem.timeSpent > 0)) && (
+                                            <span
+                                              className={`flex items-center gap-1 font-mono text-[11px] px-1.5 py-0.5 rounded ${
+                                                taskItem.estimatedTime > 0 && taskItem.timeSpent > taskItem.estimatedTime
+                                                  ? "bg-amber-500/15 text-amber-400 border border-amber-500/30"
+                                                  : "dark:bg-white/5 bg-slate-100 dark:text-slate-400 text-slate-500 border dark:border-white/5 border-slate-200"
+                                              }`}
+                                              title={`Logged: ${formatDuration(taskItem.timeSpent || 0)} / Est: ${formatDuration(taskItem.estimatedTime || 0)}`}
+                                            >
+                                              <Clock className="w-2.5 h-2.5 text-indigo-400" />
+                                              <span>{formatDuration(taskItem.timeSpent || 0)} / {formatDuration(taskItem.estimatedTime || 0)}</span>
+                                            </span>
+                                          )}
+                                          {taskItem._count?.comments > 0 && (
+                                            <span className="flex items-center gap-0.5 dark:text-slate-400 text-slate-500 font-mono text-[11.5px]">
+                                              <MessageSquare className="w-2.5 h-2.5" />
+                                              {taskItem._count.comments}
+                                            </span>
+                                          )}
+                                          {taskItem.assignee ? (
+                                            <Avatar
+                                              src={taskItem.assignee.avatar}
+                                              name={taskItem.assignee.name}
+                                              size="xs"
+                                            />
+                                          ) : (
+                                            <div
+                                              className="w-5 h-5 rounded-full dark:bg-dp-dark-elevated bg-dp-light-bg-secondary dark:text-dp-text-muted text-dp-text-light-muted border border-dashed dark:border-dp-dark-border-light border-dp-light-border flex items-center justify-center"
+                                              title="Unassigned"
+                                            >
+                                              <User className="w-2.5 h-2.5" />
+                                            </div>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  )}
+                                </Draggable>
+                              );
+                            })}
+                            {provided.placeholder}
+                          </div>
+                        )}
+                      </Droppable>
+                    </div>
+                  );
+                })}
+              </div>
+            </DragDropContext>
+          </div>
+        )}
 
         {/* ══════ Task Details Drawer ══════ */}
         <AnimatePresence>
@@ -546,6 +914,18 @@ export default function Board() {
                       <option value="">Backlog</option>
                       {sprints.map(s => (<option key={s.id} value={s.id}>{s.name}</option>))}
                     </select>
+                  </div>
+                  <div className="space-y-1.5 col-span-2">
+                    <span className="flex items-center gap-1 text-metric-label dark:text-dp-text-muted text-dp-text-light-muted block">
+                      <CalendarIcon className="w-3 h-3 text-indigo-400" />
+                      <span>Due Date (Calendar Deadline)</span>
+                    </span>
+                    <input
+                      type="date"
+                      value={taskDetails.dueDate ? new Date(taskDetails.dueDate).toISOString().slice(0, 10) : ""}
+                      onChange={(e) => handleUpdateTaskField("dueDate", e.target.value)}
+                      className="glass-select w-full text-[13px]"
+                    />
                   </div>
                 </div>
 
@@ -825,8 +1205,22 @@ export default function Board() {
                     </div>
                   </div>
 
+                  {/* Due Date Calendar Deadline */}
+                  <div>
+                    <label className="flex items-center gap-1 text-metric-label dark:text-dp-text-muted text-dp-text-light-muted mb-1">
+                      <CalendarIcon className="w-3 h-3 text-indigo-400" />
+                      <span>Due Date (Calendar Deadline)</span>
+                    </label>
+                    <input
+                      type="date"
+                      value={newTaskDueDate}
+                      onChange={(e) => setNewTaskDueDate(e.target.value)}
+                      className="glass-input w-full text-[13px]"
+                    />
+                  </div>
+
                   <div className="flex justify-end gap-2 pt-2">
-                    <button type="button" onClick={() => { setShowCreateModal(false); setNewTaskTitle(""); setNewTaskDesc(""); setNewTaskAssignee(""); setNewTaskSprint(""); setNewTaskEstimatedTime(""); setNewTaskTimeSpent(""); setCreateTaskError(null); }} className="btn-ghost text-btn-refined">Cancel</button>
+                    <button type="button" onClick={() => { setShowCreateModal(false); setNewTaskTitle(""); setNewTaskDesc(""); setNewTaskAssignee(""); setNewTaskSprint(""); setNewTaskDueDate(""); setNewTaskEstimatedTime(""); setNewTaskTimeSpent(""); setCreateTaskError(null); }} className="btn-ghost text-btn-refined">Cancel</button>
                     <button type="submit" disabled={createTaskLoading || !newTaskTitle.trim()} className="btn-primary text-btn-refined flex items-center gap-1.5 disabled:opacity-50">
                       {createTaskLoading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
                       <span>{createTaskLoading ? "Adding..." : "Add Task"}</span>
