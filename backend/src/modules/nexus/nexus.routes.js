@@ -5,10 +5,10 @@ const { chatWithNexus, approveAgentAction } = require("./nexus.controller");
 
 const router = express.Router({ mergeParams: true });
 
-// Prevent API spam burning Groq/HF limits (Max 20 chat requests per 5 minutes per user/IP)
+// Prevent API spam burning Groq/HF limits (Max 100 chat requests per 5 minutes per user/IP)
 const chatLimiter = rateLimit({
   windowMs: 5 * 60 * 1000, 
-  max: 20,
+  max: 100,
   message: { success: false, message: "Too many chat requests. Please take a breather and try again in 5 minutes." },
   standardHeaders: true,
   legacyHeaders: false,
