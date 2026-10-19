@@ -782,7 +782,7 @@ export default function WorkspaceSettingsModal({
                                   {m.role}
                                 </span>
 
-                                {m.userId !== projectData?.ownerId && isManager && (
+                                {m.userId !== projectData?.ownerId && (isOwner || currentUser?.role === "ADMIN") && (
                                   <button
                                     type="button"
                                     onClick={() => handleRemoveMember(m.userId, m.user?.name)}

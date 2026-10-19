@@ -254,12 +254,17 @@ export default function Teams() {
     }
   };
 
+  const isWorkspaceOwner = currentProject?.ownerId === user?.id || user?.role === "ADMIN";
+
   // Remove member or cancel invitation
   const handleRemoveMember = async (member) => {
     if (!currentProject) return;
 
+    const isSelf = member.id === user?.id;
     const confirmText = member.isPending
       ? `Cancel pending invitation for ${member.email}?`
+      : isSelf
+      ? `Are you sure you want to leave ${currentProject.name}?`
       : `Remove ${member.name} from ${currentProject.name}?`;
 
     if (!window.confirm(confirmText)) return;
@@ -268,7 +273,11 @@ export default function Teams() {
       const targetId = member.isPending ? member.id : member.id;
       const res = await client.delete(`/projects/${currentProject.id}/members/${targetId}`);
       if (res.data?.success) {
-        loadTeamData();
+        if (isSelf) {
+          window.location.href = "/dashboard";
+        } else {
+          loadTeamData();
+        }
       }
     } catch (err) {
       alert(err.response?.data?.message || "Failed to remove member");
@@ -543,11 +552,17 @@ export default function Teams() {
                           {member.isOwner ? "OWNER" : member.rawRole || member.role}
                         </span>
 
-                        {/* Remove or Cancel Invitation (allowed for owner/manager unless target is workspace owner) */}
-                        {!member.isOwner && (
+                        {/* Remove or Cancel Invitation (strictly allowed only for workspace owner, or self-leave) */}
+                        {((isWorkspaceOwner && !member.isOwner) || (member.id === user?.id && !member.isOwner)) && (
                           <button
                             onClick={() => handleRemoveMember(member)}
-                            title={member.isPending ? "Cancel Invitation" : "Remove Member"}
+                            title={
+                              member.id === user?.id
+                                ? "Leave Workspace"
+                                : member.isPending
+                                ? "Cancel Invitation"
+                                : "Remove Member"
+                            }
                             className="opacity-0 group-hover:opacity-100 p-1 rounded-md text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-all"
                           >
                             <Trash2 className="w-3.5 h-3.5" />

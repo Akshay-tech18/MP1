@@ -590,22 +590,39 @@ const removeMember = async (req, res) => {
   const targetUserId = req.params.userId;
 
   try {
-    // 1. Verify owner is not being removed
+    // 1. Fetch project to verify existence and check ownership
     const project = await prisma.project.findUnique({
       where: { id: projectId },
-      select: { ownerId: true }
+      select: { id: true, name: true, ownerId: true }
     });
 
-    if (project && project.ownerId === targetUserId) {
-      return sendError(res, 400, "The project owner cannot be removed from the project.");
+    if (!project) {
+      return sendError(res, 404, "Workspace not found");
     }
 
-    // 2. Check if target is a pending invite
+    const isOwner = project.ownerId === req.user.id || req.user.role === "ADMIN";
+    const isSelf = targetUserId === req.user.id;
+
+    // 2. The project owner cannot be removed or leave without transferring ownership
+    if (project.ownerId === targetUserId) {
+      return sendError(res, 400, "The workspace owner cannot be removed from the workspace. Transfer ownership first.");
+    }
+
+    // 3. Only the workspace owner can remove other members; non-owners can only leave themselves
+    if (!isOwner && !isSelf) {
+      return sendError(res, 403, "Only the workspace owner can remove members from this workspace.");
+    }
+
+    // 4. Check if target is a pending invite
     const pending = await prisma.pendingInvite.findUnique({
       where: { id: targetUserId }
     });
 
     if (pending && pending.projectId === projectId) {
+      if (!isOwner) {
+        return sendError(res, 403, "Only the workspace owner can cancel invitations.");
+      }
+
       await prisma.pendingInvite.delete({
         where: { id: targetUserId }
       });
@@ -614,13 +631,24 @@ const removeMember = async (req, res) => {
       return sendSuccess(res, 200, "Pending invitation cancelled successfully");
     }
 
-    // 3. Look up user details for logging
+    // 5. Look up user details for logging
     const user = await prisma.user.findUnique({
       where: { id: targetUserId },
       select: { name: true }
     });
 
-    // Delete membership
+    // 6. Cleanly unassign any open tasks in this project assigned to the user
+    await prisma.task.updateMany({
+      where: {
+        projectId,
+        assigneeId: targetUserId
+      },
+      data: {
+        assigneeId: null
+      }
+    });
+
+    // 7. Delete membership
     await prisma.projectMember.delete({
       where: {
         projectId_userId: {
@@ -630,22 +658,29 @@ const removeMember = async (req, res) => {
       }
     });
 
-    // Create activity log
+    // 8. Create activity log
     await prisma.activityLog.create({
       data: {
         actionType: ActivityType.MEMBER_REMOVED,
         entityType: "MEMBER",
         entityId: targetUserId,
-        metadata: { name: user ? user.name : "Member" },
+        metadata: {
+          name: user ? user.name : "Member",
+          isSelfLeave: isSelf
+        },
         projectId,
         userId: req.user.id
       }
     });
 
-    // Broadcast change
+    // 9. Broadcast change
     emitToProject(req, projectId, SocketEvent.MEMBER_REMOVED, { userId: targetUserId });
 
-    return sendSuccess(res, 200, "Member removed from project successfully");
+    const message = isSelf
+      ? "You have left the workspace successfully"
+      : "Member removed from workspace successfully";
+
+    return sendSuccess(res, 200, message);
   } catch (error) {
     logger.error("Remove project member error: %o", error);
     return sendError(res, 500, "Failed to remove member. They may not be in the project.");

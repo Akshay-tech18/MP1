@@ -68,7 +68,7 @@ router.post(
 
 router.delete(
   "/:id/members/:userId",
-  checkProjectRole("MANAGER"),
+  checkProjectRole("MANAGER", "DEVELOPER", "QA_TESTER", "VIEWER"),
   removeMember
 );
 
