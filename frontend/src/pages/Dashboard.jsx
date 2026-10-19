@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import useAuthStore from "../store/useAuthStore";
@@ -132,6 +132,18 @@ export default function Dashboard() {
   const [projectDetails, setProjectDetails] = useState(null);
   const [dashboardMetrics, setDashboardMetrics] = useState(null);
   const [workspaceTasks, setWorkspaceTasks] = useState([]);
+  const [lineupScope, setLineupScope] = useState("all"); // "all" | "my"
+
+  const displayedWorkspaceTasks = useMemo(() => {
+    if (lineupScope === "my") {
+      return workspaceTasks.filter((t) => t.assigneeId === user?.id || t.assignee?.id === user?.id);
+    }
+    return workspaceTasks;
+  }, [workspaceTasks, lineupScope, user?.id]);
+
+  const myWorkspaceTasksCount = useMemo(() => {
+    return workspaceTasks.filter((t) => t.assigneeId === user?.id || t.assignee?.id === user?.id).length;
+  }, [workspaceTasks, user?.id]);
   const [sprints, setSprints] = useState([]);
   const [docsCount, setDocsCount] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -614,15 +626,50 @@ export default function Dashboard() {
             {/* Left Column (2 Cols): Real Workspace Lineup & Work Queue */}
             <div className="lg:col-span-2 rounded-2xl dark:bg-[#121214] bg-white border dark:border-white/[0.08] border-slate-200 flex flex-col overflow-hidden shadow-sm">
               {/* Card Header */}
-              <div className="p-3.5 px-4 border-b dark:border-white/[0.08] border-slate-200 flex items-center justify-between dark:bg-[#161619] bg-slate-50/70">
+              <div className="p-3.5 px-4 border-b dark:border-white/[0.08] border-slate-200 flex items-center justify-between dark:bg-[#161619] bg-slate-50/70 flex-wrap gap-2">
                 <div className="flex items-center gap-2.5">
                   <span className="w-6 h-6 rounded-lg bg-indigo-500/15 text-indigo-500 flex items-center justify-center">
                     <CheckCircle className="w-3.5 h-3.5" />
                   </span>
                   <h3 className="text-section-heading dark:text-white text-slate-800">
-                    Workspace Lineup ({workspaceTasks.length})
+                    Workspace Lineup
                   </h3>
                 </div>
+
+                {/* All Tasks vs My Tasks switcher */}
+                <div className="flex items-center p-0.5 rounded-lg dark:bg-white/5 bg-slate-200/80 border dark:border-white/10 border-slate-300">
+                  <button
+                    onClick={() => setLineupScope("all")}
+                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11.5px] font-semibold transition-all ${
+                      lineupScope === "all"
+                        ? "dark:bg-indigo-600 bg-indigo-600 text-white shadow-sm"
+                        : "text-slate-500 dark:hover:text-slate-200 hover:text-slate-800"
+                    }`}
+                  >
+                    <span>All Tasks</span>
+                    <span className={`text-[10.5px] px-1.5 py-0.2 rounded-full font-mono ${
+                      lineupScope === "all" ? "bg-white/20 text-white" : "dark:bg-white/10 bg-slate-300/80 text-slate-600 dark:text-slate-300"
+                    }`}>
+                      {workspaceTasks.length}
+                    </span>
+                  </button>
+                  <button
+                    onClick={() => setLineupScope("my")}
+                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11.5px] font-semibold transition-all ${
+                      lineupScope === "my"
+                        ? "dark:bg-indigo-600 bg-indigo-600 text-white shadow-sm"
+                        : "text-slate-500 dark:hover:text-slate-200 hover:text-slate-800"
+                    }`}
+                  >
+                    <span>My Tasks</span>
+                    <span className={`text-[10.5px] px-1.5 py-0.2 rounded-full font-mono ${
+                      lineupScope === "my" ? "bg-white/20 text-white" : "dark:bg-white/10 bg-slate-300/80 text-slate-600 dark:text-slate-300"
+                    }`}>
+                      {myWorkspaceTasksCount}
+                    </span>
+                  </button>
+                </div>
+
                 <div className="flex items-center gap-3">
                   <button
                     onClick={() => navigate("/board")}
@@ -662,15 +709,21 @@ export default function Dashboard() {
 
               {/* Task Items List strictly from DB */}
               <div className="divide-y dark:divide-white/[0.04] divide-slate-100 overflow-y-auto max-h-[380px]">
-                {workspaceTasks.length === 0 && !loading && (
+                {displayedWorkspaceTasks.length === 0 && !loading && (
                   <div className="p-8 text-center text-slate-400 text-xs">
                     <Inbox className="w-6 h-6 mx-auto mb-2 opacity-50" />
-                    <p className="font-semibold dark:text-slate-300 text-slate-700">No tasks in this workspace yet</p>
-                    <p className="text-[11px] text-slate-500 mt-0.5">Type above to add a quick task or create one on the Board.</p>
+                    <p className="font-semibold dark:text-slate-300 text-slate-700">
+                      {lineupScope === "my" ? "No tasks assigned to you" : "No tasks in this workspace yet"}
+                    </p>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      {lineupScope === "my"
+                        ? "Tasks assigned to you will show up here."
+                        : "Type above to add a quick task or create one on the Board."}
+                    </p>
                   </div>
                 )}
 
-                {workspaceTasks.map((t) => {
+                {displayedWorkspaceTasks.map((t) => {
                   const isCompleted = t.status === "COMPLETED";
                   const edgeClass = t.priority === "URGENT"
                     ? "priority-edge-urgent"

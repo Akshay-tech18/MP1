@@ -74,9 +74,21 @@ export default function Board() {
   };
 
   const [tasks, setTasks] = useState([]);
+  const [taskScope, setTaskScope] = useState("all"); // "all" | "my"
   const [sprints, setSprints] = useState([]);
   const [members, setMembers] = useState([]);
   const [selectedSprintId, setSelectedSprintId] = useState("all");
+
+  const displayedTasks = useMemo(() => {
+    if (taskScope === "my") {
+      return tasks.filter((t) => t.assigneeId === user?.id || t.assignee?.id === user?.id);
+    }
+    return tasks;
+  }, [tasks, taskScope, user?.id]);
+
+  const myTasksCount = useMemo(() => {
+    return tasks.filter((t) => t.assigneeId === user?.id || t.assignee?.id === user?.id).length;
+  }, [tasks, user?.id]);
   
   const [selectedTaskId, setSelectedTaskId] = useState(null);
   const [taskDetails, setTaskDetails] = useState(null);
@@ -383,7 +395,7 @@ export default function Board() {
   // Tasks mapped by dueDate
   const scheduledTasksMap = useMemo(() => {
     const map = {};
-    for (const t of tasks) {
+    for (const t of displayedTasks) {
       if (t.dueDate) {
         const key = new Date(t.dueDate).toISOString().slice(0, 10);
         if (!map[key]) map[key] = [];
@@ -391,11 +403,11 @@ export default function Board() {
       }
     }
     return map;
-  }, [tasks]);
+  }, [displayedTasks]);
 
   const unscheduledTasks = useMemo(() => {
-    return tasks.filter((t) => !t.dueDate);
-  }, [tasks]);
+    return displayedTasks.filter((t) => !t.dueDate);
+  }, [displayedTasks]);
 
   const activeSprintsForMonth = useMemo(() => {
     const year = calendarDate.getFullYear();
@@ -475,6 +487,42 @@ export default function Board() {
               >
                 <CalendarIcon className="w-3.5 h-3.5" />
                 <span>Calendar Planner</span>
+              </button>
+            </div>
+
+            <div className="h-4 w-px dark:bg-white/10 bg-slate-200" />
+
+            {/* Task Scope Filter: All Tasks vs My Tasks */}
+            <div className="flex items-center p-0.5 rounded-lg dark:bg-white/5 bg-slate-200/80 border dark:border-white/10 border-slate-300">
+              <button
+                onClick={() => setTaskScope("all")}
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-btn-refined font-semibold transition-all ${
+                  taskScope === "all"
+                    ? "dark:bg-indigo-600 bg-indigo-600 text-white shadow-sm"
+                    : "text-slate-500 dark:hover:text-slate-200 hover:text-slate-800"
+                }`}
+              >
+                <span>All Tasks</span>
+                <span className={`text-[11px] px-1.5 py-0.2 rounded-full font-mono ${
+                  taskScope === "all" ? "bg-white/20 text-white" : "dark:bg-white/10 bg-slate-300/80 text-slate-600 dark:text-slate-300"
+                }`}>
+                  {tasks.length}
+                </span>
+              </button>
+              <button
+                onClick={() => setTaskScope("my")}
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-btn-refined font-semibold transition-all ${
+                  taskScope === "my"
+                    ? "dark:bg-indigo-600 bg-indigo-600 text-white shadow-sm"
+                    : "text-slate-500 dark:hover:text-slate-200 hover:text-slate-800"
+                }`}
+              >
+                <span>My Tasks</span>
+                <span className={`text-[11px] px-1.5 py-0.2 rounded-full font-mono ${
+                  taskScope === "my" ? "bg-white/20 text-white" : "dark:bg-white/10 bg-slate-300/80 text-slate-600 dark:text-slate-300"
+                }`}>
+                  {myTasksCount}
+                </span>
               </button>
             </div>
 
@@ -686,7 +734,7 @@ export default function Board() {
             <DragDropContext onDragEnd={onDragEnd}>
               <div className="flex gap-3 items-start h-full">
                 {COLUMNS.map((colName) => {
-                  const colTasks = tasks.filter((t) => t.status === colName);
+                  const colTasks = displayedTasks.filter((t) => t.status === colName);
                   const config = COLUMN_CONFIG[colName];
                   const colSP = colTasks.reduce(
                     (acc, t) => acc + (t.priority === "CRITICAL" ? 5 : t.priority === "HIGH" ? 3 : t.priority === "MEDIUM" ? 2 : 1),
@@ -734,10 +782,10 @@ export default function Board() {
                             {colTasks.length === 0 && (
                               <div className="py-7 px-3 rounded-xl border border-dashed dark:border-white/10 border-slate-300/80 flex flex-col items-center justify-center text-center select-none my-1 space-y-1.5">
                                 <span className="text-[13px] font-semibold dark:text-slate-300 text-slate-700">
-                                  No work waiting here
+                                  {taskScope === "my" ? "No assigned work here" : "No work waiting here"}
                                 </span>
                                 <span className="text-[12px] dark:text-slate-500 text-slate-400 leading-tight">
-                                  Drag a task into this stage or add one
+                                  {taskScope === "my" ? "No tasks assigned to you in this stage" : "Drag a task into this stage or add one"}
                                 </span>
                                 <button
                                   onClick={() => { setCreateColumnTarget(colName); setNewTaskDueDate(""); setCreateTaskError(null); setShowCreateModal(true); }}

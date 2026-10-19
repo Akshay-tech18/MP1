@@ -77,7 +77,7 @@ const createTask = async (req, res) => {
  */
 const listTasks = async (req, res) => {
   const projectId = req.params.id;
-  const { sprintId, status, assigneeId } = req.query;
+  const { sprintId, status, assigneeId, scope } = req.query;
 
   try {
     const filter = { projectId };
@@ -93,7 +93,10 @@ const listTasks = async (req, res) => {
       filter.status = status;
     }
 
-    if (assigneeId) {
+    // Support scope="my" or assigneeId="me" to filter by logged in user
+    if (assigneeId === "me" || scope === "my") {
+      filter.assigneeId = req.user.id;
+    } else if (assigneeId) {
       filter.assigneeId = assigneeId;
     }
 
