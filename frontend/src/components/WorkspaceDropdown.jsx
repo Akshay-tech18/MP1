@@ -6,6 +6,7 @@ import {
   Settings,
   Plus,
   Check,
+  FolderGit2,
 } from "lucide-react";
 import useAuthStore from "../store/useAuthStore";
 import CreateWorkspaceModal from "./CreateWorkspaceModal";
@@ -19,8 +20,9 @@ export default function WorkspaceDropdown() {
   const [settingsTargetProjectId, setSettingsTargetProjectId] = useState(null);
   const dropdownRef = useRef(null);
 
-  const workspaceName = currentProject?.name || "Fleet management system";
-  const initial = workspaceName.charAt(0).toUpperCase();
+  const hasActiveWorkspace = Boolean(currentProject && currentProject.id);
+  const workspaceName = hasActiveWorkspace ? currentProject.name : "No active workspace";
+  const initial = hasActiveWorkspace && workspaceName ? workspaceName.charAt(0).toUpperCase() : null;
 
   // Close dropdown on outside click
   useEffect(() => {
@@ -42,10 +44,18 @@ export default function WorkspaceDropdown() {
         onClick={() => setIsOpen((prev) => !prev)}
         className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg dark:bg-[#18181b] bg-slate-100 hover:bg-slate-200 dark:hover:bg-[#202024] border dark:border-white/[0.08] border-slate-200 transition-all text-nav-top font-semibold dark:text-slate-200 text-slate-800 group shadow-sm"
       >
-        <span className="w-5 h-5 rounded-md bg-teal-600 flex items-center justify-center text-white text-caption-meta font-bold shadow-sm">
-          {initial}
+        {hasActiveWorkspace ? (
+          <span className="w-5 h-5 rounded-md bg-teal-600 flex items-center justify-center text-white text-caption-meta font-bold shadow-sm">
+            {initial}
+          </span>
+        ) : (
+          <span className="w-5 h-5 rounded-md bg-slate-200 dark:bg-white/10 flex items-center justify-center text-slate-400 text-caption-meta font-bold shadow-sm">
+            —
+          </span>
+        )}
+        <span className={`truncate max-w-[160px] ${!hasActiveWorkspace ? "text-slate-400 font-normal italic" : ""}`}>
+          {workspaceName}
         </span>
-        <span className="truncate max-w-[160px]">{workspaceName}</span>
         <ChevronDown
           className={`w-3.5 h-3.5 text-slate-400 dark:group-hover:text-slate-200 group-hover:text-slate-800 transition-transform duration-200 ${
             isOpen ? "rotate-180" : ""
@@ -75,46 +85,62 @@ export default function WorkspaceDropdown() {
             <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-white/30 to-transparent pointer-events-none" />
 
             {/* Header: Workspace details */}
-            <div className="flex items-center gap-3 p-1.5 mb-2 flex-shrink-0">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-teal-600 to-emerald-500 flex items-center justify-center text-white text-base font-bold shadow-md">
-                {initial}
+            {hasActiveWorkspace ? (
+              <div className="flex items-center gap-3 p-1.5 mb-2 flex-shrink-0">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-teal-600 to-emerald-500 flex items-center justify-center text-white text-base font-bold shadow-md">
+                  {initial}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h4 className="text-card-title font-bold dark:text-white text-slate-900 truncate">
+                    {workspaceName}
+                  </h4>
+                  <p className="text-task-metadata text-slate-400 flex items-center gap-1.5 mt-0.5">
+                    <span>
+                      {(currentProject?.members?.length ?? currentProject?._count?.members ?? 1)}{" "}
+                      {(currentProject?.members?.length ?? currentProject?._count?.members ?? 1) === 1
+                        ? "member"
+                        : "members"}
+                    </span>
+                  </p>
+                </div>
               </div>
-              <div className="flex-1 min-w-0">
-                <h4 className="text-card-title font-bold dark:text-white text-slate-900 truncate">
-                  {workspaceName}
-                </h4>
-                <p className="text-task-metadata text-slate-400 flex items-center gap-1.5 mt-0.5">
-                  <span>
-                    {(currentProject?.members?.length ?? currentProject?._count?.members ?? 1)}{" "}
-                    {(currentProject?.members?.length ?? currentProject?._count?.members ?? 1) === 1
-                      ? "member"
-                      : "members"}
-                  </span>
+            ) : (
+              <div className="p-3 mb-2 rounded-2xl dark:bg-white/[0.03] bg-slate-100/80 border dark:border-white/[0.08] border-slate-200 flex flex-col items-center text-center">
+                <div className="w-9 h-9 rounded-xl bg-slate-500/10 border border-slate-500/20 flex items-center justify-center text-slate-400 mb-2">
+                  <FolderGit2 className="w-4 h-4" />
+                </div>
+                <p className="text-xs font-semibold dark:text-white text-slate-800">
+                  No Active Workspace
+                </p>
+                <p className="text-[11px] text-slate-500 mt-0.5 max-w-[220px]">
+                  Create a workspace to organize repositories, sprints, tasks, and team members.
                 </p>
               </div>
-            </div>
+            )}
 
             {/* Quick Action: Workspace Settings */}
-            <div className="mb-2.5 flex-shrink-0">
-              <button
-                onClick={() => {
-                  setIsOpen(false);
-                  setSettingsTargetProjectId(currentProject?.id);
-                  setShowSettingsModal(true);
-                }}
-                className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl dark:bg-white/5 bg-slate-100 hover:bg-slate-200/80 dark:hover:bg-white/10 border dark:border-white/5 border-slate-200 text-btn-refined font-semibold dark:text-slate-200 text-slate-700 transition-colors shadow-sm"
-              >
-                <Settings className="w-3.5 h-3.5 text-slate-400" />
-                <span>Workspace Settings</span>
-              </button>
-            </div>
+            {hasActiveWorkspace && (
+              <div className="mb-2.5 flex-shrink-0">
+                <button
+                  onClick={() => {
+                    setIsOpen(false);
+                    setSettingsTargetProjectId(currentProject?.id);
+                    setShowSettingsModal(true);
+                  }}
+                  className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl dark:bg-white/5 bg-slate-100 hover:bg-slate-200/80 dark:hover:bg-white/10 border dark:border-white/5 border-slate-200 text-btn-refined font-semibold dark:text-slate-200 text-slate-700 transition-colors shadow-sm"
+                >
+                  <Settings className="w-3.5 h-3.5 text-slate-400" />
+                  <span>Workspace Settings</span>
+                </button>
+              </div>
+            )}
 
-            {/* Scrollable Middle Container (Switch Workspace if multiple) */}
-            {projects.length > 1 && (
+            {/* Scrollable Middle Container (Switch Workspace if multiple or available) */}
+            {projects.length > 0 && (
               <div className="flex-1 overflow-y-auto overflow-x-hidden pr-1 space-y-0.5 scrollbar-thin max-h-[46vh] border-t dark:border-white/[0.06] border-slate-200 pt-2">
                 <div className="flex items-center justify-between px-2 mb-1">
                   <span className="text-metric-label font-semibold text-slate-400 uppercase tracking-wider">
-                    Switch Workspace
+                    {projects.length > 1 ? "Switch Workspace" : "Workspaces"}
                   </span>
                   <span className="text-caption-meta font-mono px-1.5 py-0.2 rounded-full bg-slate-200 dark:bg-white/10 text-slate-500 dark:text-slate-400">
                     {projects.length}

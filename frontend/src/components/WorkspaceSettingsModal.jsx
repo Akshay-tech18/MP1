@@ -152,6 +152,7 @@ export default function WorkspaceSettingsModal({
     isOwner ||
     currentUser?.role === "ADMIN" ||
     projectData?.members?.some((m) => m.userId === currentUser?.id && m.role === "MANAGER");
+  const canDelete = isOwner || currentUser?.role === "ADMIN";
 
   // 1. Handle Update / Rename
   const handleSaveGeneral = async (e) => {
@@ -317,8 +318,13 @@ export default function WorkspaceSettingsModal({
 
   // 4. Handle Deletion
   const handleDeleteWorkspace = async () => {
-    if (confirmName !== projectData?.name) {
-      setErrorMsg(`Please type exactly "${projectData?.name}" to confirm deletion.`);
+    if (!canDelete) {
+      setErrorMsg("Only the workspace owner or a system administrator has permission to delete this workspace.");
+      return;
+    }
+
+    if (confirmName.trim().toLowerCase() !== projectData?.name?.trim().toLowerCase()) {
+      setErrorMsg(`Please type "${projectData?.name}" to confirm deletion.`);
       return;
     }
 
@@ -501,6 +507,14 @@ export default function WorkspaceSettingsModal({
                 <div className="flex flex-col items-center justify-center p-12 text-slate-400 space-y-3">
                   <div className="spinner-gradient mb-2" />
                   <span className="text-xs font-medium">Loading workspace settings...</span>
+                </div>
+              ) : !projectData ? (
+                <div className="flex flex-col items-center justify-center p-12 text-slate-400 space-y-3 text-center">
+                  <AlertCircle className="w-8 h-8 text-slate-500 mb-1" />
+                  <span className="text-sm font-semibold dark:text-white text-slate-800">No Workspace Selected</span>
+                  <p className="text-xs text-slate-500 max-w-sm">
+                    No active workspace details were found. Please select or create a workspace.
+                  </p>
                 </div>
               ) : (
                 <>
@@ -898,6 +912,15 @@ export default function WorkspaceSettingsModal({
                         </p>
                       </div>
 
+                      {!canDelete && (
+                        <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-400 flex items-center gap-2.5">
+                          <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+                          <span>
+                            Only the workspace owner or a system administrator has permission to delete this workspace.
+                          </span>
+                        </div>
+                      )}
+
                       <div className="p-4 rounded-2xl border border-rose-500/30 bg-rose-500/5 space-y-3">
                         <div>
                           <h5 className="text-xs font-bold text-rose-400">
@@ -918,14 +941,19 @@ export default function WorkspaceSettingsModal({
                             value={confirmName}
                             onChange={(e) => setConfirmName(e.target.value)}
                             placeholder={projectData?.name}
-                            className="w-full px-3 py-2 rounded-xl dark:bg-black/40 bg-white border border-rose-500/30 text-xs dark:text-white text-slate-900 placeholder-slate-500 outline-none focus:border-rose-500 font-mono shadow-sm"
+                            disabled={!canDelete || deleting}
+                            className="w-full px-3 py-2 rounded-xl dark:bg-black/40 bg-white border border-rose-500/30 text-xs dark:text-white text-slate-900 placeholder-slate-500 outline-none focus:border-rose-500 font-mono shadow-sm disabled:opacity-50"
                           />
                         </div>
 
                         <button
                           type="button"
                           onClick={handleDeleteWorkspace}
-                          disabled={confirmName !== projectData?.name || deleting}
+                          disabled={
+                            !canDelete ||
+                            confirmName.trim().toLowerCase() !== projectData?.name?.trim().toLowerCase() ||
+                            deleting
+                          }
                           className="flex items-center justify-center gap-2 w-full py-2.5 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed shadow-md shadow-rose-600/20"
                         >
                           <Trash2 className="w-4 h-4" />
