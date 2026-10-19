@@ -57,17 +57,22 @@ const useNotificationStore = create((set, get) => ({
    * Mark an individual notification as read
    */
   markAsRead: async (id) => {
-    try {
-      await client.patch(`/users/me/notifications/${id}/read`);
-      set((state) => {
-        const updated = state.notifications.map((n) =>
-          n.id === id ? { ...n, read: true } : n
-        );
-        const unreadCount = updated.filter((n) => !n.read).length;
-        return { notifications: updated, unreadCount };
-      });
-    } catch (err) {
-      console.error("Failed to mark notification as read:", err);
+    // 1. Optimistic state update: mark as read immediately in UI
+    set((state) => {
+      const updated = state.notifications.map((n) =>
+        n.id === id ? { ...n, read: true } : n
+      );
+      const unreadCount = updated.filter((n) => !n.read).length;
+      return { notifications: updated, unreadCount };
+    });
+
+    // 2. Persist to backend if this is a persisted DB notification (not synthetic socket notif)
+    if (id && !String(id).startsWith("notif-")) {
+      try {
+        await client.patch(`/users/me/notifications/${id}/read`);
+      } catch (err) {
+        console.error("Failed to mark notification as read on server:", err);
+      }
     }
   },
 
@@ -75,9 +80,18 @@ const useNotificationStore = create((set, get) => ({
    * Mark all unread notifications as read
    */
   markAllAsRead: async () => {
-    const { notifications, markAsRead } = get();
-    const unread = notifications.filter((n) => !n.read);
-    await Promise.allSettled(unread.map((n) => markAsRead(n.id)));
+    // 1. Optimistic state update: immediately clear unread badge and mark all notifications read
+    set((state) => ({
+      notifications: state.notifications.map((n) => ({ ...n, read: true })),
+      unreadCount: 0,
+    }));
+
+    // 2. Persist to backend via atomic bulk update endpoint
+    try {
+      await client.patch("/users/me/notifications/read-all");
+    } catch (err) {
+      console.error("Failed to mark all notifications as read on server:", err);
+    }
   },
 }));
 

@@ -178,6 +178,23 @@ const markNotificationRead = async (req, res) => {
   }
 };
 
+/**
+ * Mark all unread notifications as read for current user
+ */
+const markAllNotificationsRead = async (req, res) => {
+  try {
+    const result = await prisma.notification.updateMany({
+      where: { userId: req.user.id, read: false },
+      data: { read: true }
+    });
+
+    return sendSuccess(res, 200, "All notifications marked as read", { count: result.count });
+  } catch (error) {
+    logger.error("Mark all notifications read error: %o", error);
+    return sendError(res, 500, "Failed to mark all notifications as read");
+  }
+};
+
 module.exports = {
   updateMe,
   searchUsers,
@@ -185,5 +202,6 @@ module.exports = {
   changeSystemRole,
   getNotifications,
   markNotificationRead,
+  markAllNotificationsRead,
   SAFE_SELECT
 };

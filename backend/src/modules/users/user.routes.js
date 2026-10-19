@@ -8,7 +8,8 @@ const {
   getMeStats,
   changeSystemRole,
   getNotifications,
-  markNotificationRead
+  markNotificationRead,
+  markAllNotificationsRead
 } = require("./user.controller");
 
 const router = express.Router();
@@ -22,6 +23,7 @@ router.get("/me/stats", getMeStats);
 
 // Notifications
 router.get("/me/notifications", getNotifications);
+router.patch("/me/notifications/read-all", markAllNotificationsRead);
 router.patch("/me/notifications/:id/read", markNotificationRead);
 
 // Admin-only role management
