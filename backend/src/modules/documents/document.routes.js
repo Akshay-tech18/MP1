@@ -5,7 +5,8 @@ const {
   getDocuments,
   getDocumentById,
   updateDocument,
-  deleteDocuments
+  deleteDocuments,
+  uploadPdfDocument
 } = require("./document.controller");
 
 const router = express.Router({ mergeParams: true });
@@ -13,9 +14,10 @@ const router = express.Router({ mergeParams: true });
 router.use(protect);
 
 router.post("/", createDocument);
+router.post("/upload-pdf", uploadPdfDocument);
+router.post("/bulk-delete", deleteDocuments); // Using POST for bulk delete payload
 router.get("/", getDocuments);
 router.get("/:id", getDocumentById);
 router.patch("/:id", updateDocument);
-router.post("/bulk-delete", deleteDocuments); // Using POST for bulk delete payload
 
 module.exports = router;

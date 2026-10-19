@@ -41,3 +41,12 @@ export const deleteDocuments = async (projectId, documentIds) => {
   });
   return response.data;
 };
+
+/**
+ * Upload a PDF document for text extraction and RAG indexing
+ */
+export const uploadPdfDocument = async (projectId, data) => {
+  const response = await client.post(`/projects/${projectId}/documents/upload-pdf`, data);
+  return response.data;
+};
+

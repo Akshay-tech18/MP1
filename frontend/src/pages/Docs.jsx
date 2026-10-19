@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -26,6 +26,9 @@ import {
   Save,
   Loader2,
   Sparkles,
+  UploadCloud,
+  FileUp,
+  AlertCircle,
 } from "lucide-react";
 import PageTransition from "../components/PageTransition";
 import useAuthStore from "../store/useAuthStore";
@@ -35,6 +38,7 @@ import {
   createDocument as apiCreateDocument,
   updateDocument as apiUpdateDocument,
   deleteDocuments as apiDeleteDocuments,
+  uploadPdfDocument as apiUploadPdfDocument,
 } from "../api/documents";
 
 const STARTER_TEMPLATES = [
@@ -118,6 +122,14 @@ export default function Docs() {
   const [editTitle, setEditTitle] = useState("");
   const [editContent, setEditContent] = useState("");
   const [isSavingEdit, setIsSavingEdit] = useState(false);
+
+  // PDF Upload Modal State
+  const [showPdfModal, setShowPdfModal] = useState(false);
+  const [pdfFile, setPdfFile] = useState(null);
+  const [pdfTitle, setPdfTitle] = useState("");
+  const [pdfTags, setPdfTags] = useState("PDF, Workspace");
+  const [isUploadingPdf, setIsUploadingPdf] = useState(false);
+  const [pdfError, setPdfError] = useState("");
 
   // Load documents for current project
   const loadDocuments = useCallback(async () => {
@@ -277,12 +289,95 @@ export default function Docs() {
     });
   };
 
+  // PDF File Selection
+  const handlePdfFileSelect = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
+      setPdfError("Please select a valid PDF file (.pdf)");
+      return;
+    }
+    setPdfError("");
+    setPdfFile(file);
+    if (!pdfTitle) {
+      const nameWithoutExt = file.name.replace(/\.pdf$/i, "").replace(/[_-]/g, " ");
+      setPdfTitle(nameWithoutExt);
+    }
+  };
+
+  // Upload PDF submit
+  const handleUploadPdfSubmit = async (e) => {
+    e.preventDefault();
+    if (!pdfFile || !projectId) {
+      setPdfError("Please select a PDF file first.");
+      return;
+    }
+
+    setIsUploadingPdf(true);
+    setPdfError("");
+
+    try {
+      const reader = new FileReader();
+      const base64Promise = new Promise((resolve, reject) => {
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = (err) => reject(err);
+      });
+      reader.readAsDataURL(pdfFile);
+      const fileBase64 = await base64Promise;
+
+      const tags = pdfTags
+        ? pdfTags.split(",").map((t) => t.trim()).filter(Boolean)
+        : ["PDF"];
+      if (!tags.includes("PDF")) tags.unshift("PDF");
+
+      const res = await apiUploadPdfDocument(projectId, {
+        title: pdfTitle.trim() || pdfFile.name.replace(/\.pdf$/i, ""),
+        fileBase64,
+        tags,
+      });
+
+      if (res.success && res.data?.document) {
+        setShowPdfModal(false);
+        setPdfFile(null);
+        setPdfTitle("");
+        setPdfTags("PDF, Workspace");
+        await loadDocuments();
+        handleSelectDoc(res.data.document);
+      } else {
+        setPdfError(res.error || "Failed to process and index PDF");
+      }
+    } catch (err) {
+      console.error("Failed to upload PDF:", err);
+      setPdfError(err.response?.data?.error || err.message || "Failed to upload and index PDF");
+    } finally {
+      setIsUploadingPdf(false);
+    }
+  };
+
+  // Filtered documents by scope: all / my / workspace
+  const myDocsCount = docsList.filter(
+    (d) => d.authorId === user?.id || d.author?.id === user?.id
+  ).length;
+
+  const workspaceDocsCount = docsList.filter(
+    (d) => d.authorId !== user?.id && d.author?.id !== user?.id
+  ).length;
+
+  const displayedDocs = useMemo(() => {
+    return docsList.filter((doc) => {
+      const isMine = doc.authorId === user?.id || doc.author?.id === user?.id;
+      if (activeCategory === "my") return isMine;
+      if (activeCategory === "workspace") return !isMine;
+      return true;
+    });
+  }, [docsList, activeCategory, user?.id]);
+
   // Toggle select all
   const toggleSelectAll = () => {
-    if (selectedDocIds.size === docsList.length) {
+    if (selectedDocIds.size === displayedDocs.length) {
       setSelectedDocIds(new Set());
     } else {
-      setSelectedDocIds(new Set(docsList.map((d) => d.id)));
+      setSelectedDocIds(new Set(displayedDocs.map((d) => d.id)));
     }
   };
 
@@ -360,20 +455,25 @@ export default function Docs() {
                 <span>My Docs</span>
               </div>
               <span className="text-caption-meta text-slate-400">
-                {docsList.filter((d) => d.authorId === user?.id).length}
+                {myDocsCount}
               </span>
             </button>
 
             <button
-              onClick={() => setActiveCategory("shared")}
-              className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-nav-secondary transition-colors ${
-                activeCategory === "shared"
+              onClick={() => setActiveCategory("workspace")}
+              className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-nav-secondary transition-colors ${
+                activeCategory === "workspace"
                   ? "dark:bg-white/10 bg-slate-200/80 dark:text-white text-slate-900 font-semibold"
                   : "text-slate-500 dark:hover:text-slate-200 hover:text-slate-900 dark:hover:bg-white/5 hover:bg-slate-100"
               }`}
             >
-              <Users className="w-3.5 h-3.5" />
-              <span>Workspace Docs</span>
+              <div className="flex items-center gap-2">
+                <Users className="w-3.5 h-3.5 text-slate-400" />
+                <span>Workspace Docs</span>
+              </div>
+              <span className="text-caption-meta text-slate-400">
+                {workspaceDocsCount}
+              </span>
             </button>
           </div>
 
@@ -435,7 +535,13 @@ export default function Docs() {
           <div className="p-4 border-b dark:border-white/[0.08] border-slate-200 flex items-center justify-between dark:bg-[#080808]/90 bg-white/90 backdrop-blur sticky top-0 z-10 transition-colors">
             <div className="flex items-center gap-3">
               <h1 className="text-major-heading dark:text-white text-slate-900 flex items-center gap-2">
-                <span>Workspace Docs</span>
+                <span>
+                  {activeCategory === "my"
+                    ? "My Documents"
+                    : activeCategory === "workspace"
+                    ? "Workspace Documents"
+                    : "All Documents"}
+                </span>
                 {currentProject && (
                   <span className="text-[12px] px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 font-normal">
                     {currentProject.name}
@@ -456,6 +562,15 @@ export default function Docs() {
               )}
 
               <button
+                onClick={() => setShowPdfModal(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg dark:bg-white/5 bg-slate-100 dark:hover:bg-white/10 hover:bg-slate-200 dark:text-slate-200 text-slate-700 border dark:border-white/10 border-slate-300 text-btn-refined shadow-sm transition-all"
+                title="Upload PDF to parse and index for Nexus AI RAG"
+              >
+                <UploadCloud className="w-3.5 h-3.5 text-indigo-400" />
+                <span>Upload PDF</span>
+              </button>
+
+              <button
                 onClick={() => setIsCreatingDoc(true)}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-btn-refined shadow-sm shadow-indigo-600/20 transition-all"
               >
@@ -469,17 +584,21 @@ export default function Docs() {
           <div className="p-6 space-y-6">
             
             {/* Top Quick Featured Cards */}
-            {docsList.length > 0 && (
+            {displayedDocs.length > 0 && (
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                {docsList.slice(0, 3).map((doc) => (
+                {displayedDocs.slice(0, 3).map((doc) => (
                   <div
                     key={doc.id}
                     onClick={() => handleSelectDoc(doc)}
                     className="p-3.5 rounded-xl dark:bg-[#121214] bg-white dark:hover:bg-[#18181b] hover:bg-slate-50 border dark:border-white/[0.06] border-slate-200 hover:border-indigo-500/30 transition-all cursor-pointer group shadow-sm"
                   >
                     <div className="flex items-center justify-between gap-1 mb-1.5">
-                      <span className="text-badge-meta font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-                        {doc.tags?.[0] || "Doc"}
+                      <span className={`text-badge-meta font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${
+                        doc.tags?.includes("PDF")
+                          ? "bg-rose-500/10 text-rose-400 border border-rose-500/20"
+                          : "bg-indigo-500/10 text-indigo-400 border border-indigo-500/20"
+                      }`}>
+                        {doc.tags?.includes("PDF") ? "PDF" : doc.tags?.[0] || "Doc"}
                       </span>
                       <span className="text-[11.5px] text-slate-400 font-medium">
                         {doc.readTime || 1}m read
@@ -503,7 +622,7 @@ export default function Docs() {
             <div className="flex items-center justify-between gap-4 pt-2">
               <div className="flex items-center gap-3">
                 <div className="flex items-center gap-1.5 text-xs text-slate-400 font-medium">
-                  <span>Showing {docsList.length} documents</span>
+                  <span>Showing {displayedDocs.length} documents</span>
                 </div>
               </div>
 
@@ -521,7 +640,7 @@ export default function Docs() {
             </div>
 
             {/* Empty State when no docs found */}
-            {docsList.length === 0 && !isLoading && (
+            {displayedDocs.length === 0 && !isLoading && (
               <div className="rounded-2xl border border-dashed dark:border-white/10 border-slate-300 p-12 text-center flex flex-col items-center justify-center dark:bg-white/[0.01] bg-slate-50/50">
                 <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-400 mb-3 border border-indigo-500/20">
                   <FileText className="w-6 h-6" />
@@ -530,7 +649,7 @@ export default function Docs() {
                   No documents found
                 </h3>
                 <p className="text-xs text-slate-400 max-w-sm mb-5 leading-relaxed">
-                  Start writing internal documentation, architecture specs, and notes. Nexus² will use them for intelligent grounding.
+                  Start writing internal documentation, architecture specs, or upload PDF files. Nexus² AI RAG will use them for intelligent grounding.
                 </p>
                 <div className="flex items-center gap-3">
                   <button
@@ -538,7 +657,14 @@ export default function Docs() {
                     className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-semibold shadow-sm transition-all"
                   >
                     <Plus className="w-4 h-4" />
-                    <span>Create First Document</span>
+                    <span>Create Document</span>
+                  </button>
+                  <button
+                    onClick={() => setShowPdfModal(true)}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl dark:bg-white/5 bg-white border dark:border-white/10 border-slate-200 dark:hover:bg-white/10 hover:bg-slate-100 text-xs font-semibold dark:text-slate-200 text-slate-800 shadow-sm transition-all"
+                  >
+                    <UploadCloud className="w-4 h-4 text-indigo-400" />
+                    <span>Upload PDF</span>
                   </button>
                   <button
                     onClick={handleSeedDocs}
@@ -557,7 +683,7 @@ export default function Docs() {
             )}
 
             {/* Docs Table View */}
-            {docsList.length > 0 && (
+            {displayedDocs.length > 0 && (
               <div className="rounded-xl border dark:border-white/[0.08] border-slate-200 overflow-hidden dark:bg-[#101013] bg-white shadow-sm">
                 <table className="w-full text-left text-xs border-collapse">
                   <thead>
@@ -565,7 +691,7 @@ export default function Docs() {
                       <th className="py-2.5 px-4 w-10">
                         <input
                           type="checkbox"
-                          checked={selectedDocIds.size === docsList.length && docsList.length > 0}
+                          checked={selectedDocIds.size === displayedDocs.length && displayedDocs.length > 0}
                           onChange={toggleSelectAll}
                           className="rounded bg-white/10 border-white/20 accent-indigo-500 cursor-pointer"
                         />
@@ -579,7 +705,7 @@ export default function Docs() {
                     </tr>
                   </thead>
                   <tbody className="divide-y dark:divide-white/[0.04] divide-slate-100">
-                    {docsList.map((doc) => (
+                    {displayedDocs.map((doc) => (
                       <tr
                         key={doc.id}
                         onClick={() => handleSelectDoc(doc)}
@@ -595,8 +721,16 @@ export default function Docs() {
                         </td>
                         <td className="py-2.5 px-3">
                           <div className="flex items-center gap-2.5">
-                            <span className="w-5 h-5 rounded flex items-center justify-center bg-cyan-600/20 text-cyan-500 flex-shrink-0">
-                              <FileText className="w-3.5 h-3.5" />
+                            <span className={`w-5 h-5 rounded flex items-center justify-center flex-shrink-0 ${
+                              doc.tags?.includes("PDF")
+                                ? "bg-rose-500/20 text-rose-500"
+                                : "bg-cyan-600/20 text-cyan-500"
+                            }`}>
+                              {doc.tags?.includes("PDF") ? (
+                                <FileUp className="w-3.5 h-3.5" />
+                              ) : (
+                                <FileText className="w-3.5 h-3.5" />
+                              )}
                             </span>
                             <div className="min-w-0">
                               <span className="text-card-title dark:text-slate-100 text-slate-900 dark:group-hover:text-indigo-400 group-hover:text-indigo-600 transition-colors truncate block font-medium">
@@ -619,7 +753,11 @@ export default function Docs() {
                               {doc.tags.map((t) => (
                                 <span
                                   key={t}
-                                  className="px-1.5 py-0.5 rounded dark:bg-white/5 bg-slate-100 text-badge-meta dark:text-slate-400 text-slate-600 border dark:border-transparent border-slate-200"
+                                  className={`px-1.5 py-0.5 rounded text-badge-meta font-medium border ${
+                                    t === "PDF"
+                                      ? "dark:bg-rose-500/10 bg-rose-50 text-rose-500 border-rose-500/20"
+                                      : "dark:bg-white/5 bg-slate-100 dark:text-slate-400 text-slate-600 dark:border-transparent border-slate-200"
+                                  }`}
                                 >
                                   {t}
                                 </span>
@@ -850,6 +988,131 @@ export default function Docs() {
                     >
                       {isSubmittingDoc && <Loader2 className="w-3 h-3 animate-spin" />}
                       <span>Create Doc</span>
+                    </button>
+                  </div>
+                </form>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
+
+        {/* ══════ Upload PDF Modal ══════ */}
+        <AnimatePresence>
+          {showPdfModal && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="w-full max-w-lg rounded-2xl dark:bg-[#161619] bg-white border dark:border-white/10 border-slate-200 shadow-2xl p-5 dark:text-slate-200 text-slate-800"
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-sm font-bold dark:text-white text-slate-900 flex items-center gap-2">
+                    <UploadCloud className="w-4 h-4 text-indigo-400" />
+                    <span>Upload PDF for RAG Indexing</span>
+                  </h3>
+                  <button
+                    onClick={() => {
+                      if (!isUploadingPdf) setShowPdfModal(false);
+                    }}
+                    className="text-slate-400 hover:text-slate-700 dark:hover:text-white"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {pdfError && (
+                  <div className="mb-4 p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs flex items-start gap-2">
+                    <AlertCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                    <span>{pdfError}</span>
+                  </div>
+                )}
+
+                <form onSubmit={handleUploadPdfSubmit} className="space-y-4">
+                  {/* File Drop / Select Area */}
+                  <div>
+                    <label className="text-[11px] font-semibold text-slate-500 block mb-1">
+                      PDF Document File *
+                    </label>
+                    <label className="flex flex-col items-center justify-center w-full h-32 px-4 border-2 border-dashed rounded-xl cursor-pointer dark:border-white/10 border-slate-300 dark:hover:border-indigo-500/50 hover:border-indigo-500/50 dark:bg-white/[0.02] bg-slate-50 transition-colors">
+                      <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                        <FileUp className="w-8 h-8 mb-2 text-indigo-400" />
+                        {pdfFile ? (
+                          <div className="text-center">
+                            <p className="text-xs font-semibold text-indigo-400">{pdfFile.name}</p>
+                            <p className="text-[11px] text-slate-400">
+                              {(pdfFile.size / 1024 / 1024).toFixed(2)} MB
+                            </p>
+                          </div>
+                        ) : (
+                          <>
+                            <p className="text-xs text-slate-400">
+                              <span className="font-semibold text-indigo-400">Click to choose</span> or drag and drop
+                            </p>
+                            <p className="text-[11px] text-slate-500 mt-1">PDF files up to 10MB</p>
+                          </>
+                        )}
+                      </div>
+                      <input
+                        type="file"
+                        accept="application/pdf,.pdf"
+                        onChange={handlePdfFileSelect}
+                        className="hidden"
+                        disabled={isUploadingPdf}
+                      />
+                    </label>
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-semibold text-slate-500 block mb-1">
+                      Document Title *
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. System Design Architecture, Onboarding Manual..."
+                      value={pdfTitle}
+                      onChange={(e) => setPdfTitle(e.target.value)}
+                      required
+                      className="w-full px-3 py-2 rounded-xl dark:bg-slate-900 bg-slate-50 border dark:border-white/10 border-slate-200 text-xs dark:text-white text-slate-900 placeholder-slate-400 outline-none focus:border-indigo-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-semibold text-slate-500 block mb-1">
+                      Tags (comma-separated)
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. PDF, Architecture, API"
+                      value={pdfTags}
+                      onChange={(e) => setPdfTags(e.target.value)}
+                      className="w-full px-3 py-2 rounded-xl dark:bg-slate-900 bg-slate-50 border dark:border-white/10 border-slate-200 text-xs dark:text-white text-slate-900 placeholder-slate-400 outline-none focus:border-indigo-500"
+                    />
+                  </div>
+
+                  <div className="p-3 rounded-xl dark:bg-white/[0.03] bg-slate-100 border dark:border-white/[0.05] border-slate-200">
+                    <p className="text-[11px] text-slate-400 flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-indigo-400 flex-shrink-0" />
+                      <span>The PDF text will be extracted, stored, chunked, and vectorized automatically into PostgreSQL for Nexus AI RAG Q&amp;A.</span>
+                    </p>
+                  </div>
+
+                  <div className="flex items-center justify-end gap-2 pt-2">
+                    <button
+                      type="button"
+                      disabled={isUploadingPdf}
+                      onClick={() => setShowPdfModal(false)}
+                      className="px-3 py-1.5 rounded-lg text-xs text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-white/5"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={!pdfFile || !pdfTitle.trim() || isUploadingPdf}
+                      className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-bold bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white shadow-sm transition-all"
+                    >
+                      {isUploadingPdf && <Loader2 className="w-3 h-3 animate-spin" />}
+                      <span>{isUploadingPdf ? "Parsing & Indexing..." : "Upload & Index PDF"}</span>
                     </button>
                   </div>
                 </form>

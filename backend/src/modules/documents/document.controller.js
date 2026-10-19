@@ -2,6 +2,7 @@ const prisma = require("../../config/db");
 const { sendSuccess, sendError } = require("../../utils/response.utils");
 const logger = require("../../utils/logger");
 const { processDocumentChunks } = require("../../services/embedding.service");
+const pdfParse = require("pdf-parse");
 
 // Helper to calculate read time in minutes
 const calculateReadTime = (content) => {
@@ -48,10 +49,17 @@ const createDocument = async (req, res) => {
 
 const getDocuments = async (req, res) => {
   const { projectId } = req.params;
-  const { search, tags, sortBy = "updatedAt", order = "desc" } = req.query;
+  const { search, tags, scope, sortBy = "updatedAt", order = "desc" } = req.query;
 
   try {
     const where = { projectId };
+
+    // Scope filter: 'my' (authored by current user) vs 'workspace' (team docs)
+    if (scope === "my") {
+      where.authorId = req.user.id;
+    } else if (scope === "workspace") {
+      where.NOT = { authorId: req.user.id };
+    }
 
     if (search) {
       where.OR = [
@@ -186,10 +194,96 @@ const deleteDocuments = async (req, res) => {
   }
 };
 
+/**
+ * Upload and extract text from a PDF, store as document, and index for RAG
+ */
+const uploadPdfDocument = async (req, res) => {
+  const { projectId } = req.params;
+  const { title, fileData, fileBase64, tags } = req.body;
+  const authorId = req.user.id;
+  const rawFile = fileData || fileBase64;
+
+  if (!rawFile) {
+    return sendError(res, 400, "PDF file data is required (base64)");
+  }
+
+  try {
+    // 1. Convert base64 data to Buffer
+    let base64Content = rawFile;
+    if (rawFile.includes(",")) {
+      base64Content = rawFile.split(",")[1];
+    }
+    const pdfBuffer = Buffer.from(base64Content, "base64");
+
+    if (pdfBuffer.length === 0) {
+      return sendError(res, 400, "Invalid or empty PDF file");
+    }
+
+    // 2. Extract text from PDF using pdf-parse
+    let parsedData;
+    try {
+      parsedData = await pdfParse(pdfBuffer);
+    } catch (parseErr) {
+      logger.error("PDF parsing error: %o", parseErr);
+      return sendError(res, 400, "Failed to parse PDF document. It may be password-protected or corrupted.");
+    }
+
+    const extractedText = (parsedData.text || "").trim();
+    if (!extractedText) {
+      return sendError(res, 400, "No readable text could be extracted from this PDF. Please ensure the PDF contains selectable text (not scanned images).");
+    }
+
+    // 3. Clean up title
+    const docTitle = title && title.trim()
+      ? title.trim()
+      : (parsedData.info?.Title && parsedData.info.Title.trim()) || "Uploaded PDF Document";
+
+    // 4. Calculate reading time
+    const readTime = calculateReadTime(extractedText);
+
+    // 5. Build tags
+    const docTags = Array.isArray(tags) ? [...tags] : [];
+    if (!docTags.some(t => t.toLowerCase() === "pdf")) {
+      docTags.push("PDF");
+    }
+
+    // 6. Persist to database
+    const doc = await prisma.document.create({
+      data: {
+        title: docTitle,
+        content: extractedText,
+        readTime,
+        tags: docTags,
+        authorId,
+        projectId
+      },
+      include: {
+        author: { select: { name: true, avatar: true } }
+      }
+    });
+
+    // 7. Background chunking & vector indexing for RAG
+    processDocumentChunks(doc.id, doc.content).catch((err) => {
+      logger.error("Background vectorization failed for uploaded PDF: %o", err);
+    });
+
+    logger.info(`PDF Document '${doc.title}' uploaded and indexed for workspace ${projectId} (${parsedData.numpages} pages, ${extractedText.length} chars)`);
+
+    return sendSuccess(res, 201, "PDF uploaded and indexed successfully", {
+      document: doc,
+      pages: parsedData.numpages
+    });
+  } catch (error) {
+    logger.error("Upload PDF error: %o", error);
+    return sendError(res, 500, "Failed to upload and process PDF: " + error.message);
+  }
+};
+
 module.exports = {
   createDocument,
   getDocuments,
   getDocumentById,
   updateDocument,
-  deleteDocuments
+  deleteDocuments,
+  uploadPdfDocument
 };
