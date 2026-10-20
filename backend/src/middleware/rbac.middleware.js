@@ -38,6 +38,7 @@ const checkProjectRole = (...allowedProjectRoles) => {
 
       // Project owner acts with MANAGER authority automatically
       if (project.ownerId === req.user.id) {
+        req.isProjectOwner = true;
         return next();
       }
 

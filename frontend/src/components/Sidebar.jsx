@@ -73,22 +73,22 @@ export default function Sidebar({ isOpen }) {
     loadMembers();
   }, [currentProject?.id, user?.id]);
 
-  const handleCreateChannel = (e) => {
+  const handleCreateChannel = async (e) => {
     e.preventDefault();
     if (!newChannelName.trim()) {
       setChannelError("Channel name cannot be empty");
       return;
     }
 
-    const res = addChannel(currentProject?.id, newChannelName, newChannelTopic);
-    if (res.success) {
+    const res = await addChannel(currentProject?.id, newChannelName, newChannelTopic);
+    if (res?.success) {
       setShowCreateChannelModal(false);
       setNewChannelName("");
       setNewChannelTopic("");
       setChannelError("");
       navigate(`/chat?channel=${encodeURIComponent(res.channel.id)}`);
     } else {
-      setChannelError(res.error);
+      setChannelError(res?.error || "Failed to create channel");
     }
   };
 
@@ -100,7 +100,7 @@ export default function Sidebar({ isOpen }) {
         .delete(`/projects/${currentProject.id}/messages/channels/${channelToDelete.id}`)
         .catch((err) => console.warn("Failed to delete channel messages on backend:", err));
 
-      deleteChannel(currentProject?.id, channelToDelete.id);
+      await deleteChannel(currentProject?.id, channelToDelete.id);
       navigate("/chat?channel=general");
     } catch (err) {
       console.error("Failed to delete channel:", err);

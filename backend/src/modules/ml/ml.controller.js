@@ -193,7 +193,20 @@ const scanRepository = async (req, res) => {
     // 6. Save results to database in transaction
     await prisma.$transaction(
       predictions.map(pred => {
-        const feat = sortedFiles.find(f => f.file_path === pred.file_path);
+        const feat = sortedFiles.find(f => f.file_path === pred.file_path) || {
+          commit_frequency: 0,
+          code_churn: 0,
+          num_contributors: 1,
+          pr_count: 0,
+          bug_fix_ratio: 0
+        };
+
+        const modelComp = pred.model_comparison || {
+          rf_risk: pred.risk_level || "LOW",
+          rf_confidence: pred.risk_score || 0.5,
+          agreement: true
+        };
+
         return prisma.predictionResult.upsert({
           where: {
             repoId_filePath: {
@@ -207,11 +220,11 @@ const scanRepository = async (req, res) => {
             numContributors: feat.num_contributors,
             prCount: feat.pr_count,
             bugFixRatio: feat.bug_fix_ratio,
-            xgboostRisk: pred.risk_level,
-            xgboostConfidence: pred.risk_score,
-            rfRisk: pred.model_comparison.rf_risk,
-            rfConfidence: pred.model_comparison.rf_confidence,
-            agreement: pred.model_comparison.agreement
+            xgboostRisk: pred.risk_level || "LOW",
+            xgboostConfidence: pred.risk_score || 0.5,
+            rfRisk: modelComp.rf_risk || "LOW",
+            rfConfidence: modelComp.rf_confidence || 0.5,
+            agreement: modelComp.agreement ?? true
           },
           create: {
             filePath: pred.file_path,
@@ -220,11 +233,11 @@ const scanRepository = async (req, res) => {
             numContributors: feat.num_contributors,
             prCount: feat.pr_count,
             bugFixRatio: feat.bug_fix_ratio,
-            xgboostRisk: pred.risk_level,
-            xgboostConfidence: pred.risk_score,
-            rfRisk: pred.model_comparison.rf_risk,
-            rfConfidence: pred.model_comparison.rf_confidence,
-            agreement: pred.model_comparison.agreement,
+            xgboostRisk: pred.risk_level || "LOW",
+            xgboostConfidence: pred.risk_score || 0.5,
+            rfRisk: modelComp.rf_risk || "LOW",
+            rfConfidence: modelComp.rf_confidence || 0.5,
+            agreement: modelComp.agreement ?? true,
             repoId
           }
         });

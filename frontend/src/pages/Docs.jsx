@@ -359,15 +359,12 @@ export default function Docs() {
     (d) => d.authorId === user?.id || d.author?.id === user?.id
   ).length;
 
-  const workspaceDocsCount = docsList.filter(
-    (d) => d.authorId !== user?.id && d.author?.id !== user?.id
-  ).length;
+  const workspaceDocsCount = docsList.length;
 
   const displayedDocs = useMemo(() => {
     return docsList.filter((doc) => {
       const isMine = doc.authorId === user?.id || doc.author?.id === user?.id;
       if (activeCategory === "my") return isMine;
-      if (activeCategory === "workspace") return !isMine;
       return true;
     });
   }, [docsList, activeCategory, user?.id]);

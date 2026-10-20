@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import client from "../api/client";
 
 const DEFAULT_CHANNELS = [
   { id: "general", name: "General", isDefault: true },
@@ -31,16 +32,33 @@ const useChannelStore = create((set, get) => ({
   activeChannelId: "general",
   currentProjectId: null,
 
-  loadChannels: (projectId) => {
-    const channels = loadChannelsFromStorage(projectId);
-    set({ channels, currentProjectId: projectId });
+  loadChannels: async (projectId) => {
+    // 1. Instantly display cached channels
+    const cached = loadChannelsFromStorage(projectId);
+    set({ channels: cached, currentProjectId: projectId });
+
+    // 2. Fetch fresh channels from backend database
+    if (projectId) {
+      try {
+        const res = await client.get(`/projects/${projectId}/messages/channels`);
+        if (res.data.success && Array.isArray(res.data.data.channels)) {
+          const remoteChannels = res.data.data.channels;
+          set({ channels: remoteChannels });
+          try {
+            localStorage.setItem(getStorageKey(projectId), JSON.stringify(remoteChannels));
+          } catch (e) {}
+        }
+      } catch (err) {
+        // Silently use cached channels if offline or backend is synchronizing
+      }
+    }
   },
 
   setActiveChannelId: (channelId) => {
     set({ activeChannelId: channelId });
   },
 
-  addChannel: (projectId, rawName, topic = "") => {
+  addChannel: async (projectId, rawName, topic = "") => {
     const name = rawName.trim();
     if (!name) return { success: false, error: "Channel name cannot be empty" };
 
@@ -78,10 +96,23 @@ const useChannelStore = create((set, get) => ({
     }
 
     set({ channels: updatedChannels, activeChannelId: id });
+
+    // Synchronize to backend database
+    if (projectId) {
+      try {
+        await client.post(`/projects/${projectId}/messages/channels`, {
+          name,
+          topic
+        });
+      } catch (err) {
+        console.warn("Could not sync channel to backend:", err);
+      }
+    }
+
     return { success: true, channel: newChannel };
   },
 
-  deleteChannel: (projectId, channelId) => {
+  deleteChannel: async (projectId, channelId) => {
     const { channels, activeChannelId } = get();
     const updated = channels.filter((c) => c.id !== channelId);
     try {
@@ -93,7 +124,31 @@ const useChannelStore = create((set, get) => ({
     const nextActive =
       activeChannelId === channelId ? "general" : activeChannelId;
     set({ channels: updated, activeChannelId: nextActive });
+
+    if (projectId) {
+      try {
+        await client.delete(`/projects/${projectId}/messages/channels/${channelId}`);
+      } catch (err) {
+        console.warn("Could not delete channel on backend:", err);
+      }
+    }
   },
+
+  handleChannelCreated: (newChannel) => {
+    const { channels } = get();
+    if (!channels.some((c) => c.id === newChannel.id)) {
+      const updated = [...channels, newChannel];
+      set({ channels: updated });
+    }
+  },
+
+  handleChannelDeleted: (deletedChannelId) => {
+    const { channels, activeChannelId } = get();
+    const updated = channels.filter((c) => c.id !== deletedChannelId);
+    const nextActive =
+      activeChannelId === deletedChannelId ? "general" : activeChannelId;
+    set({ channels: updated, activeChannelId: nextActive });
+  }
 }));
 
 export default useChannelStore;

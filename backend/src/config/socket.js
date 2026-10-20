@@ -5,6 +5,11 @@ const registerChatEvents = require("../modules/communication/chat.socket");
 const logger = require("../utils/logger");
 const prisma = require("./db");
 
+const allowedOrigins = (process.env.CORS_ORIGIN || "http://localhost:3000")
+  .split(",")
+  .map((origin) => origin.trim())
+  .filter(Boolean);
+
 /**
  * Initialize Socket.IO Server on the HTTP Server
  * @param {import("http").Server} httpServer - Express HTTP server
@@ -13,7 +18,7 @@ const prisma = require("./db");
 function initSocketServer(httpServer) {
   const io = new Server(httpServer, {
     cors: {
-      origin: process.env.CORS_ORIGIN || "http://localhost:3000",
+      origin: allowedOrigins,
       methods: ["GET", "POST"],
       credentials: true
     }

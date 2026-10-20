@@ -1,35 +1,102 @@
 # Dependency folders
 node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Python Virtual Environments & Bytecode
 venv/
 .venv/
 env/
+ENV/
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.ipynb_checkpoints/
 
-# Local environment variables
+# Local environment variables & secrets
 .env
 .env.*
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
+# Explicitly preserve example environment configuration templates
+!.env.example
+!*.env.example
+!backend/.env.example
+!frontend/.env.example
 
-# Logs
+# Sensitive credentials, private keys & certificates
+*.pem
+*.key
+*.cert
+*.crt
+*.pfx
+*.p12
+
+# Logs & Runtime PIDs
 logs/
 *.log
+*.pid
+*.seed
+*.pid.lock
 
-# Production builds
+# Production builds & bundler caches
 dist/
+dist-ssr/
 build/
+out/
+.next/
+.nuxt/
+.turbo/
+.cache/
+.eslintcache
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# Local databases & storage
+*.sqlite
+*.sqlite3
+*.db
+*.db-journal
 
 # IDE / System files
 .DS_Store
-.vscode/
-.idea/
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
 Thumbs.db
+ehthumbs.db
+[Dd]esktop.ini
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+.idea/
+*.swp
+*.swo
+*~
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
 
 # Trained ML models (too large for git, shared via zip - see ml-service/training/README.md)
 ml-service/models/
+*.onnx
+*.pkl
+*.joblib
 
 # Regenerable ML artifacts (recreate with the download/prepare scripts)
 ml-service/training/dataset/training_data.csv

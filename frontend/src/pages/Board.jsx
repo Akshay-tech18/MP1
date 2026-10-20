@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useSearchParams } from "react-router-dom";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import { motion, AnimatePresence } from "framer-motion";
@@ -91,6 +91,7 @@ export default function Board() {
   }, [tasks, user?.id]);
   
   const [selectedTaskId, setSelectedTaskId] = useState(null);
+  const prevTaskIdRef = useRef(selectedTaskId);
   const [taskDetails, setTaskDetails] = useState(null);
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState("");
@@ -237,14 +238,16 @@ export default function Board() {
       if (socket && currentProject) {
         socket.emit(SocketEvent.TASK_EDITING, { projectId: currentProject.id, taskId: selectedTaskId });
       }
+    } else if (prevTaskIdRef.current && socket && currentProject) {
+      socket.emit(SocketEvent.TASK_EDITING_DONE, { projectId: currentProject.id, taskId: prevTaskIdRef.current });
+      setTaskDetails(null);
+      setComments([]);
     } else {
-      if (socket && currentProject && selectedTaskId) {
-        socket.emit(SocketEvent.TASK_EDITING_DONE, { projectId: currentProject.id, taskId: selectedTaskId });
-      }
       setTaskDetails(null);
       setComments([]);
     }
-  }, [selectedTaskId]);
+    prevTaskIdRef.current = selectedTaskId;
+  }, [selectedTaskId, socket, currentProject]);
 
   // 3. Drag-and-Drop
   const onDragEnd = async (result) => {

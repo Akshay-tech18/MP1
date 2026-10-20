@@ -76,12 +76,25 @@ const connectGitHubToken = async (req, res) => {
       return sendError(res, 401, "Invalid GitHub token. Please ensure the token is active and includes 'repo' scope.");
     }
 
+    // Ensure no other user currently holds this githubId to prevent P2002 unique constraint failure
+    const targetGithubId = String(ghUser.id);
+    const existingWithGithub = await prisma.user.findUnique({
+      where: { githubId: targetGithubId }
+    });
+
+    if (existingWithGithub && existingWithGithub.id !== req.user.id) {
+      await prisma.user.update({
+        where: { id: existingWithGithub.id },
+        data: { githubId: null, githubToken: null }
+      });
+    }
+
     // Encrypt and store token
     const encryptedToken = encrypt(cleanToken);
     await prisma.user.update({
       where: { id: req.user.id },
       data: {
-        githubId: String(ghUser.id),
+        githubId: targetGithubId,
         githubToken: encryptedToken
       }
     });

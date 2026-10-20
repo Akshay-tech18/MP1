@@ -111,6 +111,17 @@ if (githubClientId && githubClientSecret && githubClientId !== "dummy_github_id"
             }
           });
 
+          // If another user record currently holds this githubId, release it first to avoid P2002
+          const existingWithGithub = await prisma.user.findUnique({
+            where: { githubId: profile.id }
+          });
+          if (existingWithGithub && user && existingWithGithub.id !== user.id) {
+            await prisma.user.update({
+              where: { id: existingWithGithub.id },
+              data: { githubId: null, githubToken: null }
+            });
+          }
+
           if (user) {
             user = await prisma.user.update({
               where: { id: user.id },

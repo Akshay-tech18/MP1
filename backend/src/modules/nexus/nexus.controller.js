@@ -7,7 +7,7 @@ const { agentGraph } = require("../../services/agent.service");
 // In production, this would be tied to the User ID in a DB.
 
 const chatWithNexus = async (req, res) => {
-  const { projectId } = req.params;
+  const projectId = req.params.projectId || req.params.id;
   const { message, threadId, useAgent } = req.body;
 
   if (!message) {
@@ -56,7 +56,7 @@ const chatWithNexus = async (req, res) => {
 };
 
 const approveAgentAction = async (req, res) => {
-  const { projectId } = req.params;
+  const projectId = req.params.projectId || req.params.id;
   const { threadId, approved } = req.body;
 
   if (!threadId) return sendError(res, 400, "threadId is required");

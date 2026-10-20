@@ -145,6 +145,21 @@ const getTask = async (req, res) => {
             repository: { select: { name: true } }
           },
           orderBy: { committedAt: "desc" }
+        },
+        taskCommits: {
+          include: {
+            commit: {
+              select: {
+                id: true,
+                sha: true,
+                message: true,
+                authorName: true,
+                committedAt: true,
+                repository: { select: { name: true } }
+              }
+            }
+          },
+          orderBy: { createdAt: "desc" }
         }
       }
     });
@@ -152,6 +167,18 @@ const getTask = async (req, res) => {
     if (!task || task.projectId !== projectId) {
       return sendError(res, 404, "Task not found in this project");
     }
+
+    // Merge direct commits and join-table taskCommits, deduplicating by commit ID
+    const mergedCommits = [...(task.commits || [])];
+    if (task.taskCommits) {
+      for (const tc of task.taskCommits) {
+        if (tc.commit && !mergedCommits.some(c => c.id === tc.commit.id)) {
+          mergedCommits.push(tc.commit);
+        }
+      }
+      delete task.taskCommits;
+    }
+    task.commits = mergedCommits.sort((a, b) => new Date(b.committedAt) - new Date(a.committedAt));
 
     return sendSuccess(res, 200, "Task details retrieved", { task });
   } catch (error) {

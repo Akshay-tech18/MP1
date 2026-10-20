@@ -72,10 +72,21 @@ export default function Timesheets() {
     async function loadWorkspaceMembers() {
       if (!currentProject) return;
       try {
-        const res = await client.get(`/projects/${currentProject.id}`);
-        if (res.data?.success && res.data?.data?.project) {
-          const project = res.data.data.project;
+        const [projectRes, timesheetRes] = await Promise.allSettled([
+          client.get(`/projects/${currentProject.id}`),
+          client.get(`/projects/${currentProject.id}/timesheets`, {
+            params: { weekDate: currentWeekStart.toISOString() }
+          })
+        ]);
+
+        if (projectRes.status === "fulfilled" && projectRes.value.data?.success && projectRes.value.data?.data?.project) {
+          const project = projectRes.value.data.data.project;
           const bgColors = ["bg-slate-700", "bg-amber-600", "bg-purple-600", "bg-pink-600", "bg-blue-600", "bg-emerald-600"];
+          
+          let loggedEntries = [];
+          if (timesheetRes.status === "fulfilled" && timesheetRes.value.data?.success && Array.isArray(timesheetRes.value.data.data.entries)) {
+            loggedEntries = timesheetRes.value.data.data.entries;
+          }
 
           const mapped = (project.members || []).map((m, idx) => {
             const u = m.user || {};
@@ -87,13 +98,22 @@ export default function Timesheets() {
                 .slice(0, 2)
                 .join("")
                 .toUpperCase() || "TM";
+
+            const userEntries = loggedEntries.filter((e) => e.userId === m.userId);
+            const userHours = [0, 0, 0, 0, 0, 0, 0];
+            for (const entry of userEntries) {
+              if (entry.dayIndex >= 0 && entry.dayIndex <= 6) {
+                userHours[entry.dayIndex] = entry.hours;
+              }
+            }
+
             return {
               id: m.userId,
               name,
               initials,
               bg: bgColors[idx % bgColors.length],
               target: "40h",
-              hours: [0, 8, 7.5, 8, 6, 0, 0],
+              hours: userHours,
             };
           });
 
@@ -122,7 +142,7 @@ export default function Timesheets() {
     }
 
     loadWorkspaceMembers();
-  }, [currentProject]);
+  }, [currentProject, currentWeekStart]);
 
   const handleOpenLogModal = (member) => {
     setSelectedMember(member);
@@ -130,20 +150,38 @@ export default function Timesheets() {
     setLogHoursModal(true);
   };
 
-  const handleSaveHours = (e) => {
+  const handleSaveHours = async (e) => {
     e.preventDefault();
     const h = parseFloat(logForm.hours) || 0;
+    
+    let updatedTotalHours = 0;
     setMembers((prev) =>
       prev.map((m) => {
         if (m.id === logForm.memberId) {
           const updatedHours = [...m.hours];
-          updatedHours[logForm.dayIndex] += h;
+          updatedHours[logForm.dayIndex] = (updatedHours[logForm.dayIndex] || 0) + h;
+          updatedTotalHours = updatedHours[logForm.dayIndex];
           return { ...m, hours: updatedHours };
         }
         return m;
       })
     );
     setLogHoursModal(false);
+
+    // Persist to backend database
+    if (currentProject) {
+      try {
+        await client.post(`/projects/${currentProject.id}/timesheets`, {
+          memberId: logForm.memberId,
+          dayIndex: logForm.dayIndex,
+          hours: updatedTotalHours,
+          note: logForm.note || "",
+          weekDate: currentWeekStart.toISOString()
+        });
+      } catch (err) {
+        console.warn("Could not save timesheet to backend:", err.message);
+      }
+    }
   };
 
   return (

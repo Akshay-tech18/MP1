@@ -1,6 +1,7 @@
 const express = require("express");
 const rateLimit = require("express-rate-limit");
 const { protect } = require("../../middleware/auth.middleware");
+const { checkProjectRole } = require("../../middleware/rbac.middleware");
 const { chatWithNexus, approveAgentAction } = require("./nexus.controller");
 
 const router = express.Router({ mergeParams: true });
@@ -16,7 +17,10 @@ const chatLimiter = rateLimit({
 
 router.use(protect);
 
-router.post("/chat", chatLimiter, chatWithNexus);
-router.post("/approve", approveAgentAction);
+// Project members can chat with Nexus RAG assistant
+router.post("/chat", chatLimiter, checkProjectRole("MANAGER", "DEVELOPER", "QA_TESTER", "VIEWER"), chatWithNexus);
+
+// Only managers and developers can approve automated agent actions
+router.post("/approve", checkProjectRole("MANAGER", "DEVELOPER"), approveAgentAction);
 
 module.exports = router;

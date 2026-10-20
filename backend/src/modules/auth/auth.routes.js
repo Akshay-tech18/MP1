@@ -7,7 +7,8 @@ const {
   githubCallback,
   logout,
   getMe,
-  mockLogin
+  mockLogin,
+  refreshToken
 } = require("./auth.controller");
 
 const router = express.Router();
@@ -68,6 +69,7 @@ router.get("/github/callback", (req, res, next) => {
 
 // Session Management & Tokens
 router.post("/logout", logout);
+router.post("/refresh", refreshToken);
 router.get("/me", protect, getMe);
 
 // Development Mock Login Route

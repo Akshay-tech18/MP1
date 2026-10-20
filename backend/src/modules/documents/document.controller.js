@@ -12,7 +12,7 @@ const calculateReadTime = (content) => {
 };
 
 const createDocument = async (req, res) => {
-  const { projectId } = req.params;
+  const projectId = req.params.projectId || req.params.id;
   const { title, content, tags, parentId } = req.body;
   const authorId = req.user.id;
 
@@ -48,18 +48,17 @@ const createDocument = async (req, res) => {
 };
 
 const getDocuments = async (req, res) => {
-  const { projectId } = req.params;
+  const projectId = req.params.projectId || req.params.id;
   const { search, tags, scope, sortBy = "updatedAt", order = "desc" } = req.query;
 
   try {
     const where = { projectId };
 
-    // Scope filter: 'my' (authored by current user) vs 'workspace' (team docs)
+    // Scope filter: 'my' (authored by current user) vs 'workspace' (all docs in project)
     if (scope === "my") {
       where.authorId = req.user.id;
-    } else if (scope === "workspace") {
-      where.NOT = { authorId: req.user.id };
     }
+    // When scope is 'workspace' or omitted, all documents in the project are returned
 
     if (search) {
       where.OR = [
@@ -172,7 +171,7 @@ const updateDocument = async (req, res) => {
 };
 
 const deleteDocuments = async (req, res) => {
-  const { projectId } = req.params;
+  const projectId = req.params.projectId || req.params.id;
   const { documentIds } = req.body; // Array of IDs
 
   if (!documentIds || !Array.isArray(documentIds)) {
@@ -198,7 +197,7 @@ const deleteDocuments = async (req, res) => {
  * Upload and extract text from a PDF, store as document, and index for RAG
  */
 const uploadPdfDocument = async (req, res) => {
-  const { projectId } = req.params;
+  const projectId = req.params.projectId || req.params.id;
   const { title, fileData, fileBase64, tags } = req.body;
   const authorId = req.user.id;
   const rawFile = fileData || fileBase64;
@@ -217,6 +216,10 @@ const uploadPdfDocument = async (req, res) => {
 
     if (pdfBuffer.length === 0) {
       return sendError(res, 400, "Invalid or empty PDF file");
+    }
+
+    if (pdfBuffer.length > 25 * 1024 * 1024) {
+      return sendError(res, 400, "PDF file exceeds the maximum allowed limit of 25MB.");
     }
 
     // 2. Extract text from PDF using pdf-parse

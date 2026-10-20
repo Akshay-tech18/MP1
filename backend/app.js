@@ -52,8 +52,8 @@ app.use("/api/webhooks", webhookRouter); // MUST BE MOUNTED BEFORE express.json(
 app.use("/api/github", userGithubRouter);
 
 // 5. Global Request Parsers (Applied to all routes other than webhooks)
-app.use(express.json({ limit: "10mb" }));
-app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+app.use(express.json({ limit: "50mb" }));
+app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 app.use(cookieParser());
 
 // 6. Initialize Passport Auth Strategies
@@ -86,6 +86,7 @@ const mlRouter = require("./src/modules/ml/ml.routes");
 const messageRouter = require("./src/modules/communication/message.routes");
 const documentRouter = require("./src/modules/documents/document.routes");
 const nexusRouter = require("./src/modules/nexus/nexus.routes");
+const timesheetRouter = require("./src/modules/timesheets/timesheet.routes");
 
 // --- API Routes ---
 app.use("/api/auth", authRouter);
@@ -99,6 +100,7 @@ projectRouter.use("/:id/repositories", repositoryRouter);
 projectRouter.use("/:id/analytics", analyticsRouter);
 projectRouter.use("/:id/ml", mlRouter);
 projectRouter.use("/:id/messages", messageRouter);
+projectRouter.use("/:id/timesheets", timesheetRouter);
 projectRouter.use("/:projectId/documents", documentRouter);
 projectRouter.use("/:projectId/nexus", nexusRouter);
 

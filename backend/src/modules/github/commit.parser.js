@@ -44,11 +44,33 @@ async function parseCommitForTasks(req, projectId, commitRecord) {
         continue;
       }
 
-      // Link commit to task
-      await prisma.commit.update({
-        where: { id: commitRecord.id },
-        data: { taskId: task.id }
-      });
+      // Link commit to task in many-to-many join table (upsert to prevent duplicate linking)
+      if (prisma.taskCommit) {
+        await prisma.taskCommit.upsert({
+          where: {
+            taskId_commitId: {
+              taskId: task.id,
+              commitId: commitRecord.id
+            }
+          },
+          create: {
+            taskId: task.id,
+            commitId: commitRecord.id
+          },
+          update: {}
+        }).catch((err) => {
+          logger.warn("Could not upsert taskCommit: %s", err.message);
+        });
+      }
+
+      // Also set the primary taskId on the commit record if not already set (backwards compatibility)
+      if (!commitRecord.taskId) {
+        await prisma.commit.update({
+          where: { id: commitRecord.id },
+          data: { taskId: task.id }
+        });
+        commitRecord.taskId = task.id;
+      }
 
       // Update task status: move TODO or IN_PROGRESS to IN_REVIEW
       let statusUpdated = false;

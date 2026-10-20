@@ -102,7 +102,8 @@ model User {
   receivedMessages   Message[]       @relation("Receiver")
   activityLogs       ActivityLog[]
   notifications      Notification[]
-  documents          Document[]      @relation("Author")
+  documents          Document[]       @relation("Author")
+  timesheetEntries   TimesheetEntry[]
 
   @@index([email])
   @@index([githubId])
@@ -130,7 +131,8 @@ model Project {
   messages       Message[]
   activityLogs   ActivityLog[]
   pendingInvites PendingInvite[]
-  documents      Document[]
+  documents        Document[]
+  timesheetEntries TimesheetEntry[]
 
   @@index([ownerId])
   @@index([status])
@@ -197,8 +199,9 @@ model Task {
   updatedAt   DateTime     @updatedAt
 
   // Relationships
-  comments TaskComment[]
-  commits  Commit[]
+  comments    TaskComment[]
+  commits     Commit[]
+  taskCommits TaskCommit[]
 
   @@index([projectId, status])
   @@index([sprintId, status])
@@ -253,14 +256,29 @@ model Commit {
   repoId       String
   repository   Repository @relation(fields: [repoId], references: [id], onDelete: Cascade)
   taskId       String?
-  task         Task?      @relation(fields: [taskId], references: [id], onDelete: SetNull)
-  createdAt    DateTime   @default(now())
+  task         Task?        @relation(fields: [taskId], references: [id], onDelete: SetNull)
+  taskCommits  TaskCommit[]
+  createdAt    DateTime     @default(now())
 
   @@unique([repoId, sha])
   @@index([repoId])
   @@index([taskId])
   @@index([committedAt])
   @@map("commits")
+}
+
+model TaskCommit {
+  id        String   @id @default(uuid())
+  taskId    String
+  task      Task     @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  commitId  String
+  commit    Commit   @relation(fields: [commitId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([taskId, commitId])
+  @@index([taskId])
+  @@index([commitId])
+  @@map("task_commits")
 }
 
 model PullRequest {
@@ -419,4 +437,23 @@ model DocumentChunk {
 
   @@index([documentId])
   @@map("document_chunks")
+}
+
+model TimesheetEntry {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  dayIndex  Int      // 0 = Sun, 1 = Mon, 2 = Tue, 3 = Wed, 4 = Thu, 5 = Fri, 6 = Sat
+  hours     Float    @default(0)
+  note      String?
+  weekDate  DateTime // Truncated start date of the week (e.g., midnight Sunday or Monday)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, projectId, weekDate, dayIndex])
+  @@index([projectId, weekDate])
+  @@index([userId])
+  @@map("timesheet_entries")
 }

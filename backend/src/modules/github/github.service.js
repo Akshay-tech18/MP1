@@ -58,19 +58,7 @@ async function resolveGitHubToken(requestingUserId, projectId) {
     }
   }
 
-  // 4. Fallback: Any user in system with a github token (best-effort for shared spaces)
-  const anyUser = await prisma.user.findFirst({
-    where: { githubToken: { not: null } },
-    select: { githubToken: true }
-  });
-  if (anyUser?.githubToken) {
-    try {
-      return decrypt(anyUser.githubToken);
-    } catch (e) {
-      logger.warn("Failed to decrypt system fallback github token: %s", e.message);
-    }
-  }
-
+  // Multi-tenant isolation: Never fall back to users outside the requested project
   return null;
 }
 
@@ -120,39 +108,75 @@ async function syncCommitsForRepository(repoId, requestingUserId = null) {
     }
 
     let upsertedCount = 0;
-    for (const c of ghCommits) {
-      try {
-        const commitDate = new Date(
-          c.commit?.author?.date || c.commit?.committer?.date || Date.now()
-        );
-        const author = c.commit?.author?.name || c.author?.login || "Unknown";
-        const message = c.commit?.message || "Commit";
+    const BATCH_SIZE = 8;
+    for (let i = 0; i < ghCommits.length; i += BATCH_SIZE) {
+      const chunk = ghCommits.slice(i, i + BATCH_SIZE);
+      const results = await Promise.all(
+        chunk.map(async (c) => {
+          try {
+            const commitDate = new Date(
+              c.commit?.author?.date || c.commit?.committer?.date || Date.now()
+            );
+            const author = c.commit?.author?.name || c.author?.login || "Unknown";
+            const message = c.commit?.message || "Commit";
 
-        await prisma.commit.upsert({
-          where: {
-            repoId_sha: {
-              repoId: repo.id,
-              sha: c.sha
+            // Check if commit already has filesChanged populated to preserve GitHub API quota
+            const existing = await prisma.commit.findUnique({
+              where: {
+                repoId_sha: {
+                  repoId: repo.id,
+                  sha: c.sha
+                }
+              },
+              select: { filesChanged: true }
+            });
+
+            let filesChanged = [];
+            if (existing && Array.isArray(existing.filesChanged) && existing.filesChanged.length > 0) {
+              filesChanged = existing.filesChanged;
+            } else {
+              try {
+                const detail = await octokit.repos.getCommit({
+                  owner,
+                  repo: repoName,
+                  ref: c.sha
+                });
+                filesChanged = detail.data.files ? detail.data.files.map(f => f.filename) : [];
+              } catch (detailErr) {
+                logger.warn(`Could not fetch files for commit ${c.sha}: %s`, detailErr.message);
+              }
             }
-          },
-          update: {
-            message,
-            authorName: author,
-            committedAt: commitDate
-          },
-          create: {
-            repoId: repo.id,
-            sha: c.sha,
-            message,
-            authorName: author,
-            committedAt: commitDate,
-            filesChanged: []
+
+            await prisma.commit.upsert({
+              where: {
+                repoId_sha: {
+                  repoId: repo.id,
+                  sha: c.sha
+                }
+              },
+              update: {
+                message,
+                authorName: author,
+                committedAt: commitDate,
+                ...(filesChanged.length > 0 ? { filesChanged } : {})
+              },
+              create: {
+                repoId: repo.id,
+                sha: c.sha,
+                message,
+                authorName: author,
+                committedAt: commitDate,
+                filesChanged
+              }
+            });
+            return true;
+          } catch (err) {
+            logger.warn(`Failed to upsert commit ${c.sha} for repo ${repo.id}: %s`, err.message);
+            return false;
           }
-        });
-        upsertedCount++;
-      } catch (err) {
-        logger.warn(`Failed to upsert commit ${c.sha} for repo ${repo.id}: %s`, err.message);
-      }
+        })
+      );
+      upsertedCount += results.filter(Boolean).length;
     }
 
     logger.info(`Successfully synced ${upsertedCount} commits for ${owner}/${repoName}`);

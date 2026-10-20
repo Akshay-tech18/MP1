@@ -163,7 +163,25 @@ const getDashboardMetrics = async (req, res) => {
         message: true,
         authorName: true,
         committedAt: true,
-        repoId: true
+        repoId: true,
+        task: {
+          select: {
+            id: true,
+            taskNumber: true,
+            title: true
+          }
+        },
+        taskCommits: {
+          select: {
+            task: {
+              select: {
+                id: true,
+                taskNumber: true,
+                title: true
+              }
+            }
+          }
+        }
       }
     });
 
@@ -185,6 +203,7 @@ const getDashboardMetrics = async (req, res) => {
     const commitDetails = commits.map(c => {
       const repoObj = repoMap.get(c.repoId);
       const repoName = repoObj ? repoObj.name : "Repository";
+      const resolvedTask = c.task || c.taskCommits?.[0]?.task || null;
       return {
         id: c.id,
         sha: c.sha.slice(0, 7),
@@ -194,6 +213,7 @@ const getDashboardMetrics = async (req, res) => {
         committedAt: c.committedAt,
         repoId: c.repoId,
         repoName,
+        task: resolvedTask,
         url: repoObj ? `https://github.com/${repoObj.name}/commit/${c.sha}` : null
       };
     });

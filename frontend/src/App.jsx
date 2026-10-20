@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation } from "rea
 import { AnimatePresence } from "framer-motion";
 import useAuthStore from "./store/useAuthStore";
 import useSocketStore from "./store/useSocketStore";
+import useChannelStore from "./store/useChannelStore";
 
 // Components & Pages
 import IconRail from "./components/IconRail";
@@ -77,12 +78,28 @@ function ProtectedLayout() {
       fetchProjects();
     };
 
+    const handleChannelCreated = (data) => {
+      if (data) {
+        useChannelStore.getState().handleChannelCreated(data);
+      }
+    };
+
+    const handleChannelDeleted = (data) => {
+      if (data?.channelId) {
+        useChannelStore.getState().handleChannelDeleted(data.channelId);
+      }
+    };
+
     socket.on("notification:new", handleNewNotification);
     socket.on("workspace:invited", handleWorkspaceInvited);
+    socket.on("channel:created", handleChannelCreated);
+    socket.on("channel:deleted", handleChannelDeleted);
 
     return () => {
       socket.off("notification:new", handleNewNotification);
       socket.off("workspace:invited", handleWorkspaceInvited);
+      socket.off("channel:created", handleChannelCreated);
+      socket.off("channel:deleted", handleChannelDeleted);
     };
   }, [socket, addNotification, fetchProjects]);
 
