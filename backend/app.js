@@ -107,9 +107,17 @@ projectRouter.use("/:projectId/documents", documentRouter);
 projectRouter.use("/:projectId/nexus", nexusRouter);
 
 // 9. Static Frontend SPA Serving (Single-Domain Unified Deployment)
-const publicPath = path.join(__dirname, "public");
+const publicPath = fs.existsSync(path.join(__dirname, "public"))
+  ? path.join(__dirname, "public")
+  : path.join(process.cwd(), "public");
+
 if (fs.existsSync(publicPath)) {
   app.use(express.static(publicPath));
+
+  // Explicit root route
+  app.get("/", (req, res) => {
+    res.sendFile(path.join(publicPath, "index.html"));
+  });
 
   // SPA fallback for HTML5 History API: serve index.html for all non-API GET requests
   app.get("*", (req, res, next) => {

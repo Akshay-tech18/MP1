@@ -15,9 +15,6 @@ jobs:
     steps:
       - name: Pull Latest Code and Deploy in Dokku
         run: |
-          echo "🚀 Pulling latest dev-self-hosted code..."
-          sudo dokku git:sync devpilot-backend https://github.com/Akshay-tech18/MP1.git dev-self-hosted
-          echo "🔄 Restarting container with port 5001..."
-          sudo dokku ps:stop devpilot-backend || true
-          sudo dokku ps:start devpilot-backend
+          echo "🚀 Pulling latest dev-self-hosted code and rebuilding in Dokku..."
+          sudo dokku git:sync --build devpilot-backend https://github.com/Akshay-tech18/MP1.git dev-self-hosted
           echo "✅ Deployment completed successfully!"
