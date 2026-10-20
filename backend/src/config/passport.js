@@ -45,6 +45,17 @@ if (googleClientId && googleClientSecret && googleClientId !== "dummy_google_id"
             }
           });
 
+          // If another user record currently holds this googleId, release it first to avoid P2002
+          const existingWithGoogle = await prisma.user.findUnique({
+            where: { googleId: profile.id }
+          });
+          if (existingWithGoogle && user && existingWithGoogle.id !== user.id) {
+            await prisma.user.update({
+              where: { id: existingWithGoogle.id },
+              data: { googleId: null }
+            });
+          }
+
           if (user) {
             user = await prisma.user.update({
               where: { id: user.id },

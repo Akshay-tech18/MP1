@@ -136,8 +136,8 @@ const githubCallback = async (req, res) => {
       } catch {
         parsed = JSON.parse(stateToken);
       }
-      if (parsed && typeof parsed.token === "string" && parsed.token.trim()) {
-        stateToken = parsed.token.trim();
+      if (parsed && typeof parsed === "object") {
+        stateToken = (typeof parsed.token === "string" && parsed.token.trim()) ? parsed.token.trim() : null;
       }
     } catch {
       // stateToken was already a plain raw string
