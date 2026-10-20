@@ -8,6 +8,8 @@ const { errorHandler } = require("./src/middleware/error.middleware");
 const { sendSuccess, sendError } = require("./src/utils/response.utils");
 const logger = require("./src/utils/logger");
 const crypto = require("crypto");
+const path = require("path");
+const fs = require("fs");
 
 const app = express();
 
@@ -22,8 +24,8 @@ app.use((req, res, next) => {
   next();
 });
 
-// 1. Enable Helmet for Secure HTTP Headers
-app.use(helmet());
+// 1. Enable Helmet for Secure HTTP Headers (disabling CSP to allow SPA bundle & external assets)
+app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
 
 // 2. Configure CORS
 const allowedOrigins = (process.env.CORS_ORIGIN || "http://localhost:3000")
@@ -103,6 +105,28 @@ projectRouter.use("/:id/messages", messageRouter);
 projectRouter.use("/:id/timesheets", timesheetRouter);
 projectRouter.use("/:projectId/documents", documentRouter);
 projectRouter.use("/:projectId/nexus", nexusRouter);
+
+// 9. Static Frontend SPA Serving (Single-Domain Unified Deployment)
+const publicPath = path.join(__dirname, "public");
+if (fs.existsSync(publicPath)) {
+  app.use(express.static(publicPath));
+
+  // SPA fallback for HTML5 History API: serve index.html for all non-API GET requests
+  app.get("*", (req, res, next) => {
+    if (
+      req.originalUrl.startsWith("/api") ||
+      req.originalUrl.startsWith("/health") ||
+      req.originalUrl.startsWith("/project")
+    ) {
+      return next();
+    }
+    const indexPath = path.join(publicPath, "index.html");
+    if (fs.existsSync(indexPath)) {
+      return res.sendFile(indexPath);
+    }
+    next();
+  });
+}
 
 // 10. Route Not Found (404) Handler
 app.use((req, res) => {
