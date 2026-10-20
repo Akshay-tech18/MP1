@@ -1,0 +1,8 @@
+{
+  "entries": [
+    { "path": ".agents/plugins/gsd/skills" },
+    { "path": ".agents/plugins/coderabbit/skills" },
+    { "path": ".agents/plugins/ponytail/skills" },
+    { "path": ".agents/plugins/ralph-loop/skills" }
+  ]
+}

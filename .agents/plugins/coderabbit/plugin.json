@@ -1,0 +1,5 @@
+{
+  "name": "coderabbit",
+  "version": "1.0.0",
+  "description": "Autonomous AI code review and security auditing plugin following CodeRabbit AST inspection, OWASP security, and code quality standards."
+}

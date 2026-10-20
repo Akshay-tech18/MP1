@@ -1,0 +1,5 @@
+{
+  "name": "ralph-loop",
+  "version": "1.0.0",
+  "description": "Autonomous execution loop plugin that continuously executes tasks iteratively using disk-backed state (PRD, task lists, progress.txt) until complete."
+}

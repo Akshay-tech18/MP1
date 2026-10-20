@@ -1,0 +1,5 @@
+{
+  "name": "gsd",
+  "version": "1.0.0",
+  "description": "Get Shit Done (GSD) spec-driven development framework for planning, executing, and tracking phases to prevent context rot."
+}

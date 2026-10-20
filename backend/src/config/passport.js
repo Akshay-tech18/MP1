@@ -5,6 +5,11 @@ const prisma = require("./db");
 const { encrypt } = require("../utils/crypto.utils");
 const logger = require("../utils/logger");
 
+const getBackendUrl = () => {
+  if (process.env.BACKEND_URL) return process.env.BACKEND_URL.replace(/\/$/, "");
+  return `http://localhost:${process.env.PORT || 5001}`;
+};
+
 // 1. Google OAuth Strategy
 const googleClientId = process.env.GOOGLE_CLIENT_ID;
 const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
@@ -15,7 +20,7 @@ if (googleClientId && googleClientSecret && googleClientId !== "dummy_google_id"
       {
         clientID: googleClientId,
         clientSecret: googleClientSecret,
-        callbackURL: process.env.GOOGLE_CALLBACK_URL || "http://localhost:5001/api/auth/google/callback",
+        callbackURL: process.env.GOOGLE_CALLBACK_URL || `${getBackendUrl()}/api/auth/google/callback`,
         passReqToCallback: true,
       },
       async (req, accessToken, refreshToken, profile, done) => {
@@ -84,7 +89,7 @@ if (githubClientId && githubClientSecret && githubClientId !== "dummy_github_id"
       {
         clientID: githubClientId,
         clientSecret: githubClientSecret,
-        callbackURL: process.env.GITHUB_CALLBACK_URL || "http://localhost:5001/api/auth/github/callback",
+        callbackURL: process.env.GITHUB_CALLBACK_URL || `${getBackendUrl()}/api/auth/github/callback`,
         scope: ["user:email", "repo"],
       },
       async (accessToken, refreshToken, profile, done) => {

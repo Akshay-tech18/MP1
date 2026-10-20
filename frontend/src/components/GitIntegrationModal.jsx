@@ -74,7 +74,8 @@ export default function GitIntegrationModal({ isOpen, onClose }) {
 
   // Handle OAuth Redirect Flow
   const handleConnectOAuth = () => {
-    const authUrl = `${client.defaults.baseURL || "http://localhost:5001/api"}/auth/github?token=${token || ""}`;
+    const returnUrl = encodeURIComponent(window.location.origin);
+    const authUrl = `${client.defaults.baseURL || "http://localhost:5001/api"}/auth/github?token=${token || ""}&returnUrl=${returnUrl}`;
     window.location.href = authUrl;
   };
 
