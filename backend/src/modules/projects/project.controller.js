@@ -233,35 +233,42 @@ const createProject = async (req, res) => {
       }
     }
 
-    // 5. Send out email invitations and WebSocket notifications asynchronously
+    // 5. Send out email invitations and WebSocket notifications safely without floating promises
     if (invitees && Array.isArray(invitees)) {
       const io = req.app.get("io");
-      invitees.forEach(async (invitee) => {
-        const rawEmail = typeof invitee === "string" ? invitee : invitee?.email;
-        if (!rawEmail) return;
-        const email = rawEmail.trim().toLowerCase();
-        const targetUser = await prisma.user.findFirst({
-          where: { email: { equals: email, mode: "insensitive" } }
-        });
-        if (targetUser && io) {
-          // Emit real-time notification
-          io.of("/project").to(`user:${targetUser.id}`).emit("notification:new", {
-            id: `notif-${Date.now()}`,
-            title: "Added to Workspace",
-            message: `${ownerDetails?.name || "A workspace manager"} added you to the workspace '${name}'.`,
-            link: `/dashboard`,
-            createdAt: new Date().toISOString(),
-            projectId: project.id
-          });
-          io.of("/project").to(`user:${targetUser.id}`).emit("workspace:invited", {
-            projectId: project.id,
-            projectName: name,
-            role: "DEVELOPER"
-          });
-        } else if (!targetUser) {
-          // TODO: Send email using Nodemailer (with Reply-To: ownerDetails.email)
-          logger.info(`[Email Stub] Sending invite to ${email} on behalf of ${ownerDetails.email}`);
-        }
+      Promise.allSettled(
+        invitees.map(async (invitee) => {
+          try {
+            const rawEmail = typeof invitee === "string" ? invitee : invitee?.email;
+            if (!rawEmail) return;
+            const email = rawEmail.trim().toLowerCase();
+            const targetUser = await prisma.user.findFirst({
+              where: { email: { equals: email, mode: "insensitive" } }
+            });
+            if (targetUser && io) {
+              // Emit real-time notification
+              io.of("/project").to(`user:${targetUser.id}`).emit("notification:new", {
+                id: `notif-${Date.now()}`,
+                title: "Added to Workspace",
+                message: `${ownerDetails?.name || "A workspace manager"} added you to the workspace '${name}'.`,
+                link: `/dashboard`,
+                createdAt: new Date().toISOString(),
+                projectId: project.id
+              });
+              io.of("/project").to(`user:${targetUser.id}`).emit("workspace:invited", {
+                projectId: project.id,
+                projectName: name,
+                role: "DEVELOPER"
+              });
+            } else if (!targetUser) {
+              logger.info(`[Email Stub] Sending invite to ${email} on behalf of ${ownerDetails?.email || "Admin"}`);
+            }
+          } catch (invErr) {
+            logger.warn(`Failed to process invite: %o`, invErr);
+          }
+        })
+      ).catch((allErr) => {
+        logger.warn("Project invitations processing error: %o", allErr);
       });
     }
 

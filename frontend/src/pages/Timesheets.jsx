@@ -154,13 +154,15 @@ export default function Timesheets() {
     e.preventDefault();
     const h = parseFloat(logForm.hours) || 0;
     
-    let updatedTotalHours = 0;
+    const targetMember = members.find((m) => m.id === logForm.memberId);
+    const existingHours = (targetMember?.hours && targetMember.hours[logForm.dayIndex]) || 0;
+    const updatedTotalHours = existingHours + h;
+
     setMembers((prev) =>
       prev.map((m) => {
         if (m.id === logForm.memberId) {
-          const updatedHours = [...m.hours];
+          const updatedHours = [...(m.hours || [0, 0, 0, 0, 0, 0, 0])];
           updatedHours[logForm.dayIndex] = (updatedHours[logForm.dayIndex] || 0) + h;
-          updatedTotalHours = updatedHours[logForm.dayIndex];
           return { ...m, hours: updatedHours };
         }
         return m;

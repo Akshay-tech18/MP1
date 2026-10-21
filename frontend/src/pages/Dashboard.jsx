@@ -278,7 +278,7 @@ export default function Dashboard() {
   const activeTasks = workspaceTasks.filter((t) => t.status !== "COMPLETED");
   const activeTasksCount = activeTasks.length;
   const inProgressCount = workspaceTasks.filter((t) => t.status === "IN_PROGRESS").length;
-  const urgentCount = workspaceTasks.filter((t) => t.priority === "URGENT").length;
+  const urgentCount = workspaceTasks.filter((t) => t.priority === "CRITICAL" || t.priority === "URGENT").length;
   const highCount = workspaceTasks.filter((t) => t.priority === "HIGH").length;
   const membersCount = projectDetails?.members?.length || 1;
   const completionRate = totalTasks > 0 ? Math.round((completedCount / totalTasks) * 100) : 0;
@@ -413,7 +413,7 @@ export default function Dashboard() {
                 <span><strong className="dark:text-slate-200 text-slate-800">{activeTasksCount}</strong> active tasks</span>
                 <span className="opacity-40">•</span>
                 <span className={urgentCount > 0 ? "text-rose-400 font-semibold" : "text-amber-400 font-medium"}>
-                  {urgentCount > 0 ? `${urgentCount} urgent` : `${highCount} high priority`}
+                  {urgentCount > 0 ? `${urgentCount} critical` : `${highCount} high priority`}
                 </span>
                 <span className="opacity-40">•</span>
                 <span>{completedCount} completed</span>
@@ -610,7 +610,7 @@ export default function Dashboard() {
                     {urgentCount === 0 ? "Optimal" : "Attention"}
                   </span>
                   <span className="text-metric-support text-slate-400 mt-0.5 block">
-                    {urgentCount} urgent blocker{urgentCount !== 1 ? "s" : ""}
+                    {urgentCount} critical blocker{urgentCount !== 1 ? "s" : ""}
                   </span>
                 </div>
                 <div className="w-10 h-10 rounded-xl bg-pink-500/15 text-pink-500 flex items-center justify-center flex-shrink-0">
@@ -725,7 +725,7 @@ export default function Dashboard() {
 
                 {displayedWorkspaceTasks.map((t) => {
                   const isCompleted = t.status === "COMPLETED";
-                  const edgeClass = t.priority === "URGENT"
+                  const edgeClass = (t.priority === "CRITICAL" || t.priority === "URGENT")
                     ? "priority-edge-urgent"
                     : t.priority === "HIGH"
                     ? "priority-edge-high"
@@ -733,7 +733,7 @@ export default function Dashboard() {
                     ? "priority-edge-completed"
                     : "priority-edge-normal";
 
-                  const priorityColor = t.priority === "URGENT"
+                  const priorityColor = (t.priority === "CRITICAL" || t.priority === "URGENT")
                     ? "bg-rose-500/20 text-rose-300 border-rose-500/30"
                     : t.priority === "HIGH"
                     ? "bg-amber-500/20 text-amber-300 border-amber-500/30"

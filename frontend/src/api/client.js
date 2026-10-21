@@ -20,7 +20,7 @@ client.interceptors.response.use(
     // Check if error is 401
     if (error.response?.status === 401) {
       // Ignore 401s from the mock login itself to avoid false triggers
-      if (originalRequest.url.includes("/auth/mock-login")) {
+      if (originalRequest?.url?.includes("/auth/mock-login")) {
         return Promise.reject(error);
       }
 

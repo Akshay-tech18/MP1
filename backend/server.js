@@ -30,6 +30,15 @@ server.listen(PORT, () => {
 
 const prisma = require("./src/config/db");
 
+// Global exception and rejection handlers to prevent remote DoS crashes
+process.on("unhandledRejection", (reason) => {
+  logger.error("Unhandled Promise Rejection: %o", reason);
+});
+
+process.on("uncaughtException", (err) => {
+  logger.error("Uncaught Exception: %o", err);
+});
+
 // Handle server shutdown events
 process.on("SIGTERM", async () => {
   logger.info("SIGTERM received. Shutting down server gracefully...");

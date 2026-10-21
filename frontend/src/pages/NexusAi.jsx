@@ -120,7 +120,7 @@ export default function NexusAi() {
     const query = textToSend || promptText;
     if (!query.trim() || !projectId) return;
 
-    const userMessage = { id: Date.now(), role: "user", text: query };
+    const userMessage = { id: (typeof crypto !== "undefined" && crypto.randomUUID) ? crypto.randomUUID() : `user-${Date.now()}-${Math.random()}`, role: "user", text: query };
     setConversation((prev) => [...prev, userMessage]);
     setPromptText("");
     setIsGenerating(true);
@@ -139,7 +139,7 @@ export default function NexusAi() {
 
         if (res.data.status === "approval_required") {
           const aiMessage = {
-            id: Date.now() + 1,
+            id: (typeof crypto !== "undefined" && crypto.randomUUID) ? crypto.randomUUID() : `ai-${Date.now()}-${Math.random()}`,
             role: "assistant",
             status: "approval_required",
             threadId: res.data.threadId,
@@ -150,7 +150,7 @@ export default function NexusAi() {
           setConversation((prev) => [...prev, aiMessage]);
         } else {
           const aiMessage = {
-            id: Date.now() + 1,
+            id: (typeof crypto !== "undefined" && crypto.randomUUID) ? crypto.randomUUID() : `ai-${Date.now()}-${Math.random()}`,
             role: "assistant",
             status: "completed",
             threadId: res.data.threadId,

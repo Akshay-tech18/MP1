@@ -47,7 +47,7 @@ function formatMeetingDateTime(startIso, endIso) {
   try {
     const start = new Date(startIso);
     const end = new Date(endIso);
-    if (isNaN(start.getTime()) || isNaN(end.getTime())) return "";
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) return { dateStr: "", timeStr: "" };
 
     const dateOptions = {
       weekday: "short",
@@ -108,7 +108,7 @@ export default function MeetingChatCard({
   const isPast = now > endDate;
 
   const handleCopyLink = () => {
-    const meetUrl = `${window.location.origin}/project/${projectId}/chat?room=${roomName}`;
+    const meetUrl = `${window.location.origin}/chat?room=${roomName}`;
     navigator.clipboard.writeText(meetUrl);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
@@ -233,7 +233,7 @@ export default function MeetingChatCard({
           </button>
 
           <button
-            onClick={() => navigate(`/project/${projectId}/board?view=calendar`)}
+            onClick={() => navigate("/board?view=calendar")}
             className="p-2 rounded-xl bg-white/[0.06] hover:bg-white/[0.1] text-slate-300 border border-white/[0.08] transition-all"
             title="View in Calendar"
           >

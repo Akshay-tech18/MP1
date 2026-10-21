@@ -13,7 +13,8 @@ module.exports = (io, socket) => {
     // data: { projectId, isTyping: boolean }
     const { projectId, isTyping } = data;
     
-    if (!projectId) return;
+    // Security Guard: Verify sender has joined the project room
+    if (!projectId || !socket.rooms.has(projectId)) return;
 
     // Broadcast to everyone else in the project room
     socket.to(projectId).emit(SocketEvent.CHAT_TYPING, {
@@ -27,7 +28,8 @@ module.exports = (io, socket) => {
     // data: { projectId, taskId }
     const { projectId, taskId } = data;
 
-    if (!projectId || !taskId) return;
+    // Security Guard: Verify sender has joined the project room
+    if (!projectId || !taskId || !socket.rooms.has(projectId)) return;
 
     socket.to(projectId).emit(SocketEvent.TASK_EDITING, {
       userId: socket.user.id,
@@ -41,7 +43,8 @@ module.exports = (io, socket) => {
     // data: { projectId, taskId }
     const { projectId, taskId } = data;
 
-    if (!projectId || !taskId) return;
+    // Security Guard: Verify sender has joined the project room
+    if (!projectId || !taskId || !socket.rooms.has(projectId)) return;
 
     socket.to(projectId).emit(SocketEvent.TASK_EDITING_DONE, {
       userId: socket.user.id,

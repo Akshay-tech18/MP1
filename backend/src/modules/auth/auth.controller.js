@@ -199,12 +199,15 @@ const githubCallback = async (req, res) => {
  * Log user out, clear cookies
  */
 const logout = (req, res) => {
-  const cookieOpts = getCookieOptions(req);
-  res.clearCookie("accessToken", cookieOpts);
-  res.clearCookie("accessToken", { ...cookieOpts, sameSite: "lax", secure: false });
-  res.clearCookie("refreshToken", cookieOpts);
-  res.clearCookie("refreshToken", { ...cookieOpts, sameSite: "lax", secure: false });
-  res.clearCookie("access_token", cookieOpts);
+  // Strip maxAge so Express immediately expires the cookie instead of extending it
+  const { maxAge, ...clearOpts } = getCookieOptions(req);
+  const expireImmediately = { ...clearOpts, expires: new Date(0) };
+
+  res.clearCookie("accessToken", expireImmediately);
+  res.clearCookie("accessToken", { ...expireImmediately, sameSite: "lax", secure: false });
+  res.clearCookie("refreshToken", expireImmediately);
+  res.clearCookie("refreshToken", { ...expireImmediately, sameSite: "lax", secure: false });
+  res.clearCookie("access_token", expireImmediately);
 
   return sendSuccess(res, 200, "Logged out successfully");
 };
@@ -287,17 +290,27 @@ const getMe = (req, res) => {
 const mockLogin = async (req, res) => {
   const { email } = req.body;
 
+  if (process.env.ALLOW_MOCK_LOGIN === "false") {
+    return sendError(res, 403, "Mock login is disabled in this environment");
+  }
+
   if (!email) {
     return sendError(res, 400, "Email is required");
   }
 
   try {
     const user = await prisma.user.findUnique({
-      where: { email }
+      where: { email: email.trim().toLowerCase() }
     });
 
     if (!user) {
       return sendError(res, 404, `Mock user with email ${email} not found. Run seed script first.`);
+    }
+
+    // Safety guard: Mock login is strictly for seeded demo/test accounts.
+    // Never allow mock login to bypass credentials for real OAuth-connected accounts.
+    if (user.googleId || user.githubId) {
+      return sendError(res, 403, "Mock login is not permitted for OAuth-connected accounts");
     }
 
     return handleAuthSuccess(res, user, `Mock login successful as ${user.role}`, req);

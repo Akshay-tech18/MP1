@@ -35,7 +35,7 @@ const STATUS_OPTIONS = [
   { value: "ACTIVE", label: "Active", color: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" },
   { value: "ON_HOLD", label: "On Hold", color: "bg-amber-500/15 text-amber-400 border-amber-500/30" },
   { value: "COMPLETED", label: "Completed", color: "bg-purple-500/15 text-purple-400 border-purple-500/30" },
-  { value: "ARCHIVED", label: "Archived", color: "bg-slate-500/15 text-slate-400 border-slate-500/30" },
+  { value: "CANCELLED", label: "Cancelled", color: "bg-slate-500/15 text-slate-400 border-slate-500/30" },
 ];
 
 const ROLE_OPTIONS = [

@@ -79,7 +79,23 @@ const logHours = async (req, res) => {
     return sendError(res, 400, "hours must be a non-negative number");
   }
 
+  if (parsedHours > 24) {
+    return sendError(res, 400, "hours cannot exceed 24 per day");
+  }
+
   try {
+    if (targetUserId !== req.user.id) {
+      const isMember = await prisma.projectMember.findFirst({
+        where: { projectId, userId: targetUserId }
+      });
+      const isOwner = await prisma.project.findFirst({
+        where: { id: projectId, ownerId: targetUserId }
+      });
+      if (!isMember && !isOwner) {
+        return sendError(res, 400, "The specified team member does not belong to this project");
+      }
+    }
+
     const weekDate = getStartOfWeek(weekParam ? new Date(weekParam) : new Date());
 
     if (!prisma.timesheetEntry) {

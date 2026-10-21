@@ -22,6 +22,15 @@ const scheduleMeeting = async (req, res) => {
   } = req.body;
 
   try {
+    if (sprintId) {
+      const sprint = await prisma.sprint.findFirst({
+        where: { id: sprintId, projectId }
+      });
+      if (!sprint) {
+        return sendError(res, 400, "The specified sprint does not belong to this project");
+      }
+    }
+
     // Generate clean room identifier for WebRTC/Jitsi call
     const roomSlug = `devpilot-meet-${crypto.randomBytes(4).toString("hex")}`;
 
@@ -108,7 +117,7 @@ const scheduleMeeting = async (req, res) => {
           userId: m.userId,
           title: `Meeting Scheduled: ${meeting.title}`,
           message: `${req.user.name} scheduled a ${readableType} meeting.`,
-          link: `/project/${projectId}/board`,
+          link: "/board?view=calendar",
         }));
 
         await prisma.notification.createMany({
@@ -304,7 +313,17 @@ const updateMeeting = async (req, res) => {
     if (endTime !== undefined) dataToUpdate.endTime = new Date(endTime);
     if (recurrence !== undefined) dataToUpdate.recurrence = recurrence;
     if (channelId !== undefined) dataToUpdate.channelId = channelId;
-    if (sprintId !== undefined) dataToUpdate.sprintId = sprintId || null;
+    if (sprintId !== undefined) {
+      if (sprintId) {
+        const sprint = await prisma.sprint.findFirst({
+          where: { id: sprintId, projectId }
+        });
+        if (!sprint) {
+          return sendError(res, 400, "The specified sprint does not belong to this project");
+        }
+      }
+      dataToUpdate.sprintId = sprintId || null;
+    }
 
     const updated = await prisma.meeting.update({
       where: { id: meetingId },

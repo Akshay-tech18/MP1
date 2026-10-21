@@ -49,10 +49,9 @@ app.use(
   })
 );
 
-// 4. GitHub Routes
+// 4. GitHub Routes (Webhooks require raw body, mounted before JSON parser)
 const { webhookRouter, repositoryRouter, userGithubRouter } = require("./src/modules/github/github.routes");
-app.use("/api/webhooks", webhookRouter); // MUST BE MOUNTED BEFORE express.json()
-app.use("/api/github", userGithubRouter);
+app.use("/api/webhooks", webhookRouter);
 
 // 5. Global Request Parsers (Applied to all routes other than webhooks)
 app.use(express.json({ limit: "50mb" }));
@@ -95,6 +94,7 @@ const meetingRouter = require("./src/modules/meetings/meeting.routes");
 // --- API Routes ---
 app.use("/api/auth", authRouter);
 app.use("/api/users", userRouter);
+app.use("/api/github", userGithubRouter);
 app.use("/api/projects", projectRouter);
 
 // Nested project routes

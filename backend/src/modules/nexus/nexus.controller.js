@@ -69,6 +69,17 @@ const approveAgentAction = async (req, res) => {
       return sendError(res, 400, "No pending actions to approve in this thread");
     }
 
+    // Security Guard (C5): Enforce that pending tool calls match the current project
+    const lastMsg = state.values?.messages?.[state.values.messages.length - 1];
+    if (lastMsg?.tool_calls && Array.isArray(lastMsg.tool_calls)) {
+      for (const call of lastMsg.tool_calls) {
+        if (call.args?.projectId && call.args.projectId !== projectId) {
+          logger.warn(`Rejected cross-project agent action: target=${call.args.projectId}, current=${projectId}`);
+          return sendError(res, 403, "Agent action targets an unauthorized workspace");
+        }
+      }
+    }
+
     if (!approved) {
       // If user rejects, we inject a tool error message and resume so the LLM knows it was rejected
       // Actually, simplest way in LangGraph is just to not invoke it and clear it, 

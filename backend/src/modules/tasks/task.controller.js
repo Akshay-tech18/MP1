@@ -21,6 +21,29 @@ const createTask = async (req, res) => {
   const taskStatus = status || "TODO";
 
   try {
+    // Verify sprint belongs to project if provided
+    if (sprintId) {
+      const sprint = await prisma.sprint.findFirst({
+        where: { id: sprintId, projectId }
+      });
+      if (!sprint) {
+        return sendError(res, 400, "The specified sprint does not belong to this project");
+      }
+    }
+
+    // Verify assignee belongs to project if provided
+    if (assigneeId) {
+      const isMember = await prisma.projectMember.findFirst({
+        where: { projectId, userId: assigneeId }
+      });
+      const isOwner = await prisma.project.findFirst({
+        where: { id: projectId, ownerId: assigneeId }
+      });
+      if (!isMember && !isOwner) {
+        return sendError(res, 400, "The specified assignee is not a member of this project");
+      }
+    }
+
     // 1. Calculate orderIndex
     const taskCount = await prisma.task.count({
       where: { projectId, status: taskStatus }
@@ -212,7 +235,17 @@ const updateTask = async (req, res) => {
     if (description !== undefined) updates.description = description;
     if (priority !== undefined) updates.priority = priority;
     if (dueDate !== undefined) updates.dueDate = dueDate ? new Date(dueDate) : null;
-    if (sprintId !== undefined) updates.sprintId = sprintId || null;
+    if (sprintId !== undefined) {
+      if (sprintId) {
+        const sprint = await prisma.sprint.findFirst({
+          where: { id: sprintId, projectId }
+        });
+        if (!sprint) {
+          return sendError(res, 400, "The specified sprint does not belong to this project");
+        }
+      }
+      updates.sprintId = sprintId || null;
+    }
     if (estimatedTime !== undefined) updates.estimatedTime = estimatedTime;
     if (timeSpent !== undefined) updates.timeSpent = timeSpent;
 
@@ -240,6 +273,16 @@ const updateTask = async (req, res) => {
       let newName = "Unassigned";
 
       if (assigneeId) {
+        const isMember = await prisma.projectMember.findFirst({
+          where: { projectId, userId: assigneeId }
+        });
+        const isOwner = await prisma.project.findFirst({
+          where: { id: projectId, ownerId: assigneeId }
+        });
+        if (!isMember && !isOwner) {
+          return sendError(res, 400, "The specified assignee is not a member of this project");
+        }
+
         const newAssignee = await prisma.user.findUnique({ where: { id: assigneeId } });
         if (newAssignee) newName = newAssignee.name;
       }

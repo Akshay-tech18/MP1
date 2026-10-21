@@ -296,9 +296,12 @@ const moveTasksToSprint = async (req, res) => {
       data: { sprintId }
     });
 
-    // Fetch updated tasks for emitting
+    // Fetch updated tasks for emitting (scoped to current workspace)
     const updatedTasks = await prisma.task.findMany({
-      where: { id: { in: taskIds } },
+      where: {
+        id: { in: taskIds },
+        projectId
+      },
       include: {
         assignee: { select: { id: true, name: true, avatar: true } },
         reporter: { select: { id: true, name: true, avatar: true } }

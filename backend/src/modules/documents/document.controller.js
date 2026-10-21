@@ -2,7 +2,7 @@ const prisma = require("../../config/db");
 const { sendSuccess, sendError } = require("../../utils/response.utils");
 const logger = require("../../utils/logger");
 const { processDocumentChunks } = require("../../services/embedding.service");
-const pdfParse = require("pdf-parse");
+const { PDFParse } = require("pdf-parse");
 
 // Helper to calculate read time in minutes
 const calculateReadTime = (content) => {
@@ -101,10 +101,11 @@ const getDocuments = async (req, res) => {
 
 const getDocumentById = async (req, res) => {
   const { id } = req.params;
+  const projectId = req.params.projectId || req.params.id;
 
   try {
-    const doc = await prisma.document.findUnique({
-      where: { id },
+    const doc = await prisma.document.findFirst({
+      where: { id, projectId },
       include: {
         author: { select: { name: true, avatar: true } },
         parent: { select: { title: true, id: true } },
@@ -112,7 +113,7 @@ const getDocumentById = async (req, res) => {
       }
     });
 
-    if (!doc) return sendError(res, 404, "Document not found");
+    if (!doc) return sendError(res, 404, "Document not found in this workspace");
 
     return sendSuccess(res, 200, "Document retrieved", { document: doc });
   } catch (err) {
@@ -123,9 +124,18 @@ const getDocumentById = async (req, res) => {
 
 const updateDocument = async (req, res) => {
   const { id } = req.params;
+  const projectId = req.params.projectId || req.params.id;
   const { title, content, tags, parentId } = req.body;
 
   try {
+    const existing = await prisma.document.findFirst({
+      where: { id, projectId }
+    });
+
+    if (!existing) {
+      return sendError(res, 404, "Document not found in this workspace");
+    }
+
     const data = {};
     if (title) data.title = title;
     if (tags) data.tags = tags;
@@ -139,8 +149,16 @@ const updateDocument = async (req, res) => {
       if (parentId === id) {
         return sendError(res, 400, "Document cannot be its own parent");
       }
-      // Simple circular check - block if setting parent to an existing child
+      // Validate parent belongs to the same workspace
       if (parentId) {
+        const parentDoc = await prisma.document.findFirst({
+          where: { id: parentId, projectId }
+        });
+        if (!parentDoc) {
+          return sendError(res, 400, "Parent document not found in this workspace");
+        }
+
+        // Circular check - block if setting parent to an existing child
         const checkChild = await prisma.document.findFirst({
           where: { id: parentId, parentId: id }
         });
@@ -222,16 +240,22 @@ const uploadPdfDocument = async (req, res) => {
       return sendError(res, 400, "PDF file exceeds the maximum allowed limit of 25MB.");
     }
 
-    // 2. Extract text from PDF using pdf-parse
-    let parsedData;
+    // 2. Extract text from PDF using pdf-parse v2 API
+    let extractedText = "";
+    let parser = null;
     try {
-      parsedData = await pdfParse(pdfBuffer);
+      parser = new PDFParse({ data: pdfBuffer });
+      const parsedData = await parser.getText();
+      extractedText = (parsedData?.text || "").trim();
     } catch (parseErr) {
       logger.error("PDF parsing error: %o", parseErr);
       return sendError(res, 400, "Failed to parse PDF document. It may be password-protected or corrupted.");
+    } finally {
+      if (parser) {
+        try { await parser.destroy(); } catch (_) {}
+      }
     }
 
-    const extractedText = (parsedData.text || "").trim();
     if (!extractedText) {
       return sendError(res, 400, "No readable text could be extracted from this PDF. Please ensure the PDF contains selectable text (not scanned images).");
     }

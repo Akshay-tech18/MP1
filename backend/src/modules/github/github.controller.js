@@ -165,8 +165,24 @@ const getAvailableRepos = async (req, res) => {
       per_page: 100
     });
 
-    // Check which repos are already linked to projects
+    // Check which repos are already linked to projects the caller has access to
+    const userMemberships = await prisma.projectMember.findMany({
+      where: { userId: req.user.id },
+      select: { projectId: true }
+    });
+    const userOwnedProjects = await prisma.project.findMany({
+      where: { ownerId: req.user.id },
+      select: { id: true }
+    });
+    const authorizedProjectIds = Array.from(
+      new Set([
+        ...userMemberships.map((m) => m.projectId),
+        ...userOwnedProjects.map((p) => p.id)
+      ])
+    );
+
     const linkedRepos = await prisma.repository.findMany({
+      where: { projectId: { in: authorizedProjectIds } },
       select: { githubRepoId: true, name: true, projectId: true }
     });
     const linkedRepoMap = new Map(linkedRepos.map((r) => [r.name.toLowerCase(), r]));

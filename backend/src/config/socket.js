@@ -39,12 +39,22 @@ function initSocketServer(httpServer) {
 
     // Fallback: extract token from handshake cookies (for httpOnly cookie authentication)
     if ((!token || token === "undefined" || token === "null") && socket.handshake.headers?.cookie) {
-      const cookies = socket.handshake.headers.cookie.split(";").reduce((acc, cookieStr) => {
-        const [k, ...v] = cookieStr.trim().split("=");
-        if (k) acc[k] = decodeURIComponent(v.join("="));
-        return acc;
-      }, {});
-      token = cookies.accessToken || cookies.access_token;
+      try {
+        const cookies = socket.handshake.headers.cookie.split(";").reduce((acc, cookieStr) => {
+          const [k, ...v] = cookieStr.trim().split("=");
+          if (k) {
+            try {
+              acc[k] = decodeURIComponent(v.join("="));
+            } catch {
+              acc[k] = v.join("=");
+            }
+          }
+          return acc;
+        }, {});
+        token = cookies.accessToken || cookies.access_token;
+      } catch (cookieErr) {
+        logger.warn("Malformed socket handshake cookie header: %o", cookieErr);
+      }
     }
 
     if (!token || token === "undefined" || token === "null") {

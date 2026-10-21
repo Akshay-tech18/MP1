@@ -167,6 +167,12 @@ function AnimatedRoutes() {
         <Route path="/docs" element={<Docs />} />
         <Route path="/team" element={<Teams />} />
         <Route path="/teams" element={<Teams />} />
+
+        {/* Workspace URL Aliases (prevents bounce-to-dashboard for deep links) */}
+        <Route path="/project/:projectId/board" element={<Board />} />
+        <Route path="/project/:projectId/chat" element={<Chat />} />
+        <Route path="/project/:projectId/dashboard" element={<Dashboard />} />
+
         {/* Redirect index path to Dashboard */}
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Route>

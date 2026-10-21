@@ -8,7 +8,7 @@ const nullableUuid = z.preprocess(
 
 const nullableDateTime = z.preprocess(
   (val) => (val === "" || val === undefined ? null : val),
-  z.string().datetime().nullable().optional()
+  z.string().refine((val) => !isNaN(Date.parse(val)), { message: "Invalid date format" }).nullable().optional()
 );
 
 const nullableString = z.preprocess(
