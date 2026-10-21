@@ -178,12 +178,21 @@ const listMeetings = async (req, res) => {
     }
 
     if (startDate || endDate) {
-      whereClause.startTime = {};
+      const timeFilter = {};
       if (startDate) {
-        whereClause.startTime.gte = new Date(startDate);
+        const parsedStart = new Date(startDate);
+        if (!isNaN(parsedStart.getTime())) {
+          timeFilter.gte = parsedStart;
+        }
       }
       if (endDate) {
-        whereClause.startTime.lte = new Date(endDate);
+        const parsedEnd = new Date(endDate);
+        if (!isNaN(parsedEnd.getTime())) {
+          timeFilter.lte = parsedEnd;
+        }
+      }
+      if (Object.keys(timeFilter).length > 0) {
+        whereClause.startTime = timeFilter;
       }
     }
 
@@ -261,7 +270,7 @@ const updateMeeting = async (req, res) => {
       return sendError(res, 404, "Meeting not found");
     }
 
-    // Only host or Manager can update meeting
+    // Only host, project manager, or workspace owner can update meeting
     const membership = await prisma.projectMember.findUnique({
       where: {
         projectId_userId: { projectId, userId },
@@ -269,10 +278,11 @@ const updateMeeting = async (req, res) => {
     });
 
     const isHost = existing.hostId === userId;
-    const isManager = membership && membership.role === ProjectRole.MANAGER;
+    const isOwner = req.isProjectOwner || req.user.role === "ADMIN";
+    const isManager = isOwner || (membership && membership.role === ProjectRole.MANAGER);
 
     if (!isHost && !isManager) {
-      return sendError(res, 403, "Only the meeting host or project manager can update this meeting");
+      return sendError(res, 403, "Only the meeting host, project manager, or owner can update this meeting");
     }
 
     const {
@@ -347,10 +357,11 @@ const deleteMeeting = async (req, res) => {
     });
 
     const isHost = existing.hostId === userId;
-    const isManager = membership && membership.role === ProjectRole.MANAGER;
+    const isOwner = req.isProjectOwner || req.user.role === "ADMIN";
+    const isManager = isOwner || (membership && membership.role === ProjectRole.MANAGER);
 
     if (!isHost && !isManager) {
-      return sendError(res, 403, "Only the meeting host or project manager can cancel this meeting");
+      return sendError(res, 403, "Only the meeting host, project manager, or owner can cancel this meeting");
     }
 
     await prisma.meeting.delete({

@@ -5,6 +5,14 @@ const dateStringSchema = z.string().refine((val) => !isNaN(Date.parse(val)), {
   message: "Must be a valid date or timestamp",
 });
 
+const optionalUuidSchema = z
+  .string()
+  .uuid("Invalid sprint ID format")
+  .optional()
+  .nullable()
+  .or(z.literal(""))
+  .transform((val) => (val === "" || val === undefined ? null : val));
+
 const createMeetingSchema = z
   .object({
     title: z.string().min(2, "Meeting title must be at least 2 characters").max(150),
@@ -14,7 +22,7 @@ const createMeetingSchema = z
     endTime: dateStringSchema,
     recurrence: z.nativeEnum(MeetingRecurrence).default(MeetingRecurrence.NONE),
     channelId: z.string().optional().nullable(),
-    sprintId: z.string().uuid("Invalid sprint ID").optional().nullable(),
+    sprintId: optionalUuidSchema,
   })
   .refine(
     (data) => {
@@ -35,7 +43,7 @@ const updateMeetingSchema = z
     endTime: dateStringSchema.optional(),
     recurrence: z.nativeEnum(MeetingRecurrence).optional(),
     channelId: z.string().optional().nullable(),
-    sprintId: z.string().uuid("Invalid sprint ID").optional().nullable(),
+    sprintId: optionalUuidSchema,
   })
   .refine(
     (data) => {

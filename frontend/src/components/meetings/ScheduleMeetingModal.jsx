@@ -151,11 +151,23 @@ export default function ScheduleMeetingModal({
       setLoading(true);
       setError(null);
 
+      if (!dateStr || !timeStr) {
+        setError("Please provide both a meeting date and start time");
+        setLoading(false);
+        return;
+      }
+
       // Explicit local time parse to avoid UTC shift
       const [year, month, day] = dateStr.split("-").map(Number);
       const [hours, minutes] = timeStr.split(":").map(Number);
       const start = new Date(year, month - 1, day, hours, minutes, 0, 0);
       const end = new Date(start.getTime() + duration * 60 * 1000);
+
+      if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+        setError("Invalid date or time value");
+        setLoading(false);
+        return;
+      }
 
       const payload = {
         title: title.trim(),
