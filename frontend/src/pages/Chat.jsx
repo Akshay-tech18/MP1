@@ -8,6 +8,8 @@ import client from "../api/client";
 import PageTransition from "../components/PageTransition";
 import Avatar from "../components/Avatar";
 import VideoMeetingModal from "../components/VideoMeetingModal";
+import ScheduleMeetingModal from "../components/meetings/ScheduleMeetingModal";
+import MeetingChatCard from "../components/meetings/MeetingChatCard";
 import {
   Send,
   Hash,
@@ -18,6 +20,7 @@ import {
   AlertCircle,
   AlertTriangle,
   Video,
+  Calendar,
   Paperclip,
   Film,
   Download,
@@ -94,6 +97,8 @@ export default function Chat() {
   const [channelToDelete, setChannelToDelete] = useState(null);
   const [isDeletingChannel, setIsDeletingChannel] = useState(false);
   const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
+  const [showScheduleMeetingModal, setShowScheduleMeetingModal] = useState(false);
+  const [selectedMeeting, setSelectedMeeting] = useState(null);
   const [attachment, setAttachment] = useState(null);
   const [previewMediaUrl, setPreviewMediaUrl] = useState(null);
 
@@ -203,6 +208,18 @@ export default function Chat() {
       });
     }
   }, [searchParams, channels, members, activeChannelId, setActiveChannelId]);
+
+  // Handle direct join from meeting room URL parameter
+  useEffect(() => {
+    const roomParam = searchParams.get("room");
+    if (roomParam) {
+      setSelectedMeeting({
+        roomName: roomParam,
+        title: "DevPilot Video Meeting",
+      });
+      setIsVideoModalOpen(true);
+    }
+  }, [searchParams]);
 
   // Stable key for current channel or DM
   const channelKey = activeChannel.isGroup
@@ -578,11 +595,26 @@ export default function Chat() {
               )}
             </div>
 
-            {/* Header Right Actions: Video Meeting + Delete Channel */}
+            {/* Header Right Actions: Video Meeting + Schedule + Delete Channel */}
             <div className="flex items-center gap-2 flex-shrink-0">
+              {activeChannel.isGroup && (
+                <button
+                  type="button"
+                  onClick={() => setShowScheduleMeetingModal(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-purple-400 hover:text-white hover:bg-purple-500/20 border border-purple-500/30 text-btn-refined font-semibold transition-all active:scale-95 shadow-sm"
+                  title="Schedule Engineering Ceremony or Meeting"
+                >
+                  <Calendar className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Schedule</span>
+                </button>
+              )}
+
               <button
                 type="button"
-                onClick={() => setIsVideoModalOpen(true)}
+                onClick={() => {
+                  setSelectedMeeting(null);
+                  setIsVideoModalOpen(true);
+                }}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-indigo-400 hover:text-white hover:bg-indigo-500/20 border border-indigo-500/30 text-btn-refined font-semibold transition-all active:scale-95 shadow-sm"
                 title={
                   activeChannel.isGroup
@@ -723,23 +755,49 @@ export default function Chat() {
                             </div>
                           )}
 
-                          {/* Text Message Content */}
-                          {msg.content && (
-                            <div
-                              className={`p-3 px-4 rounded-2xl text-body-primary break-words text-left shadow-sm ${
-                                isOwnMessage
-                                  ? "rounded-br-xs bg-indigo-600 text-white border border-indigo-500/30"
-                                  : "rounded-bl-xs dark:bg-[#18181b] bg-slate-100 border dark:border-white/10 border-slate-200 dark:text-slate-200 text-slate-800"
-                              }`}
-                            >
-                              <p className="leading-relaxed whitespace-pre-wrap">{msg.content}</p>
-                              {isOwnMessage && !activeChannel.isGroup && (
-                                <div className="text-[10px] text-indigo-200/90 mt-1 text-right font-mono select-none">
-                                  {formattedTime}
-                                </div>
-                              )}
-                            </div>
-                          )}
+                          {/* Message Content: Meeting Card or Standard Chat Bubble */}
+                          {msg.content && (() => {
+                            let meetingPayload = null;
+                            if (msg.content.startsWith("[MEETING_INVITE]")) {
+                              try {
+                                meetingPayload = JSON.parse(
+                                  msg.content.slice("[MEETING_INVITE]".length).trim()
+                                );
+                              } catch (e) {
+                                meetingPayload = null;
+                              }
+                            }
+
+                            if (meetingPayload) {
+                              return (
+                                <MeetingChatCard
+                                  payload={meetingPayload}
+                                  projectId={currentProject?.id}
+                                  onJoinMeeting={(meet) => {
+                                    setSelectedMeeting(meet);
+                                    setIsVideoModalOpen(true);
+                                  }}
+                                />
+                              );
+                            }
+
+                            return (
+                              <div
+                                className={`p-3 px-4 rounded-2xl text-body-primary break-words text-left shadow-sm ${
+                                  isOwnMessage
+                                    ? "rounded-br-xs bg-indigo-600 text-white border border-indigo-500/30"
+                                    : "rounded-bl-xs dark:bg-[#18181b] bg-slate-100 border dark:border-white/10 border-slate-200 dark:text-slate-200 text-slate-800"
+                                }`}
+                              >
+                                <p className="leading-relaxed whitespace-pre-wrap">{msg.content}</p>
+                                {isOwnMessage && !activeChannel.isGroup && (
+                                  <div className="text-[10px] text-indigo-200/90 mt-1 text-right font-mono select-none">
+                                    {formattedTime}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })()}
 
                           {/* Media Attachment (Photo / Video / Document) */}
                           {msg.fileUrl && (
@@ -1102,9 +1160,21 @@ export default function Chat() {
         {/* Video Meeting Modal (WebRTC with Screen Sharing) */}
         <VideoMeetingModal
           isOpen={isVideoModalOpen}
-          onClose={() => setIsVideoModalOpen(false)}
+          onClose={() => {
+            setIsVideoModalOpen(false);
+            setSelectedMeeting(null);
+          }}
           currentProject={currentProject}
           user={user}
+          customRoomName={selectedMeeting?.roomName}
+          meetingTitle={selectedMeeting?.title}
+        />
+
+        {/* Schedule Ceremony / Meeting Modal */}
+        <ScheduleMeetingModal
+          isOpen={showScheduleMeetingModal}
+          onClose={() => setShowScheduleMeetingModal(false)}
+          projectId={currentProject?.id}
         />
       </div>
     </PageTransition>

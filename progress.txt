@@ -1,0 +1,31 @@
+# Ralph Loop Iteration Progress Log
+
+## [2026-10-21 14:45 IST] - Iteration: Microsoft Teams-Style Scheduled Ceremonies & Meetings
+- **Tasks Completed**:
+  1. Updated `backend/prisma/schema.prisma` with `Meeting` model, `MeetingType` and `MeetingRecurrence` enums, relations on `User`, `Project`, `Sprint`, and new activity types `MEETING_SCHEDULED` and `MEETING_CANCELLED`.
+  2. Applied database schema migration cleanly using `prisma db push` and regenerated `@prisma/client`.
+  3. Created backend meeting module (`backend/src/modules/meetings/`):
+     - `meeting.validator.js`: Zod schema validations for scheduling and updating meetings with local time parsing.
+     - `meeting.controller.js`: CRUD endpoints, unique WebRTC room generator (`crypto.randomBytes`), chat message meeting invite card seeding, member in-app notifications, activity logs, and real-time Socket.IO broadcasts.
+     - `meeting.routes.js`: Protected routes with RBAC.
+     - Mounted `projectRouter.use("/:id/meetings", meetingRouter)` in `backend/app.js`.
+  4. Updated `frontend/src/components/VideoMeetingModal.jsx` to accept custom room names and meeting titles with full backwards compatibility.
+  5. Built `frontend/src/components/meetings/ScheduleMeetingModal.jsx`:
+     - Engineering ceremony presets (Daily Standup, Sprint Planning, Sprint Retrospective, Architecture Review, Ad-Hoc).
+     - IST-aligned date & time selection, duration presets (15m, 30m, 45m, 1h, 1.5h).
+     - Recurrence options (None, Daily Mon-Fri, Weekly).
+     - Channel selection and optional sprint linkage.
+  6. Built `frontend/src/components/meetings/MeetingChatCard.jsx`:
+     - Interactive Microsoft Teams-style in-channel card with ceremony type badges, status indicator (Live Now / Upcoming / Ended), local time display, recurrence info, 1-click "Join Call Now" button, copy link, and calendar link.
+     - Integrated into `frontend/src/pages/Chat.jsx` with direct room URL join support and header "Schedule" button.
+  7. Integrated scheduled meetings into `frontend/src/pages/Board.jsx`:
+     - Calendar view displays meeting badges (`📹 [Time] [Title]`) alongside tasks and sprint indicators.
+     - Real-time Socket.IO sync for `meeting:scheduled`, `meeting:updated`, and `meeting:cancelled`.
+     - Direct "Join Call" on badge click.
+     - Quick "Schedule Ceremony" button in calendar header and day cell headers.
+- **Verification**:
+  - `npm test` in `backend/`: 1/1 suites passed (0 failures).
+  - `npm run build` in `frontend/`: 0 errors, compiled in 1.01s.
+- **Constraints Maintained**:
+  - `ml-service/` untouched.
+  - Zero git commits or pushes performed (awaiting user request).

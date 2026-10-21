@@ -76,6 +76,21 @@ module.exports = {
     CRITICAL: "CRITICAL",
   },
 
+  // Meeting Lifecycles & Ceremonies
+  MeetingType: {
+    STANDUP: "STANDUP",
+    SPRINT_PLANNING: "SPRINT_PLANNING",
+    SPRINT_RETRO: "SPRINT_RETRO",
+    ARCHITECTURE_REVIEW: "ARCHITECTURE_REVIEW",
+    AD_HOC: "AD_HOC",
+  },
+
+  MeetingRecurrence: {
+    NONE: "NONE",
+    DAILY_WEEKDAYS: "DAILY_WEEKDAYS",
+    WEEKLY: "WEEKLY",
+  },
+
   // Activity Log Event Types
   ActivityType: {
     TASK_CREATED: "TASK_CREATED",
@@ -88,6 +103,8 @@ module.exports = {
     SPRINT_CREATED: "SPRINT_CREATED",
     SPRINT_UPDATED: "SPRINT_UPDATED",
     SPRINT_COMPLETED: "SPRINT_COMPLETED",
+    MEETING_SCHEDULED: "MEETING_SCHEDULED",
+    MEETING_CANCELLED: "MEETING_CANCELLED",
   },
 
   // Socket.IO Event Catalogue
@@ -105,6 +122,11 @@ module.exports = {
     SPRINT_CREATED: "sprint:created",
     SPRINT_UPDATED: "sprint:updated",
     SPRINT_COMPLETED: "sprint:completed",
+
+    // Meeting Events
+    MEETING_SCHEDULED: "meeting:scheduled",
+    MEETING_UPDATED: "meeting:updated",
+    MEETING_CANCELLED: "meeting:cancelled",
 
     // Task Events
     TASK_CREATED: "task:created",

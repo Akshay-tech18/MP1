@@ -175,6 +175,7 @@ const updateSprint = async (req, res) => {
  */
 const completeSprint = async (req, res) => {
   const { id: projectId, sprintId } = req.params;
+  const { targetSprintId } = req.body || {};
 
   try {
     const sprint = await prisma.sprint.findUnique({
@@ -187,6 +188,17 @@ const completeSprint = async (req, res) => {
 
     if (sprint.status === "COMPLETED") {
       return sendError(res, 400, "Sprint is already completed");
+    }
+
+    // If targetSprintId is provided, verify it belongs to this project and is not the current sprint
+    let validTargetSprintId = null;
+    if (targetSprintId) {
+      const targetSprint = await prisma.sprint.findUnique({
+        where: { id: targetSprintId }
+      });
+      if (targetSprint && targetSprint.projectId === projectId && targetSprint.id !== sprintId) {
+        validTargetSprintId = targetSprint.id;
+      }
     }
 
     const result = await prisma.$transaction(async (tx) => {
@@ -212,11 +224,11 @@ const completeSprint = async (req, res) => {
 
       const unfinishedTaskIds = unfinishedTasks.map(t => t.id);
 
-      // 4. Move unfinished tasks to project backlog (sprintId = null)
+      // 4. Move unfinished tasks to target sprint or project backlog (sprintId = null)
       if (unfinishedTaskIds.length > 0) {
         await tx.task.updateMany({
           where: { id: { in: unfinishedTaskIds } },
-          data: { sprintId: null }
+          data: { sprintId: validTargetSprintId }
         });
       }
 
@@ -229,7 +241,8 @@ const completeSprint = async (req, res) => {
           metadata: {
             name: sprint.name,
             completedTasks: completedTasksCount,
-            movedToBacklog: unfinishedTaskIds.length
+            movedCount: unfinishedTaskIds.length,
+            targetSprintId: validTargetSprintId
           },
           projectId,
           userId: req.user.id
@@ -239,7 +252,8 @@ const completeSprint = async (req, res) => {
       return {
         sprint: completedSprint,
         completedCount: completedTasksCount,
-        backlogCount: unfinishedTaskIds.length
+        backlogCount: unfinishedTaskIds.length,
+        targetSprintId: validTargetSprintId
       };
     });
 

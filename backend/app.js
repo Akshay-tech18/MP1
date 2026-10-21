@@ -90,6 +90,7 @@ const messageRouter = require("./src/modules/communication/message.routes");
 const documentRouter = require("./src/modules/documents/document.routes");
 const nexusRouter = require("./src/modules/nexus/nexus.routes");
 const timesheetRouter = require("./src/modules/timesheets/timesheet.routes");
+const meetingRouter = require("./src/modules/meetings/meeting.routes");
 
 // --- API Routes ---
 app.use("/api/auth", authRouter);
@@ -104,6 +105,7 @@ projectRouter.use("/:id/analytics", analyticsRouter);
 projectRouter.use("/:id/ml", mlRouter);
 projectRouter.use("/:id/messages", messageRouter);
 projectRouter.use("/:id/timesheets", timesheetRouter);
+projectRouter.use("/:id/meetings", meetingRouter);
 projectRouter.use("/:projectId/documents", documentRouter);
 projectRouter.use("/:projectId/nexus", nexusRouter);
 

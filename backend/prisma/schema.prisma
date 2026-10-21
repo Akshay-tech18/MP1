@@ -78,6 +78,8 @@ enum ActivityType {
   SPRINT_CREATED
   SPRINT_UPDATED
   SPRINT_COMPLETED
+  MEETING_SCHEDULED
+  MEETING_CANCELLED
 }
 
 model User {
@@ -104,6 +106,7 @@ model User {
   notifications      Notification[]
   documents          Document[]       @relation("Author")
   timesheetEntries   TimesheetEntry[]
+  hostedMeetings     Meeting[]       @relation("MeetingHost")
 
   @@index([email])
   @@index([githubId])
@@ -133,6 +136,7 @@ model Project {
   pendingInvites PendingInvite[]
   documents        Document[]
   timesheetEntries TimesheetEntry[]
+  meetings         Meeting[]
 
   @@index([ownerId])
   @@index([status])
@@ -169,6 +173,7 @@ model Sprint {
 
   // Relationships
   tasks Task[]
+  meetings Meeting[]
 
   @@index([projectId])
   @@index([status])
@@ -456,4 +461,43 @@ model TimesheetEntry {
   @@index([projectId, weekDate])
   @@index([userId])
   @@map("timesheet_entries")
+}
+
+enum MeetingType {
+  STANDUP
+  SPRINT_PLANNING
+  SPRINT_RETRO
+  ARCHITECTURE_REVIEW
+  AD_HOC
+}
+
+enum MeetingRecurrence {
+  NONE
+  DAILY_WEEKDAYS
+  WEEKLY
+}
+
+model Meeting {
+  id          String            @id @default(uuid())
+  title       String
+  description String?
+  type        MeetingType       @default(STANDUP)
+  startTime   DateTime
+  endTime     DateTime
+  recurrence  MeetingRecurrence @default(NONE)
+  roomName    String
+  projectId   String
+  project     Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  channelId   String?           @default("general")
+  sprintId    String?
+  sprint      Sprint?           @relation(fields: [sprintId], references: [id], onDelete: SetNull)
+  hostId      String
+  host        User              @relation("MeetingHost", fields: [hostId], references: [id], onDelete: Cascade)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  @@index([projectId, startTime])
+  @@index([hostId])
+  @@index([sprintId])
+  @@map("meetings")
 }

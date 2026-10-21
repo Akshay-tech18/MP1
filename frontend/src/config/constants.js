@@ -10,6 +10,10 @@ export const SocketEvent = {
   SPRINT_UPDATED: "sprint:updated",
   SPRINT_COMPLETED: "sprint:completed",
 
+  MEETING_SCHEDULED: "meeting:scheduled",
+  MEETING_UPDATED: "meeting:updated",
+  MEETING_CANCELLED: "meeting:cancelled",
+
   TASK_CREATED: "task:created",
   TASK_UPDATED: "task:updated",
   TASK_DELETED: "task:deleted",
@@ -43,4 +47,18 @@ export const TaskStatus = {
   IN_REVIEW: "IN_REVIEW",
   COMPLETED: "COMPLETED",
   BLOCKED: "BLOCKED"
+};
+
+export const MeetingType = {
+  STANDUP: "STANDUP",
+  SPRINT_PLANNING: "SPRINT_PLANNING",
+  SPRINT_RETRO: "SPRINT_RETRO",
+  ARCHITECTURE_REVIEW: "ARCHITECTURE_REVIEW",
+  AD_HOC: "AD_HOC"
+};
+
+export const MeetingRecurrence = {
+  NONE: "NONE",
+  DAILY_WEEKDAYS: "DAILY_WEEKDAYS",
+  WEEKLY: "WEEKLY"
 };

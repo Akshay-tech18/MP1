@@ -6,6 +6,11 @@ import useAuthStore from "../store/useAuthStore";
 import useSocketStore from "../store/useSocketStore";
 import client from "../api/client";
 import PageTransition from "../components/PageTransition";
+import SprintCommandBanner from "../components/sprints/SprintCommandBanner";
+import CreateSprintModal from "../components/sprints/CreateSprintModal";
+import CompleteSprintModal from "../components/sprints/CompleteSprintModal";
+import ScheduleMeetingModal from "../components/meetings/ScheduleMeetingModal";
+import VideoMeetingModal from "../components/VideoMeetingModal";
 import {
   Plus,
   MessageSquare,
@@ -21,6 +26,7 @@ import {
   ChevronRight,
   AlertTriangle,
   CheckCircle2,
+  Video,
 } from "lucide-react";
 import Avatar from "../components/Avatar";
 import { TaskStatus, TaskPriority, SocketEvent } from "../config/constants";
@@ -41,6 +47,17 @@ const PRIORITY_STYLES = {
   HIGH: "dark:bg-amber-500/10 bg-amber-50 text-amber-400 dark:border-amber-500/20 border-amber-200",
   MEDIUM: "dark:bg-blue-500/10 bg-blue-50 text-blue-400 dark:border-blue-500/20 border-blue-200",
   LOW: "dark:bg-dp-dark-elevated bg-dp-light-bg-secondary dark:text-dp-text-muted text-dp-text-light-muted dark:border-dp-dark-border-light border-dp-light-border",
+};
+
+// Formats a Date object or date string to local "YYYY-MM-DD" without UTC timezone shift
+const formatLocalDateKey = (d) => {
+  if (!d) return "";
+  const date = new Date(d);
+  if (isNaN(date.getTime())) return "";
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 };
 
 export default function Board() {
@@ -78,6 +95,71 @@ export default function Board() {
   const [sprints, setSprints] = useState([]);
   const [members, setMembers] = useState([]);
   const [selectedSprintId, setSelectedSprintId] = useState("all");
+
+  // Sprint Management State
+  const [showCreateSprintModal, setShowCreateSprintModal] = useState(false);
+  const [showCompleteSprintModal, setShowCompleteSprintModal] = useState(false);
+  const [sprintToComplete, setSprintToComplete] = useState(null);
+  const [sprintActionLoading, setSprintActionLoading] = useState(false);
+
+  // Scheduled Meetings & Ceremonies State
+  const [meetings, setMeetings] = useState([]);
+  const [showScheduleMeetingModal, setShowScheduleMeetingModal] = useState(false);
+  const [meetingModalDate, setMeetingModalDate] = useState(null);
+  const [selectedVideoMeeting, setSelectedVideoMeeting] = useState(null);
+  const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
+
+  const isOwner = currentProject?.ownerId === user?.id;
+  const isManager =
+    isOwner ||
+    user?.role === "ADMIN" ||
+    currentProject?.members?.some((m) => (m.userId === user?.id || m.user?.id === user?.id) && m.role === "MANAGER") ||
+    members?.some((m) => (m.userId === user?.id || m.user?.id === user?.id) && m.role === "MANAGER");
+
+  const handleStartSprint = async (sprintId) => {
+    if (!currentProject) return;
+    setSprintActionLoading(true);
+    try {
+      const res = await client.patch(`/projects/${currentProject.id}/sprints/${sprintId}`, {
+        status: "ACTIVE"
+      });
+      if (res.data?.success && res.data?.data?.sprint) {
+        setSprints((prev) =>
+          prev.map((s) => {
+            if (s.id === sprintId) return { ...s, status: "ACTIVE" };
+            if (s.status === "ACTIVE") return { ...s, status: "COMPLETED" };
+            return s;
+          })
+        );
+        setSelectedSprintId(sprintId);
+      }
+    } catch (err) {
+      alert(err.response?.data?.message || err.message || "Failed to start sprint");
+    } finally {
+      setSprintActionLoading(false);
+    }
+  };
+
+  const handleSprintCreated = (newSprint) => {
+    setSprints((prev) => [...prev, newSprint]);
+    setSelectedSprintId(newSprint.id);
+  };
+
+  const handleSprintCompleted = (result) => {
+    const completedSprintId = result?.sprint?.id;
+    const targetSprintId = result?.targetSprintId;
+
+    setSprints((prev) =>
+      prev.map((s) => (s.id === completedSprintId ? { ...s, status: "COMPLETED" } : s))
+    );
+
+    if (targetSprintId) {
+      setSelectedSprintId(targetSprintId);
+    } else {
+      setSelectedSprintId("all");
+    }
+    fetchTasks();
+  };
 
   const displayedTasks = useMemo(() => {
     if (taskScope === "my") {
@@ -157,6 +239,14 @@ export default function Board() {
         if (sprintsRes.data.success) {
           setSprints(sprintsRes.data.data.sprints);
         }
+        try {
+          const meetingsRes = await client.get(`/projects/${currentProject.id}/meetings`);
+          if (meetingsRes.data.success) {
+            setMeetings(meetingsRes.data.data.meetings);
+          }
+        } catch (mErr) {
+          console.error("Error loading meetings:", mErr);
+        }
         await fetchTasks();
       } catch (err) {
         console.error("Error loading board:", err);
@@ -212,6 +302,41 @@ export default function Board() {
     socket.on(SocketEvent.TASK_COMMENT_ADDED, (data) => {
       if (selectedTaskId === data.taskId) setComments((prev) => [...prev, data.comment]);
     });
+    socket.on(SocketEvent.SPRINT_CREATED, (newSprint) => {
+      setSprints((prev) => {
+        if (prev.some((s) => s.id === newSprint.id)) return prev;
+        return [...prev, newSprint];
+      });
+    });
+    socket.on(SocketEvent.SPRINT_UPDATED, (updatedSprint) => {
+      setSprints((prev) =>
+        prev.map((s) => (s.id === updatedSprint.id ? { ...s, ...updatedSprint } : s))
+      );
+    });
+    socket.on(SocketEvent.SPRINT_COMPLETED, () => {
+      if (currentProject) {
+        client.get(`/projects/${currentProject.id}/sprints`).then((res) => {
+          if (res.data?.success) setSprints(res.data.data.sprints);
+        });
+        fetchTasks();
+      }
+    });
+
+    // Meeting Socket Events
+    socket.on(SocketEvent.MEETING_SCHEDULED, (newMeeting) => {
+      setMeetings((prev) => {
+        if (prev.some((m) => m.id === newMeeting.id)) return prev;
+        return [...prev, newMeeting];
+      });
+    });
+    socket.on(SocketEvent.MEETING_UPDATED, (updatedMeeting) => {
+      setMeetings((prev) =>
+        prev.map((m) => (m.id === updatedMeeting.id ? { ...m, ...updatedMeeting } : m))
+      );
+    });
+    socket.on(SocketEvent.MEETING_CANCELLED, ({ meetingId }) => {
+      setMeetings((prev) => prev.filter((m) => m.id !== meetingId));
+    });
 
     return () => {
       socket.off(SocketEvent.TASK_CREATED);
@@ -219,6 +344,12 @@ export default function Board() {
       socket.off(SocketEvent.TASK_DELETED);
       socket.off(SocketEvent.TASK_REORDERED);
       socket.off(SocketEvent.TASK_COMMENT_ADDED);
+      socket.off(SocketEvent.SPRINT_CREATED);
+      socket.off(SocketEvent.SPRINT_UPDATED);
+      socket.off(SocketEvent.SPRINT_COMPLETED);
+      socket.off(SocketEvent.MEETING_SCHEDULED);
+      socket.off(SocketEvent.MEETING_UPDATED);
+      socket.off(SocketEvent.MEETING_CANCELLED);
     };
   }, [socket, currentProject, selectedTaskId, selectedSprintId]);
 
@@ -365,7 +496,7 @@ export default function Board() {
         date: dateObj,
         dayNumber: d,
         isCurrentMonth: false,
-        dateKey: dateObj.toISOString().slice(0, 10),
+        dateKey: formatLocalDateKey(dateObj),
       });
     }
 
@@ -376,7 +507,7 @@ export default function Board() {
         date: dateObj,
         dayNumber: d,
         isCurrentMonth: true,
-        dateKey: dateObj.toISOString().slice(0, 10),
+        dateKey: formatLocalDateKey(dateObj),
       });
     }
 
@@ -388,25 +519,62 @@ export default function Board() {
         date: dateObj,
         dayNumber: d,
         isCurrentMonth: false,
-        dateKey: dateObj.toISOString().slice(0, 10),
+        dateKey: formatLocalDateKey(dateObj),
       });
     }
 
     return days;
   }, [calendarDate]);
 
-  // Tasks mapped by dueDate
+  // Tasks mapped by dueDate (using local date key to avoid timezone offset)
   const scheduledTasksMap = useMemo(() => {
     const map = {};
     for (const t of displayedTasks) {
       if (t.dueDate) {
-        const key = new Date(t.dueDate).toISOString().slice(0, 10);
-        if (!map[key]) map[key] = [];
-        map[key].push(t);
+        const key = formatLocalDateKey(t.dueDate);
+        if (key) {
+          if (!map[key]) map[key] = [];
+          map[key].push(t);
+        }
       }
     }
     return map;
   }, [displayedTasks]);
+
+  // Meetings mapped by local date key, including recurring ceremonies (Mon-Fri or Weekly)
+  const scheduledMeetingsMap = useMemo(() => {
+    const map = {};
+    if (!meetings || meetings.length === 0) return map;
+
+    for (const day of calendarDays) {
+      const dKey = day.dateKey;
+      const dayOfWeek = day.date.getDay(); // 0 = Sun, 1 = Mon ... 6 = Sat
+      const isWeekday = dayOfWeek >= 1 && dayOfWeek <= 5;
+
+      for (const m of meetings) {
+        const mStartKey = formatLocalDateKey(m.startTime);
+        if (!mStartKey) continue;
+
+        let applies = false;
+        if (m.recurrence === "NONE") {
+          applies = mStartKey === dKey;
+        } else if (m.recurrence === "DAILY_WEEKDAYS") {
+          applies = isWeekday && dKey >= mStartKey;
+        } else if (m.recurrence === "WEEKLY") {
+          const mDayOfWeek = new Date(m.startTime).getDay();
+          applies = dayOfWeek === mDayOfWeek && dKey >= mStartKey;
+        }
+
+        if (applies) {
+          if (!map[dKey]) map[dKey] = [];
+          if (!map[dKey].some((existing) => existing.id === m.id)) {
+            map[dKey].push(m);
+          }
+        }
+      }
+    }
+    return map;
+  }, [meetings, calendarDays]);
 
   const unscheduledTasks = useMemo(() => {
     return displayedTasks.filter((t) => !t.dueDate);
@@ -529,19 +697,6 @@ export default function Board() {
               </button>
             </div>
 
-            <div className="h-4 w-px dark:bg-white/10 bg-slate-200" />
-
-            {/* Sprint Filter */}
-            <div className="flex items-center gap-2">
-              <span className="text-metric-label dark:text-dp-text-muted text-dp-text-light-muted">Sprint:</span>
-              <select value={selectedSprintId} onChange={(e) => setSelectedSprintId(e.target.value)} className="glass-select text-[13px]">
-                <option value="all">All Sprints & Backlog</option>
-                <option value="backlog">Backlog Only</option>
-                {sprints.map(sprint => (
-                  <option key={sprint.id} value={sprint.id}>{sprint.name} ({sprint.status.toLowerCase()})</option>
-                ))}
-              </select>
-            </div>
           </div>
 
           <button
@@ -557,6 +712,22 @@ export default function Board() {
             <span>Add Task</span>
           </button>
         </div>
+
+        {/* Sprint Command Banner */}
+        <SprintCommandBanner
+          sprints={sprints}
+          selectedSprintId={selectedSprintId}
+          onSelectSprint={setSelectedSprintId}
+          tasks={tasks}
+          isManager={isManager}
+          onOpenCreateModal={() => setShowCreateSprintModal(true)}
+          onOpenCompleteModal={(sprint) => {
+            setSprintToComplete(sprint);
+            setShowCompleteSprintModal(true);
+          }}
+          onStartSprint={handleStartSprint}
+          actionLoading={sprintActionLoading}
+        />
 
         {/* Calendar Planner View or Kanban Board View */}
         {activeView === "calendar" ? (
@@ -593,7 +764,7 @@ export default function Board() {
                 </button>
               </div>
 
-              {/* Active Sprint & Stats */}
+              {/* Active Sprint & Stats & Schedule Button */}
               <div className="flex items-center gap-2 flex-wrap">
                 {activeSprintsForMonth.map((s) => (
                   <span
@@ -611,6 +782,17 @@ export default function Board() {
                 <span className="text-[12px] font-mono dark:text-slate-400 text-slate-500 font-medium">
                   {tasks.filter((t) => t.dueDate).length} scheduled • {unscheduledTasks.length} unscheduled
                 </span>
+
+                <button
+                  onClick={() => {
+                    setMeetingModalDate(new Date());
+                    setShowScheduleMeetingModal(true);
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 border border-purple-500/30 text-xs font-bold transition-all shadow-sm active:scale-95"
+                >
+                  <Video className="w-3.5 h-3.5 text-purple-400" />
+                  <span>Schedule Ceremony</span>
+                </button>
               </div>
             </div>
 
@@ -626,16 +808,17 @@ export default function Board() {
             </div>
 
             {/* Monthly Calendar Grid */}
-            <div className="flex-1 grid grid-cols-7 grid-rows-5 gap-2 overflow-y-auto min-h-0">
+            <div className={`flex-1 grid grid-cols-7 ${calendarDays.length > 35 ? "grid-rows-6" : "grid-rows-5"} gap-2 overflow-y-auto min-h-0`}>
               {calendarDays.map((day, idx) => {
                 const dayTasks = scheduledTasksMap[day.dateKey] || [];
-                const isToday = day.dateKey === new Date().toISOString().slice(0, 10);
+                const dayMeetings = scheduledMeetingsMap[day.dateKey] || [];
+                const isToday = day.dateKey === formatLocalDateKey(new Date());
                 
                 // Check if any sprint covers this day
                 const daySprint = sprints.find((s) => {
-                  const sStart = new Date(s.startDate).toISOString().slice(0, 10);
-                  const sEnd = new Date(s.endDate).toISOString().slice(0, 10);
-                  return day.dateKey >= sStart && day.dateKey <= sEnd;
+                  const sStart = formatLocalDateKey(s.startDate);
+                  const sEnd = formatLocalDateKey(s.endDate);
+                  return sStart && sEnd && day.dateKey >= sStart && day.dateKey <= sEnd;
                 });
 
                 return (
@@ -663,20 +846,65 @@ export default function Board() {
                         {day.dayNumber}
                       </span>
 
-                      {/* Quick Add Task Button for this Date */}
-                      <button
-                        onClick={() => handleOpenCreateForDate(day.dateKey)}
-                        className="opacity-0 group-hover:opacity-100 w-5 h-5 rounded flex items-center justify-center text-slate-400 hover:text-indigo-400 dark:hover:bg-white/10 hover:bg-slate-200 transition-all"
-                        title={`Add task due on ${day.dateKey}`}
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                      </button>
+                      {/* Quick Action Buttons for this Date */}
+                      <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          onClick={() => {
+                            setMeetingModalDate(day.date);
+                            setShowScheduleMeetingModal(true);
+                          }}
+                          className="w-5 h-5 rounded flex items-center justify-center text-slate-400 hover:text-purple-400 dark:hover:bg-white/10 hover:bg-slate-200 transition-all"
+                          title={`Schedule meeting on ${day.dateKey}`}
+                        >
+                          <Video className="w-3 h-3" />
+                        </button>
+                        <button
+                          onClick={() => handleOpenCreateForDate(day.dateKey)}
+                          className="w-5 h-5 rounded flex items-center justify-center text-slate-400 hover:text-indigo-400 dark:hover:bg-white/10 hover:bg-slate-200 transition-all"
+                          title={`Add task due on ${day.dateKey}`}
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
 
                     {/* Sprint indicator if this day is part of sprint */}
                     {daySprint && (
                       <div className="mb-1 px-1.5 py-0.5 rounded text-[9.5px] font-semibold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 truncate">
                         {daySprint.name}
+                      </div>
+                    )}
+
+                    {/* Day Scheduled Meetings */}
+                    {dayMeetings.length > 0 && (
+                      <div className="space-y-0.5 mb-1">
+                        {dayMeetings.slice(0, 2).map((m) => {
+                          const mTime = new Date(m.startTime).toLocaleTimeString([], {
+                            hour: "numeric",
+                            minute: "2-digit",
+                          });
+                          return (
+                            <div
+                              key={`${m.id}-${day.dateKey}`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedVideoMeeting(m);
+                                setIsVideoModalOpen(true);
+                              }}
+                              className="px-1.5 py-0.5 rounded text-[9.5px] font-semibold bg-purple-500/15 hover:bg-purple-500/25 text-purple-300 border border-purple-500/30 truncate flex items-center gap-1 cursor-pointer transition-all shadow-xs"
+                              title={`Join ${m.title} (${mTime})`}
+                            >
+                              <Video className="w-2.5 h-2.5 text-purple-400 flex-shrink-0" />
+                              <span className="font-mono text-[9px] opacity-80">{mTime}</span>
+                              <span className="truncate">{m.title}</span>
+                            </div>
+                          );
+                        })}
+                        {dayMeetings.length > 2 && (
+                          <div className="text-[9px] font-mono text-purple-400/80 px-1">
+                            +{dayMeetings.length - 2} more
+                          </div>
+                        )}
                       </div>
                     )}
 
@@ -1282,6 +1510,59 @@ export default function Board() {
             </motion.div>
           )}
         </AnimatePresence>
+        {/* Create Sprint Modal */}
+        <CreateSprintModal
+          isOpen={showCreateSprintModal}
+          onClose={() => setShowCreateSprintModal(false)}
+          projectId={currentProject?.id}
+          onSprintCreated={handleSprintCreated}
+          existingSprintsCount={sprints.length}
+        />
+
+        {/* Complete Sprint Modal */}
+        <CompleteSprintModal
+          isOpen={showCompleteSprintModal}
+          onClose={() => {
+            setShowCompleteSprintModal(false);
+            setSprintToComplete(null);
+          }}
+          sprint={sprintToComplete}
+          tasks={tasks}
+          availableSprints={sprints}
+          projectId={currentProject?.id}
+          onSprintCompleted={handleSprintCompleted}
+        />
+
+        {/* Video Meeting Modal */}
+        <VideoMeetingModal
+          isOpen={isVideoModalOpen}
+          onClose={() => {
+            setIsVideoModalOpen(false);
+            setSelectedVideoMeeting(null);
+          }}
+          currentProject={currentProject}
+          user={user}
+          customRoomName={selectedVideoMeeting?.roomName}
+          meetingTitle={selectedVideoMeeting?.title}
+        />
+
+        {/* Schedule Ceremony / Meeting Modal */}
+        <ScheduleMeetingModal
+          isOpen={showScheduleMeetingModal}
+          onClose={() => {
+            setShowScheduleMeetingModal(false);
+            setMeetingModalDate(null);
+          }}
+          projectId={currentProject?.id}
+          initialDate={meetingModalDate}
+          sprints={sprints}
+          onMeetingScheduled={(newMeeting) => {
+            setMeetings((prev) => {
+              if (prev.some((m) => m.id === newMeeting.id)) return prev;
+              return [...prev, newMeeting];
+            });
+          }}
+        />
       </div>
     </PageTransition>
   );

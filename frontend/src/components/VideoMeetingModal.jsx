@@ -4,12 +4,24 @@ import { motion, AnimatePresence } from "framer-motion";
 import { JitsiMeeting } from "@jitsi/react-sdk";
 import { X, Video, Maximize2, Users, Shield } from "lucide-react";
 
-export default function VideoMeetingModal({ isOpen, onClose, currentProject, user }) {
+export default function VideoMeetingModal({
+  isOpen,
+  onClose,
+  currentProject,
+  user,
+  customRoomName,
+  meetingTitle,
+}) {
   if (!isOpen) return null;
 
-  const roomName = currentProject
-    ? `devpilot-room-${currentProject.id.replace(/[^a-zA-Z0-9]/g, "")}`
-    : `devpilot-room-global`;
+  const roomName =
+    customRoomName ||
+    (currentProject
+      ? `devpilot-room-${currentProject.id.replace(/[^a-zA-Z0-9]/g, "")}`
+      : `devpilot-room-global`);
+
+  const displayName =
+    meetingTitle || (currentProject ? `${currentProject.name} Workspace Call` : "DevPilot Call");
 
   return ReactDOM.createPortal(
     <AnimatePresence>
@@ -39,8 +51,8 @@ export default function VideoMeetingModal({ isOpen, onClose, currentProject, use
               </div>
               <div>
                 <h4 className="font-bold text-sm text-white flex items-center gap-2">
-                  <span>{currentProject ? currentProject.name : "DevPilot"} Workspace Call</span>
-                  <span className="text-[10px] uppercase font-mono tracking-wider px-2.5 py-0.5 rounded-full bg-white/5 border border-white/10 text-slate-300">
+                  <span className="truncate max-w-md">{displayName}</span>
+                  <span className="text-[10px] uppercase font-mono tracking-wider px-2.5 py-0.5 rounded-full bg-white/5 border border-white/10 text-slate-300 flex-shrink-0">
                     WebRTC Encrypted
                   </span>
                 </h4>
