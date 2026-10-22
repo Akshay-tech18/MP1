@@ -1,11 +1,8 @@
-const { HfInference } = require("@huggingface/inference");
 const { ChatGroq } = require("@langchain/groq");
 const { PromptTemplate } = require("@langchain/core/prompts");
 const prisma = require("../config/db");
 const logger = require("../utils/logger");
 const { withExponentialBackoff } = require("../utils/retry.utils");
-
-const hf = new HfInference(process.env.HUGGINGFACE_API_KEY);
 
 const chatGroq = new ChatGroq({
   apiKey: process.env.GROQ_API_KEY,
@@ -34,39 +31,61 @@ const askNexus = async (projectId, question) => {
   try {
     let searchResults = [];
 
-    // 1. Try Hugging Face vector embedding if key is configured
-    if (process.env.HUGGINGFACE_API_KEY) {
-      try {
-        const embeddingResponse = await withExponentialBackoff(async () => {
-          return await hf.featureExtraction({
-            model: "sentence-transformers/all-MiniLM-L6-v2",
-            inputs: question,
-          });
-        }, 1, 500); // 1 quick try; if credit error or network error, fallback immediately
+    // 1. Code-based Search: PostgreSQL Full-Text Rank across document chunks
+    try {
+      const ftResults = await prisma.$queryRaw`
+        SELECT c.content, d.title,
+               ts_rank_cd(to_tsvector('english', c.content), plainto_tsquery('english', ${question})) AS rank
+        FROM document_chunks c
+        JOIN documents d ON c."documentId" = d.id
+        WHERE d."projectId" = ${projectId}
+          AND to_tsvector('english', c.content) @@ plainto_tsquery('english', ${question})
+        ORDER BY rank DESC
+        LIMIT 5;
+      `;
+      if (ftResults && ftResults.length > 0) {
+        searchResults = ftResults;
+      }
+    } catch (ftErr) {
+      logger.warn("PostgreSQL full-text chunk query failed (%s). Trying keyword fallback.", ftErr.message);
+    }
 
-        if (embeddingResponse && Array.isArray(embeddingResponse)) {
-          const vectorStr = `[${embeddingResponse.join(",")}]`;
-          const vectorResults = await prisma.$queryRaw`
-            SELECT c.content, d.title 
-            FROM document_chunks c
-            JOIN documents d ON c."documentId" = d.id
-            WHERE d."projectId" = ${projectId}
-            ORDER BY c.embedding <=> ${vectorStr}::vector
-            LIMIT 5;
-          `;
-          if (vectorResults && vectorResults.length > 0) {
-            searchResults = vectorResults;
+    // 2. Keyword Search Fallback: Match individual query tokens across chunks
+    if (!searchResults || searchResults.length === 0) {
+      const keywords = (question || "")
+        .toLowerCase()
+        .replace(/[^a-z0-9\s_-]/g, " ")
+        .split(/\s+/)
+        .filter((w) => w.length >= 3);
+
+      if (keywords.length > 0) {
+        try {
+          const matchedChunks = await prisma.documentChunk.findMany({
+            where: {
+              document: { projectId },
+              OR: keywords.slice(0, 4).map((kw) => ({
+                content: { contains: kw, mode: "insensitive" }
+              }))
+            },
+            include: {
+              document: { select: { title: true } }
+            },
+            take: 5
+          });
+
+          if (matchedChunks && matchedChunks.length > 0) {
+            searchResults = matchedChunks.map((c) => ({
+              title: c.document?.title || "Document",
+              content: c.content
+            }));
           }
+        } catch (kwErr) {
+          logger.warn("Keyword chunk fallback failed: %s", kwErr.message);
         }
-      } catch (hfErr) {
-        logger.warn(
-          "Hugging Face embedding unavailable (%s). Falling back to direct workspace document context.",
-          hfErr.message
-        );
       }
     }
 
-    // 2. Resilient Fallback: If vector search had no matches or HF had no credits, query workspace documents directly
+    // 3. Document-Level Fallback: Query workspace documents directly
     if (!searchResults || searchResults.length === 0) {
       const directDocs = await prisma.document.findMany({
         where: { projectId },
@@ -83,7 +102,7 @@ const askNexus = async (projectId, question) => {
       }
     }
 
-    // 3. Format Context
+    // 4. Format Context
     let contextStr = "";
     if (searchResults && searchResults.length > 0) {
       contextStr = searchResults.map((r) => `[Source: ${r.title}]\n${r.content}`).join("\n\n");
@@ -91,7 +110,7 @@ const askNexus = async (projectId, question) => {
       contextStr = "No internal documentation uploaded for this workspace yet. Answer the user's question politely using your general software engineering knowledge, mentioning that no workspace-specific docs are attached.";
     }
 
-    // 4. Generate Answer via Groq LLM
+    // 5. Generate Answer via Groq LLM
     const chain = RAG_PROMPT.pipe(chatGroq);
     const response = await withExponentialBackoff(async () => {
       return await chain.invoke({

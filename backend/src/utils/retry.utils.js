@@ -7,10 +7,24 @@ const withExponentialBackoff = async (fn, maxRetries = 3, baseDelayMs = 1000) =>
       return await fn();
     } catch (error) {
       attempt++;
-      // Check if it's a rate limit error (429) or standard network error
-      const isRateLimit = error?.response?.status === 429 || error?.status === 429 || error?.message?.includes("429");
       
-      if (attempt >= maxRetries || (!isRateLimit && attempt >= maxRetries)) {
+      const status = error?.response?.status || error?.status || error?.httpResponse?.status;
+      const isPermanentError =
+        status === 400 ||
+        status === 401 ||
+        status === 402 ||
+        status === 403 ||
+        status === 404 ||
+        error?.message?.includes("no remaining credits") ||
+        error?.message?.includes("Payment Required") ||
+        error?.message?.includes("credit balance");
+
+      if (isPermanentError) {
+        logger.warn(`Non-retryable API error encountered (${status || error.message}). Aborting retries.`);
+        throw error;
+      }
+      
+      if (attempt >= maxRetries) {
         logger.error(`Failed after ${attempt} attempts: ${error.message}`);
         throw error;
       }

@@ -242,11 +242,21 @@ const uploadPdfDocument = async (req, res) => {
 
     // 2. Extract text from PDF using pdf-parse v2 API
     let extractedText = "";
+    let numPages = 1;
+    let extractedTitle = null;
     let parser = null;
     try {
       parser = new PDFParse({ data: pdfBuffer });
       const parsedData = await parser.getText();
       extractedText = (parsedData?.text || "").trim();
+      numPages = parsedData?.total || (Array.isArray(parsedData?.pages) ? parsedData.pages.length : 1);
+
+      try {
+        const infoData = await parser.getInfo();
+        extractedTitle = infoData?.info?.Title || null;
+      } catch (_) {
+        // info extraction is optional
+      }
     } catch (parseErr) {
       logger.error("PDF parsing error: %o", parseErr);
       return sendError(res, 400, "Failed to parse PDF document. It may be password-protected or corrupted.");
@@ -263,7 +273,7 @@ const uploadPdfDocument = async (req, res) => {
     // 3. Clean up title
     const docTitle = title && title.trim()
       ? title.trim()
-      : (parsedData.info?.Title && parsedData.info.Title.trim()) || "Uploaded PDF Document";
+      : (extractedTitle && extractedTitle.trim()) || "Uploaded PDF Document";
 
     // 4. Calculate reading time
     const readTime = calculateReadTime(extractedText);
@@ -289,16 +299,16 @@ const uploadPdfDocument = async (req, res) => {
       }
     });
 
-    // 7. Background chunking & vector indexing for RAG
+    // 7. Background chunking for RAG
     processDocumentChunks(doc.id, doc.content).catch((err) => {
-      logger.error("Background vectorization failed for uploaded PDF: %o", err);
+      logger.error("Background chunking failed for uploaded PDF: %o", err);
     });
 
-    logger.info(`PDF Document '${doc.title}' uploaded and indexed for workspace ${projectId} (${parsedData.numpages} pages, ${extractedText.length} chars)`);
+    logger.info(`PDF Document '${doc.title}' uploaded and processed for workspace ${projectId} (${numPages} pages, ${extractedText.length} chars)`);
 
     return sendSuccess(res, 201, "PDF uploaded and indexed successfully", {
       document: doc,
-      pages: parsedData.numpages
+      pages: numPages
     });
   } catch (error) {
     logger.error("Upload PDF error: %o", error);
