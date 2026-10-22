@@ -25,6 +25,16 @@ ML_SERVICE_API_KEY = os.getenv("ML_SERVICE_API_KEY", "dummy_ml_key")
 # Initialize BugPredictor singleton
 predictor = BugPredictor()
 
+@app.on_event("startup")
+def warmup_models():
+    """
+    Eagerly load CodeBERT into RAM when the service starts so
+    subsequent HTTP inference requests have 0ms cold-start delay.
+    """
+    print("[Startup] Pre-loading CodeBERT model into memory...")
+    predictor.embedder.ensure_loaded()
+    print("[Startup] CodeBERT pre-load complete.")
+
 def verify_api_key(x_ml_service_key: Optional[str] = Header(None)):
     """
     Dependency to verify incoming requests have the correct API key.

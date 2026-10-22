@@ -9,6 +9,7 @@ const logger = require("../../utils/logger");
 
 const ML_SERVICE_URL = process.env.ML_SERVICE_URL || "http://localhost:8000";
 const ML_SERVICE_API_KEY = process.env.ML_SERVICE_API_KEY || "dummy_ml_key";
+const ML_REQUEST_TIMEOUT = parseInt(process.env.ML_REQUEST_TIMEOUT, 10) || 120000;
 
 /**
  * Detect language string for CodeBERT from file path
@@ -466,7 +467,7 @@ const scanCodeRepository = async (req, res) => {
             "Content-Type": "application/json",
             "X-ML-Service-Key": ML_SERVICE_API_KEY
           },
-          timeout: 15000
+          timeout: ML_REQUEST_TIMEOUT
         }
       );
 
