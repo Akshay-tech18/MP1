@@ -105,7 +105,6 @@ class CodeEmbedder:
             code,
             truncation=True,
             max_length=MAX_SEQ_LEN,
-            padding="max_length",
             return_tensors="pt",
         )
         inputs = {k: v.to(self._device) for k, v in inputs.items()}
