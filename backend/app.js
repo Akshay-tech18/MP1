@@ -28,9 +28,21 @@ app.use((req, res, next) => {
 app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
 
 // 2. Configure CORS
+const defaultOrigins = [
+  "http://localhost:3000",
+  "http://localhost:3001",
+  "http://localhost:5001",
+  "http://localhost:5173",
+  "http://127.0.0.1:3000",
+  "http://127.0.0.1:3001",
+  "http://127.0.0.1:5001",
+  "http://127.0.0.1:5173"
+];
+
 const configuredOrigins = [
   process.env.CLIENT_URL,
-  ...(process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(",").map((origin) => origin.trim()) : ["http://localhost:3000"])
+  ...(process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(",").map((origin) => origin.trim()) : []),
+  ...defaultOrigins
 ].filter(Boolean);
 const allowedOrigins = Array.from(new Set(configuredOrigins));
 
@@ -41,7 +53,16 @@ app.use(
       if (!origin || allowedOrigins.includes(origin)) {
         return callback(null, true);
       }
-      return callback(new Error(`CORS blocked for origin: ${origin}`));
+      // Check localhost / 127.0.0.1 origins
+      try {
+        const originUrl = new URL(origin);
+        if (originUrl.hostname === "localhost" || originUrl.hostname === "127.0.0.1") {
+          return callback(null, true);
+        }
+      } catch (e) {}
+
+      // Reject gracefully without throwing a 500 server error
+      return callback(null, false);
     },
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE"],

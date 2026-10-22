@@ -5,9 +5,21 @@ const registerChatEvents = require("../modules/communication/chat.socket");
 const logger = require("../utils/logger");
 const prisma = require("./db");
 
+const defaultOrigins = [
+  "http://localhost:3000",
+  "http://localhost:3001",
+  "http://localhost:5001",
+  "http://localhost:5173",
+  "http://127.0.0.1:3000",
+  "http://127.0.0.1:3001",
+  "http://127.0.0.1:5001",
+  "http://127.0.0.1:5173"
+];
+
 const configuredOrigins = [
   process.env.CLIENT_URL,
-  ...(process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(",").map((origin) => origin.trim()) : ["http://localhost:3000"])
+  ...(process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(",").map((origin) => origin.trim()) : []),
+  ...defaultOrigins
 ].filter(Boolean);
 const allowedOrigins = Array.from(new Set(configuredOrigins));
 

@@ -21,15 +21,31 @@ def main():
     print("=== DevPilot ML Model Training Pipeline ===")
     
     # 1. Load or Generate Dataset
-    csv_files = [f for f in os.listdir(DATA_DIR) if f.endswith(".csv")]
+    synthetic_file = os.path.join(DATA_DIR, "synthetic_dataset.csv")
     dataset_path = None
-    
-    if csv_files:
-        dataset_path = os.path.join(DATA_DIR, csv_files[0])
+    df = None
+
+    if os.path.exists(synthetic_file):
+        dataset_path = synthetic_file
         print(f"Loading training data from: {dataset_path}")
         df = pd.read_csv(dataset_path)
     else:
-        print("No CSV datasets found in training/dataset/ directory.")
+        # Search for any CSV with the required commit metric columns
+        for f in os.listdir(DATA_DIR):
+            if f.endswith(".csv") and f != "training_data.csv":
+                candidate_path = os.path.join(DATA_DIR, f)
+                try:
+                    candidate_df = pd.read_csv(candidate_path, nrows=5)
+                    if "commit_frequency" in candidate_df.columns:
+                        dataset_path = candidate_path
+                        print(f"Loading training data from: {dataset_path}")
+                        df = pd.read_csv(dataset_path)
+                        break
+                except Exception:
+                    pass
+
+    if df is None:
+        print("No commit metric datasets found in training/dataset/ directory.")
         print("Generating a 1,000-sample synthetic dataset with realistic bug patterns...")
         df = generate_synthetic_data(num_samples=1000)
         dataset_path = os.path.join(DATA_DIR, "synthetic_dataset.csv")

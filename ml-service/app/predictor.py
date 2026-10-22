@@ -90,21 +90,21 @@ class BugPredictor:
         }
 
     def predict_features(self, features: FileFeatures) -> PredictResponse:
-        # Prepare feature vector
-        # Features: [commit_frequency, code_churn, num_contributors, pr_count, bug_fix_ratio]
-        feat_arr = np.array([[
+        # Prepare feature vector as DataFrame with named columns (matches model training)
+        feature_cols = ["commit_frequency", "code_churn", "num_contributors", "pr_count", "bug_fix_ratio"]
+        feat_df = pd.DataFrame([[
             features.commit_frequency,
             features.code_churn,
             features.num_contributors,
             features.pr_count,
             features.bug_fix_ratio
-        ]])
+        ]], columns=feature_cols)
         
         # 1. XGBoost Prediction (Primary)
-        xgb_risk, xgb_conf = self._get_model_prediction(self.xgb_model, feat_arr, features, is_xgb=True)
+        xgb_risk, xgb_conf, xgb_fallback = self._get_model_prediction(self.xgb_model, feat_df, features, is_xgb=True)
         
         # 2. Random Forest Prediction (Baseline)
-        rf_risk, rf_conf = self._get_model_prediction(self.rf_model, feat_arr, features, is_xgb=False)
+        rf_risk, rf_conf, rf_fallback = self._get_model_prediction(self.rf_model, feat_df, features, is_xgb=False)
         
         agreement = (xgb_risk == rf_risk)
         
@@ -116,11 +116,15 @@ class BugPredictor:
             agreement=agreement
         )
         
+        engine_used = "Rule_Based_Fallback" if xgb_fallback else "XGBoost"
+        
         return PredictResponse(
             file_path=features.file_path,
             risk_level=xgb_risk,
             risk_score=float(xgb_conf),
-            model_comparison=comparison
+            model_comparison=comparison,
+            engine_used=engine_used,
+            is_fallback=xgb_fallback
         )
 
     def _get_model_prediction(self, model, feat_arr, features, is_xgb=True):
@@ -142,13 +146,14 @@ class BugPredictor:
                         risk_level = RiskLevel(risk_label)
                 else:
                     risk_level = classes[pred_idx]
-                return risk_level, confidence
+                return risk_level, confidence, False
             except Exception as e:
                 print(f"Prediction error using model: {e}")
                 # fall through to fallback
         
         # Rule-based fallback prediction
-        return self._rule_based_predict(features, is_xgb)
+        risk, conf = self._rule_based_predict(features, is_xgb)
+        return risk, conf, True
 
     def _rule_based_predict(self, features: FileFeatures, is_xgb=True):
         # Deterministic scoring
@@ -219,12 +224,17 @@ class BugPredictor:
             candidates.sort(key=lambda c: 0 if c[0] == "codebert" else 1)
 
         if candidates:
+            primary_name = candidates[0][0]
             primary_risk, primary_conf = candidates[0][1], candidates[0][2]
             by_name = {name: (risk, conf) for name, risk, conf in candidates}
             semantic_risk, semantic_conf = by_name.get("codebert", (primary_risk, primary_conf))
             hybrid_risk, hybrid_conf = by_name.get("hybrid", (primary_risk, primary_conf))
+            is_fallback = False
+            engine_used = f"CodeBERT_{primary_name.capitalize()}"
         else:
             primary_risk, primary_conf = self._ast_rule_predict(ast_feats)
+            is_fallback = True
+            engine_used = "AST_Rule_Based_Fallback"
 
         xgb_side_risk = semantic_risk if semantic_risk is not None else primary_risk
         xgb_side_conf = semantic_conf if semantic_conf is not None else primary_conf
@@ -243,7 +253,10 @@ class BugPredictor:
             file_path=code_file.file_path,
             risk_level=primary_risk,
             risk_score=float(primary_conf),
-            model_comparison=comparison
+            model_comparison=comparison,
+            engine_used=engine_used,
+            is_fallback=is_fallback,
+            ast_features=ast_feats
         )
 
     def _probability_to_risk(self, prob):

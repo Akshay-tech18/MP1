@@ -27,7 +27,14 @@ import {
   ChevronDown,
   ChevronUp,
   Sparkles,
-  Check
+  Check,
+  Brain,
+  Code2,
+  Layers,
+  ShieldAlert,
+  Eye,
+  Zap,
+  Terminal
 } from "lucide-react";
 import { SocketEvent } from "../config/constants";
 
@@ -101,6 +108,9 @@ export default function Analytics() {
   const [bugRiskList, setBugRiskList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [scanning, setScanning] = useState(false);
+  const [scanningCode, setScanningCode] = useState(false);
+  const [analysisView, setAnalysisView] = useState("SOURCE_CODE"); // "SOURCE_CODE" | "COMMIT_METRICS"
+  const [inspectingFile, setInspectingFile] = useState(null);
   const [showLinkModal, setShowLinkModal] = useState(false);
   const [newRepoInput, setNewRepoInput] = useState("");
   const [linkingRepo, setLinkingRepo] = useState(false);
@@ -112,7 +122,7 @@ export default function Analytics() {
   const [commitSearch, setCommitSearch] = useState("");
   const [copiedSha, setCopiedSha] = useState("");
 
-  const loadAnalytics = async (customTimeframe = commitTimeframe, customRepoId = selectedRepoId) => {
+  const loadAnalytics = async (customTimeframe = commitTimeframe, customRepoId = selectedRepoId, customAnalysisView = analysisView) => {
     if (!currentProject) {
       setLoading(false);
       return;
@@ -135,8 +145,12 @@ export default function Analytics() {
         }
       }
 
-      const riskRes = await client.get(`/projects/${currentProject.id}/analytics/bug-risk`);
-      if (riskRes.data.success) setBugRiskList(riskRes.data.data.predictions);
+      const riskParams = { type: customAnalysisView };
+      if (customRepoId && customRepoId !== "ALL") {
+        riskParams.repoId = customRepoId;
+      }
+      const riskRes = await client.get(`/projects/${currentProject.id}/analytics/bug-risk`, { params: riskParams });
+      if (riskRes.data.success) setBugRiskList(riskRes.data.data.predictions || []);
     } catch (err) {
       console.error("Error loading analytics:", err);
     } finally {
@@ -173,13 +187,18 @@ export default function Analytics() {
 
   const handleTimeframeChange = (newTimeframe) => {
     setCommitTimeframe(newTimeframe);
-    loadAnalytics(newTimeframe, selectedRepoId);
+    loadAnalytics(newTimeframe, selectedRepoId, analysisView);
   };
 
   const handleRepoChange = (newRepoId) => {
     setSelectedRepoId(newRepoId);
-    loadAnalytics(commitTimeframe, newRepoId);
+    loadAnalytics(commitTimeframe, newRepoId, analysisView);
     loadCommits(newRepoId);
+  };
+
+  const handleAnalysisViewChange = (newView) => {
+    setAnalysisView(newView);
+    loadAnalytics(commitTimeframe, selectedRepoId, newView);
   };
 
   const handleSyncCommits = async () => {
@@ -194,7 +213,7 @@ export default function Analytics() {
         const count = res.data.data?.totalSynced ?? res.data.data?.count ?? 0;
         setSyncSuccessMsg(`Synced ${count} commits from GitHub!`);
         setTimeout(() => setSyncSuccessMsg(""), 4500);
-        await loadAnalytics(commitTimeframe, selectedRepoId);
+        await loadAnalytics(commitTimeframe, selectedRepoId, analysisView);
         await loadCommits(selectedRepoId);
       }
     } catch (err) {
@@ -206,9 +225,10 @@ export default function Analytics() {
 
   useEffect(() => {
     if (!socket || !currentProject) return;
-    socket.on(SocketEvent.ML_BATCH_PREDICTION, () => {
-      client.get(`/projects/${currentProject.id}/analytics/bug-risk`).then(res => {
-        if (res.data.success) setBugRiskList(res.data.data.predictions);
+    socket.on(SocketEvent.ML_BATCH_PREDICTION, (payload) => {
+      const targetType = payload?.analysisType || analysisView;
+      client.get(`/projects/${currentProject.id}/analytics/bug-risk`, { params: { type: targetType } }).then(res => {
+        if (res.data.success) setBugRiskList(res.data.data.predictions || []);
       });
       client.get(`/projects/${currentProject.id}/analytics/dashboard`).then(res => {
         if (res.data.success) setDashboardMetrics(res.data.data);
@@ -216,7 +236,7 @@ export default function Analytics() {
       loadCommits(selectedRepoId);
     });
     return () => { socket.off(SocketEvent.ML_BATCH_PREDICTION); };
-  }, [socket, currentProject, selectedRepoId]);
+  }, [socket, currentProject, selectedRepoId, analysisView]);
 
   const handleTriggerScan = async () => {
     const scanRepoId = selectedRepoId === "ALL" ? repositories[0]?.id : selectedRepoId;
@@ -224,11 +244,27 @@ export default function Analytics() {
     setScanning(true);
     try {
       await client.post(`/projects/${currentProject.id}/ml/scan/${scanRepoId}`);
-      await loadAnalytics(commitTimeframe, selectedRepoId);
+      setAnalysisView("COMMIT_METRICS");
+      await loadAnalytics(commitTimeframe, selectedRepoId, "COMMIT_METRICS");
     } catch (err) {
       console.error(err);
     } finally {
       setScanning(false);
+    }
+  };
+
+  const handleTriggerCodeScan = async () => {
+    const scanRepoId = selectedRepoId === "ALL" ? repositories[0]?.id : selectedRepoId;
+    if (!scanRepoId || scanningCode) return;
+    setScanningCode(true);
+    try {
+      await client.post(`/projects/${currentProject.id}/ml/scan-code/${scanRepoId}`);
+      setAnalysisView("SOURCE_CODE");
+      await loadAnalytics(commitTimeframe, selectedRepoId, "SOURCE_CODE");
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setScanningCode(false);
     }
   };
 
@@ -387,12 +423,23 @@ export default function Analytics() {
                 <span>{syncingCommits ? "Syncing..." : "Sync Commits"}</span>
               </button>
               <button
+                onClick={handleTriggerCodeScan}
+                disabled={scanningCode}
+                className="btn-primary flex items-center gap-2 py-2 text-btn-refined magnetic-btn bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 hover:from-indigo-500 hover:to-pink-500 shadow-md shadow-indigo-500/25"
+                title="Run CodeBERT semantic embeddings and Tree-sitter AST structural defect intelligence"
+              >
+                <Brain className={`w-4 h-4 ${scanningCode ? "animate-spin text-cyan-200" : "text-cyan-300"}`} />
+                <span>{scanningCode ? "Analyzing Code..." : "Scan Code (CodeBERT)"}</span>
+              </button>
+
+              <button
                 onClick={handleTriggerScan}
                 disabled={scanning}
-                className="btn-primary flex items-center gap-2 py-2 text-btn-refined magnetic-btn"
+                className="btn-ghost flex items-center gap-1.5 py-2 px-3 text-btn-refined border dark:border-dp-dark-border-light border-dp-light-border text-slate-300 hover:text-white"
+                title="Run XGBoost and Random Forest on Git commit churn & frequency"
               >
-                <Sparkles className={`w-4 h-4 ${scanning ? "animate-spin" : ""}`} />
-                <span>{scanning ? "Scanning..." : "Run AI Scan"}</span>
+                <Sparkles className={`w-3.5 h-3.5 ${scanning ? "animate-spin text-indigo-400" : ""}`} />
+                <span>{scanning ? "Scanning..." : "Scan Commits"}</span>
               </button>
 
               <button
@@ -974,42 +1021,80 @@ export default function Analytics() {
           </div>
         </motion.div>
 
-        {/* AI Bug Risk Table with Risk Intelligence Layer */}
+        {/* AI Bug Risk Table with Dual-Pipeline Risk Intelligence Layer */}
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3, duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
           className="glass-card glossy-card overflow-hidden flex flex-col rounded-2xl border dark:border-white/[0.08] border-slate-200 micro-elevate"
         >
-          <div className="p-5 border-b dark:border-dp-dark-border-light/30 border-dp-light-border flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="p-5 border-b dark:border-dp-dark-border-light/30 border-dp-light-border flex flex-col lg:flex-row lg:items-center justify-between gap-4">
             <div>
-              <h3 className="text-section-heading dark:text-dp-text-primary text-dp-text-light-primary flex items-center gap-2.5">
-                <FileCode className="w-5 h-5 dark:text-dp-text-muted text-dp-text-light-muted" />
-                <span>AI File Defect Risk Rankings</span>
-                <span className="text-badge-meta font-mono px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
-                  {bugRiskList.length} Files Assessed
-                </span>
-              </h3>
-              <p className="text-task-metadata dark:text-dp-text-muted text-dp-text-light-muted mt-0.5">
-                XGBoost Classifier vs. Random Forest Ensemble cross-validation telemetry.
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-500/20 to-purple-500/20 border border-indigo-500/30 text-indigo-400 flex items-center justify-center">
+                  {analysisView === "SOURCE_CODE" ? <Brain className="w-4 h-4" /> : <FileCode className="w-4 h-4" />}
+                </div>
+                <h3 className="text-section-heading dark:text-dp-text-primary text-dp-text-light-primary flex items-center gap-2">
+                  <span>AI Codebase Defect Risk Telemetry</span>
+                  <span className="text-badge-meta font-mono px-2 py-0.5 rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                    {bugRiskList.length} Files Assessed
+                  </span>
+                </h3>
+              </div>
+              <p className="text-task-metadata dark:text-dp-text-muted text-dp-text-light-muted mt-1">
+                {analysisView === "SOURCE_CODE"
+                  ? "Fine-tuned CodeBERT transformer (768 embeddings) + Tree-sitter AST structural complexity analysis."
+                  : "XGBoost Classifier vs. Random Forest Ensemble cross-validation telemetry on Git commit churn."}
               </p>
             </div>
 
-            {bugRiskList.length > 0 && (
-              <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1.5 px-3 py-1 rounded-xl dark:bg-white/[0.03] bg-slate-100 border dark:border-white/[0.06] border-slate-200 text-task-metadata">
-                  <span className="text-slate-400 text-caption-meta uppercase font-bold tracking-wider">Overall Risk:</span>
-                  <span className="font-bold text-emerald-400 flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                    Optimal Baseline
-                  </span>
-                </div>
-                <div className="flex items-center gap-1.5 px-3 py-1 rounded-xl dark:bg-white/[0.03] bg-slate-100 border dark:border-white/[0.06] border-slate-200 text-task-metadata">
-                  <span className="text-slate-400 text-caption-meta uppercase font-bold tracking-wider">Agreement:</span>
-                  <span className="font-bold text-indigo-400">94.8%</span>
-                </div>
+            <div className="flex flex-wrap items-center gap-3">
+              {/* Dual-View Toggle Switcher */}
+              <div className="flex items-center p-1 rounded-xl dark:bg-white/[0.04] bg-slate-100 border dark:border-white/[0.08] border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => handleAnalysisViewChange("SOURCE_CODE")}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-task-metadata font-bold transition-all ${
+                    analysisView === "SOURCE_CODE"
+                      ? "bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md shadow-indigo-500/25"
+                      : "text-slate-400 hover:text-white"
+                  }`}
+                >
+                  <Brain className="w-3.5 h-3.5" />
+                  <span>Deep Learning & AST</span>
+                  <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-white/20">CodeBERT</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleAnalysisViewChange("COMMIT_METRICS")}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-task-metadata font-bold transition-all ${
+                    analysisView === "COMMIT_METRICS"
+                      ? "bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md shadow-indigo-500/25"
+                      : "text-slate-400 hover:text-white"
+                  }`}
+                >
+                  <GitCommit className="w-3.5 h-3.5" />
+                  <span>Commit History</span>
+                  <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-white/20">XGBoost</span>
+                </button>
               </div>
-            )}
+
+              {bugRiskList.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl dark:bg-white/[0.03] bg-slate-100 border dark:border-white/[0.06] border-slate-200 text-task-metadata">
+                    <span className="text-slate-400 text-caption-meta uppercase font-bold tracking-wider">Overall:</span>
+                    <span className="font-bold text-emerald-400 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                      Optimal
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl dark:bg-white/[0.03] bg-slate-100 border dark:border-white/[0.06] border-slate-200 text-task-metadata">
+                    <span className="text-slate-400 text-caption-meta uppercase font-bold tracking-wider">Agreement:</span>
+                    <span className="font-bold text-indigo-400">94.8%</span>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="overflow-x-auto">
@@ -1017,30 +1102,179 @@ export default function Analytics() {
               <div className="py-14 px-6 text-center flex flex-col items-center justify-center">
                 <div className="relative mb-4">
                   <div className="w-14 h-14 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 shadow-[0_0_20px_rgba(99,102,241,0.25)]">
-                    <FileCode className="w-7 h-7" />
+                    {analysisView === "SOURCE_CODE" ? <Brain className="w-7 h-7" /> : <FileCode className="w-7 h-7" />}
                   </div>
                   <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-cyan-400 animate-ping opacity-75" />
                   <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-cyan-400" />
                 </div>
                 <h4 className="text-card-title font-bold text-white mb-1">
-                  Codebase Defect Risk Engine Standby
+                  {analysisView === "SOURCE_CODE"
+                    ? "Deep Learning Code Defect Engine Ready"
+                    : "Commit Churn Risk Engine Standby"}
                 </h4>
                 <p className="text-body-secondary text-slate-400 max-w-md mx-auto leading-relaxed mb-4">
-                  Link a GitHub repository and click <strong className="text-indigo-400">Run AI Scan</strong> to calculate risk probability across files, commit churn, and cyclomatic complexity.
+                  {analysisView === "SOURCE_CODE"
+                    ? "Click 'Scan Code (CodeBERT)' above to run Transformer semantic analysis and Tree-sitter AST structural complexity scoring."
+                    : "Click 'Scan Commits' to calculate defect risk probability from historical Git commit churn and bug fixes."}
                 </p>
                 <div className="flex flex-wrap items-center justify-center gap-2 text-caption-meta text-slate-400 font-mono">
                   <span className="px-2.5 py-1 rounded-lg bg-white/[0.04] border border-white/[0.08]">
-                    Random Forest Ensemble
+                    CodeBERT (RoBERTa 768-dim)
                   </span>
                   <span className="px-2.5 py-1 rounded-lg bg-white/[0.04] border border-white/[0.08]">
-                    XGBoost Classifier
+                    Tree-sitter AST (20 Features)
                   </span>
                   <span className="px-2.5 py-1 rounded-lg bg-white/[0.04] border border-white/[0.08]">
-                    94.8% Cross-Validation
+                    XGBoost + RF Ensemble
                   </span>
                 </div>
               </div>
+            ) : analysisView === "SOURCE_CODE" ? (
+              /* ========================================================================= */
+              /* SOURCE CODE / CODEBERT + AST TABLE VIEW                                    */
+              /* ========================================================================= */
+              <table className="w-full text-left text-body-primary">
+                <thead className="text-metric-label font-bold dark:text-dp-text-muted text-dp-text-light-muted uppercase tracking-wider dark:bg-dp-dark-surface/40 bg-dp-light-bg-secondary/60">
+                  <tr>
+                    <th className="px-5 py-3 font-semibold">Source File</th>
+                    <th className="px-5 py-3 font-semibold">Defect Risk</th>
+                    <th className="px-5 py-3 font-semibold">AI Model Engine</th>
+                    <th className="px-5 py-3 font-semibold">Cyclomatic Complexity</th>
+                    <th className="px-5 py-3 font-semibold">AST Code Smells</th>
+                    <th className="px-5 py-3 font-semibold text-center">Agreement</th>
+                    <th className="px-5 py-3 font-semibold text-right">Inspect</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y dark:divide-dp-dark-border-light/20 divide-dp-light-border/60">
+                  {bugRiskList.map((row) => {
+                    const ext = row.filePath?.slice(row.filePath?.lastIndexOf(".")).toLowerCase() || "";
+                    const langBadge =
+                      ext === ".js" || ext === ".jsx" ? "JS" :
+                      ext === ".ts" || ext === ".tsx" ? "TS" :
+                      ext === ".py" ? "PY" :
+                      ext === ".java" ? "JAVA" :
+                      ext === ".go" ? "GO" : "CODE";
+
+                    const cc = row.cyclomaticComplexity ?? 1;
+                    const ccBadgeClass =
+                      cc <= 5 ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" :
+                      cc <= 10 ? "bg-amber-500/10 text-amber-400 border-amber-500/20" :
+                      "bg-rose-500/10 text-rose-400 border-rose-500/20 font-bold";
+
+                    const smells = row.codeSmells || {};
+                    const emptyCatches = smells.emptyCatches || 0;
+                    const longFunctions = smells.longFunctions || 0;
+                    const todoCount = smells.todoCount || 0;
+
+                    return (
+                      <tr
+                        key={row.id}
+                        onClick={() => setInspectingFile(row)}
+                        className="dark:hover:bg-dp-dark-surface-hover/50 hover:bg-dp-light-bg-secondary/50 transition-colors cursor-pointer"
+                      >
+                        {/* File Path & Language */}
+                        <td className="px-5 py-3 text-card-title dark:text-dp-text-primary text-dp-text-light-primary font-mono select-all">
+                          <div className="flex items-center gap-2">
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold font-mono bg-indigo-500/15 text-indigo-300 border border-indigo-500/25">
+                              {langBadge}
+                            </span>
+                            <span>{row.filePath}</span>
+                          </div>
+                          <span className="text-caption-meta dark:text-dp-text-muted text-dp-text-light-muted block font-normal font-sans ml-7">
+                            {row.repoName}
+                          </span>
+                        </td>
+
+                        {/* Defect Risk */}
+                        <td className="px-5 py-3 whitespace-nowrap">
+                          <span className={`status-badge ${RISK_BADGES[row.xgboostRisk]} capitalize font-bold`}>
+                            {row.xgboostRisk?.toLowerCase()}
+                          </span>
+                          <span className="text-caption-meta dark:text-dp-text-muted text-dp-text-light-muted ml-1.5 font-mono">
+                            ({row.xgboostConfidence}%)
+                          </span>
+                        </td>
+
+                        {/* AI Engine */}
+                        <td className="px-5 py-3 whitespace-nowrap">
+                          <span className="px-2 py-0.5 rounded-md text-badge-meta font-medium dark:bg-purple-500/10 bg-purple-50 text-purple-300 border dark:border-purple-500/20 border-purple-200 flex items-center gap-1 w-max">
+                            <Brain className="w-3 h-3 text-purple-400" />
+                            {row.primaryEngine || "CodeBERT"}
+                          </span>
+                        </td>
+
+                        {/* Cyclomatic Complexity */}
+                        <td className="px-5 py-3 whitespace-nowrap">
+                          <span className={`px-2 py-0.5 rounded-md text-badge-meta font-mono border ${ccBadgeClass}`}>
+                            CC: {cc}
+                          </span>
+                          <span className="text-caption-meta dark:text-dp-text-muted text-dp-text-light-muted ml-1.5 font-normal">
+                            {cc <= 5 ? "Simple" : cc <= 10 ? "Moderate" : "Complex"}
+                          </span>
+                        </td>
+
+                        {/* Code Smells */}
+                        <td className="px-5 py-3">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            {emptyCatches > 0 && (
+                              <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-red-500/10 text-red-300 border border-red-500/20" title="Error swallowing catch block detected">
+                                ⚠️ {emptyCatches} Catch Swallowed
+                              </span>
+                            )}
+                            {longFunctions > 0 && (
+                              <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-amber-500/10 text-amber-300 border border-amber-500/20" title="Function spanning > 50 lines">
+                                ⚡ {longFunctions} Long Func
+                              </span>
+                            )}
+                            {todoCount > 0 && (
+                              <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-blue-500/10 text-blue-300 border border-blue-500/20">
+                                📝 {todoCount} TODO
+                              </span>
+                            )}
+                            {emptyCatches === 0 && longFunctions === 0 && todoCount === 0 && (
+                              <span className="px-2 py-0.5 rounded text-[11px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                ✓ Clean Structure
+                              </span>
+                            )}
+                          </div>
+                        </td>
+
+                        {/* Agreement */}
+                        <td className="px-5 py-3 text-center">
+                          {row.agreement ? (
+                            <span className="inline-flex items-center justify-center w-6 h-6 rounded-full dark:bg-emerald-500/10 bg-emerald-50 text-emerald-400 font-bold border dark:border-emerald-500/20 border-emerald-200 text-caption-meta" title="Models agree on defect risk">
+                              ✓
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center justify-center w-6 h-6 rounded-full dark:bg-amber-500/10 bg-amber-50 text-amber-400 font-bold border dark:border-amber-500/20 border-amber-200 text-caption-meta" title="Confidence variance between models">
+                              !
+                            </span>
+                          )}
+                        </td>
+
+                        {/* Action: Inspect */}
+                        <td className="px-5 py-3 text-right">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setInspectingFile(row);
+                            }}
+                            className="px-2.5 py-1 rounded-lg text-badge-meta font-bold border dark:border-indigo-500/30 border-indigo-200 dark:bg-indigo-500/10 bg-indigo-50 text-indigo-400 hover:text-white dark:hover:bg-indigo-600 hover:bg-indigo-600 transition-all inline-flex items-center gap-1"
+                          >
+                            <Eye className="w-3 h-3" />
+                            <span>Inspect</span>
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             ) : (
+              /* ========================================================================= */
+              /* COMMIT HISTORY / CHURN TABLE VIEW                                         */
+              /* ========================================================================= */
               <table className="w-full text-left text-body-primary">
                 <thead className="text-metric-label font-bold dark:text-dp-text-muted text-dp-text-light-muted uppercase tracking-wider dark:bg-dp-dark-surface/40 bg-dp-light-bg-secondary/60">
                   <tr>
@@ -1104,6 +1338,132 @@ export default function Analytics() {
             )}
           </div>
         </motion.div>
+
+        {/* Modal: Deep Learning Defect Intelligence Inspector */}
+        {inspectingFile && (
+          <div className="fixed inset-0 modal-overlay flex items-center justify-center z-50 p-4" onClick={() => setInspectingFile(null)}>
+            <div className="glass-card glossy-card w-full max-w-xl p-6 relative max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-center justify-between mb-4 border-b dark:border-dp-dark-border-light/40 border-dp-light-border/60 pb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-indigo-500/20 border border-indigo-500/30 text-indigo-400 flex items-center justify-center">
+                    <Brain className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-section-heading dark:text-dp-text-primary text-dp-text-light-primary font-bold">
+                      Code Defect Risk Deep-Dive
+                    </h3>
+                    <p className="text-task-metadata dark:text-dp-text-muted text-dp-text-light-muted font-mono truncate max-w-sm">
+                      {inspectingFile.filePath}
+                    </p>
+                  </div>
+                </div>
+                <button onClick={() => setInspectingFile(null)} className="w-7 h-7 rounded-lg flex items-center justify-center dark:hover:bg-dp-dark-surface-hover hover:bg-dp-light-bg-secondary dark:text-dp-text-muted text-dp-text-light-muted">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Top Summary Banner */}
+              <div className="p-4 rounded-xl dark:bg-white/[0.03] bg-slate-50 border dark:border-white/[0.08] border-slate-200 mb-5 flex items-center justify-between">
+                <div>
+                  <span className="text-caption-meta text-slate-400 uppercase font-bold tracking-wider block">Assessed Defect Risk</span>
+                  <div className="flex items-center gap-2 mt-1">
+                    <span className={`status-badge ${RISK_BADGES[inspectingFile.xgboostRisk]} text-sm font-bold uppercase`}>
+                      {inspectingFile.xgboostRisk}
+                    </span>
+                    <span className="text-sm font-mono font-bold dark:text-white text-slate-800">
+                      {inspectingFile.xgboostConfidence}% Confidence
+                    </span>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <span className="text-caption-meta text-slate-400 uppercase font-bold tracking-wider block">Primary Engine</span>
+                  <span className="text-sm font-bold text-indigo-400 mt-1 inline-block">
+                    {inspectingFile.primaryEngine || "CodeBERT (RoBERTa)"}
+                  </span>
+                </div>
+              </div>
+
+              {/* Structural Metrics Grid */}
+              <div className="mb-5">
+                <h4 className="text-metric-label font-bold uppercase tracking-wider text-slate-400 mb-2.5 flex items-center gap-1.5">
+                  <Code2 className="w-3.5 h-3.5 text-indigo-400" />
+                  <span>Tree-Sitter AST Structural Signals</span>
+                </h4>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                  <div className="p-3 rounded-xl dark:bg-white/[0.02] bg-slate-50 border dark:border-white/[0.06] border-slate-200 text-center">
+                    <span className="text-caption-meta text-slate-400 block">Cyclomatic</span>
+                    <span className="text-lg font-bold font-mono text-cyan-400">
+                      {inspectingFile.cyclomaticComplexity ?? "N/A"}
+                    </span>
+                  </div>
+                  <div className="p-3 rounded-xl dark:bg-white/[0.02] bg-slate-50 border dark:border-white/[0.06] border-slate-200 text-center">
+                    <span className="text-caption-meta text-slate-400 block">Decision Count</span>
+                    <span className="text-lg font-bold font-mono dark:text-white text-slate-800">
+                      {inspectingFile.decisionCount ?? "N/A"}
+                    </span>
+                  </div>
+                  <div className="p-3 rounded-xl dark:bg-white/[0.02] bg-slate-50 border dark:border-white/[0.06] border-slate-200 text-center">
+                    <span className="text-caption-meta text-slate-400 block">Empty Catches</span>
+                    <span className={`text-lg font-bold font-mono ${inspectingFile.codeSmells?.emptyCatches > 0 ? "text-rose-400" : "text-emerald-400"}`}>
+                      {inspectingFile.codeSmells?.emptyCatches ?? 0}
+                    </span>
+                  </div>
+                  <div className="p-3 rounded-xl dark:bg-white/[0.02] bg-slate-50 border dark:border-white/[0.06] border-slate-200 text-center">
+                    <span className="text-caption-meta text-slate-400 block">Long Functions</span>
+                    <span className={`text-lg font-bold font-mono ${inspectingFile.codeSmells?.longFunctions > 0 ? "text-amber-400" : "text-emerald-400"}`}>
+                      {inspectingFile.codeSmells?.longFunctions ?? 0}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Cross-Validation Ensemble Comparison */}
+              <div className="p-4 rounded-xl dark:bg-white/[0.02] bg-slate-50 border dark:border-white/[0.06] border-slate-200 mb-5">
+                <h4 className="text-metric-label font-bold uppercase tracking-wider text-slate-400 mb-2 flex items-center gap-1.5">
+                  <Layers className="w-3.5 h-3.5 text-purple-400" />
+                  <span>Ensemble Agreement Telemetry</span>
+                </h4>
+                <div className="flex items-center justify-between text-body-secondary">
+                  <div>
+                    <span className="text-task-metadata text-slate-400 block">Primary Model:</span>
+                    <span className="font-semibold text-white">{inspectingFile.xgboostRisk} ({inspectingFile.xgboostConfidence}%)</span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-task-metadata text-slate-400 block">Baseline Model:</span>
+                    <span className="font-semibold text-white">{inspectingFile.rfRisk} ({inspectingFile.rfConfidence}%)</span>
+                  </div>
+                </div>
+                <div className="mt-2.5 pt-2 border-t dark:border-white/[0.06] border-slate-200 flex items-center justify-between text-task-metadata">
+                  <span className="text-slate-400">Model Cross-Agreement:</span>
+                  <span className="font-bold text-emerald-400">
+                    {inspectingFile.agreement ? "Consensus Reached (High Confidence)" : "Variance Detected (Review Recommended)"}
+                  </span>
+                </div>
+              </div>
+
+              {/* Actionable Engineering Recommendation */}
+              <div className="p-3.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-300 text-body-secondary flex items-start gap-2.5">
+                <ShieldAlert className="w-4 h-4 text-indigo-400 flex-shrink-0 mt-0.5" />
+                <div className="text-task-metadata leading-relaxed">
+                  <strong className="text-white block mb-0.5">Recommended Testing Strategy:</strong>
+                  {inspectingFile.xgboostRisk === "CRITICAL" || inspectingFile.xgboostRisk === "HIGH"
+                    ? "Prioritize branch coverage on decision blocks and error handlers. Refactor long functions and eliminate swallowed exceptions to improve testability."
+                    : "Low defect density detected. Maintain standard unit test assertions and regression test coverage."}
+                </div>
+              </div>
+
+              <div className="flex justify-end pt-4 mt-2 border-t dark:border-white/[0.06] border-slate-200">
+                <button
+                  type="button"
+                  onClick={() => setInspectingFile(null)}
+                  className="btn-primary py-1.5 px-4 text-btn-refined"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Modal: Link Repository */}
         {showLinkModal && (

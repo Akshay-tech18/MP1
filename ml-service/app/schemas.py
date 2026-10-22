@@ -1,5 +1,5 @@
 from pydantic import BaseModel, Field
-from typing import List, Dict
+from typing import List, Dict, Optional
 from enum import Enum
 
 class RiskLevel(str, Enum):
@@ -39,9 +39,12 @@ class ModelComparison(BaseModel):
 
 class PredictResponse(BaseModel):
     file_path: str
-    risk_level: RiskLevel  # Primary model (XGBoost) output
+    risk_level: RiskLevel  # Primary model output
     risk_score: float      # Primary model confidence
     model_comparison: ModelComparison
+    engine_used: Optional[str] = Field(None, description="Model engine that produced the primary prediction")
+    is_fallback: bool = Field(False, description="True if fallback heuristic was triggered due to missing model or error")
+    ast_features: Optional[Dict[str, float]] = Field(None, description="Structural code metrics extracted via AST")
 
 class PredictBatchResponse(BaseModel):
     predictions: List[PredictResponse]
