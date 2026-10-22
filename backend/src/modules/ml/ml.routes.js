@@ -1,7 +1,7 @@
 const express = require("express");
 const { protect } = require("../../middleware/auth.middleware");
 const { checkProjectRole } = require("../../middleware/rbac.middleware");
-const { scanRepository, checkMLHealth } = require("./ml.controller");
+const { scanRepository, scanCodeRepository, checkMLHealth } = require("./ml.controller");
 
 // mergeParams is required to capture project ID from parent route definition /api/projects/:id/ml
 const router = express.Router({ mergeParams: true });
@@ -12,6 +12,12 @@ router.post(
   "/scan/:repoId",
   checkProjectRole("MANAGER"),
   scanRepository
+);
+
+router.post(
+  "/scan-code/:repoId",
+  checkProjectRole("MANAGER", "DEVELOPER"),
+  scanCodeRepository
 );
 
 router.get(

@@ -325,23 +325,30 @@ model Message {
 }
 
 model PredictionResult {
-  id                String     @id @default(uuid())
-  filePath          String
-  commitFrequency   Float
-  codeChurn         Float
-  numContributors   Int
-  prCount           Int
-  bugFixRatio       Float
-  xgboostRisk       RiskLevel  @default(LOW)
-  xgboostConfidence Float
-  rfRisk            RiskLevel  @default(LOW)
-  rfConfidence      Float
-  agreement         Boolean
-  repoId            String
-  repository        Repository @relation(fields: [repoId], references: [id], onDelete: Cascade)
-  createdAt         DateTime   @default(now())
+  id                   String     @id @default(uuid())
+  filePath             String
+  analysisType         String     @default("COMMIT_METRICS") // "COMMIT_METRICS" or "SOURCE_CODE"
+  commitFrequency      Float      @default(0)
+  codeChurn            Float      @default(0)
+  numContributors      Int        @default(1)
+  prCount              Int        @default(0)
+  bugFixRatio          Float      @default(0)
+  xgboostRisk          RiskLevel  @default(LOW)
+  xgboostConfidence    Float      @default(0.5)
+  rfRisk               RiskLevel  @default(LOW)
+  rfConfidence         Float      @default(0.5)
+  agreement            Boolean    @default(true)
+  cyclomaticComplexity Float?
+  decisionCount        Float?
+  codeSmells           Json? // e.g. { emptyCatches: 2, longFunctions: 1, todoCount: 3 }
+  primaryEngine        String? // "CodeBERT" | "Hybrid" | "XGBoost"
+  repoId               String
+  repository           Repository @relation(fields: [repoId], references: [id], onDelete: Cascade)
+  createdAt            DateTime   @default(now())
+  updatedAt            DateTime   @default(now()) @updatedAt
 
-  @@unique([repoId, filePath])
+  @@unique([repoId, filePath, analysisType])
+  @@index([repoId, analysisType])
   @@index([repoId, xgboostRisk])
   @@index([repoId])
   @@map("prediction_results")

@@ -370,12 +370,23 @@ const getSprintReport = async (req, res) => {
  */
 const getBugRiskReport = async (req, res) => {
   const projectId = req.params.id;
+  const { type, repoId } = req.query;
 
   try {
+    const whereClause = {
+      repository: { projectId }
+    };
+
+    if (repoId) {
+      whereClause.repoId = repoId;
+    }
+
+    if (type) {
+      whereClause.analysisType = type.toUpperCase();
+    }
+
     const predictions = await prisma.predictionResult.findMany({
-      where: {
-        repository: { projectId }
-      },
+      where: whereClause,
       include: {
         repository: { select: { name: true } }
       }
@@ -402,6 +413,7 @@ const getBugRiskReport = async (req, res) => {
         id: p.id,
         filePath: p.filePath,
         repoName: p.repository.name,
+        analysisType: p.analysisType || "COMMIT_METRICS",
         commitFrequency: p.commitFrequency,
         codeChurn: p.codeChurn,
         numContributors: p.numContributors,
@@ -411,7 +423,11 @@ const getBugRiskReport = async (req, res) => {
         xgboostConfidence: Math.round(p.xgboostConfidence * 100),
         rfRisk: p.rfRisk,
         rfConfidence: Math.round(p.rfConfidence * 100),
-        agreement: p.agreement
+        agreement: p.agreement,
+        cyclomaticComplexity: p.cyclomaticComplexity ?? null,
+        decisionCount: p.decisionCount ?? null,
+        codeSmells: p.codeSmells ?? null,
+        primaryEngine: p.primaryEngine ?? null
       }))
     });
   } catch (error) {
