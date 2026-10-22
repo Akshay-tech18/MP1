@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { io } from "socket.io-client";
 
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "http://localhost:5001/project";
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || "/project";
 
 const useSocketStore = create((set, get) => ({
   socket: null,

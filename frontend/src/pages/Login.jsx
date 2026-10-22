@@ -101,7 +101,7 @@ export default function Login() {
   };
 
   const handleSocialLogin = (provider) => {
-    const backendUrl = import.meta.env.VITE_API_URL || "http://localhost:5001/api";
+    const backendUrl = import.meta.env.VITE_API_URL || "/api";
     const returnUrl = encodeURIComponent(window.location.origin);
     window.location.href = `${backendUrl}/auth/${provider}?returnUrl=${returnUrl}`;
   };
